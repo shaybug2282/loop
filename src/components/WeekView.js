@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Clock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Clock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchWeekEvents } from '../utils/googleCalendar';
 import './WeekView.css';
 
@@ -9,10 +9,6 @@ const WeekView = () => {
   const [error, setError] = useState(null);
   const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
 
-  useEffect(() => {
-    loadEvents();
-  }, [currentWeekStart]);
-
   function getStartOfWeek(date) {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
@@ -21,7 +17,7 @@ const WeekView = () => {
     return new Date(d.setDate(diff));
   }
 
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -37,7 +33,11 @@ const WeekView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWeekStart]);
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
 
   const previousWeek = () => {
     const newDate = new Date(currentWeekStart);
