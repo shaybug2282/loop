@@ -8,6 +8,27 @@
   flex-direction: column;
 }
 
+.component-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.component-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+}
+
+.component-header svg {
+  color: #667eea;
+}
+
 .search-bar {
   display: flex;
   align-items: center;
@@ -175,24 +196,90 @@
   color: #999;
 }
 
-.delete-contact-btn {
+.contact-actions {
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.contact-item:hover .contact-actions {
+  opacity: 1;
+}
+
+.edit-contact-btn, .delete-contact-btn, .save-contact-btn, .cancel-contact-btn {
   background: none;
   border: none;
   cursor: pointer;
   padding: 8px;
-  color: #d32f2f;
-  opacity: 0;
-  transition: opacity 0.2s;
   border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
 }
 
-.contact-item:hover .delete-contact-btn {
-  opacity: 1;
+.edit-contact-btn {
+  color: #667eea;
+}
+
+.edit-contact-btn:hover {
+  background: #f0f0f0;
+}
+
+.delete-contact-btn {
+  color: #d32f2f;
 }
 
 .delete-contact-btn:hover {
   background: #ffebee;
   color: #b71c1c;
+}
+
+.edit-contact-form {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+
+.edit-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-input {
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.edit-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.save-contact-btn {
+  color: #4caf50;
+}
+
+.save-contact-btn:hover {
+  background: #e8f5e9;
+}
+
+.cancel-contact-btn {
+  color: #d32f2f;
+}
+
+.cancel-contact-btn:hover {
+  background: #ffebee;
 }
 
 .empty-state {

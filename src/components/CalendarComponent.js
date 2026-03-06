@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Clock } from 'lucide-react';
-import { fetchCalendarEvents } from '../utils/googleCalendar';
+import { Calendar as CalendarIcon, Clock, RefreshCw } from 'lucide-react';
+import { fetchTodayEvents } from '../utils/googleCalendar';
 import './CalendarComponent.css';
 
 const CalendarComponent = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadEvents();
@@ -14,10 +15,12 @@ const CalendarComponent = () => {
   const loadEvents = async () => {
     try {
       setLoading(true);
-      const calendarEvents = await fetchCalendarEvents();
-      setEvents(calendarEvents);
+      setError(null);
+      const todayEvents = await fetchTodayEvents();
+      setEvents(todayEvents);
     } catch (error) {
       console.error('Error loading events:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -41,14 +44,42 @@ const CalendarComponent = () => {
     });
   };
 
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
   if (loading) {
     return (
       <div className="calendar-component">
         <div className="component-header">
           <CalendarIcon size={24} />
-          <h2>Calendar</h2>
+          <h2>Today's Schedule</h2>
         </div>
-        <div className="loading">Loading events...</div>
+        <div className="loading">Loading today's events...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="calendar-component">
+        <div className="component-header">
+          <CalendarIcon size={24} />
+          <h2>Today's Schedule</h2>
+        </div>
+        <div className="error-state">
+          <p>{error}</p>
+          <button onClick={loadEvents} className="retry-btn">
+            <RefreshCw size={16} />
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -57,42 +88,47 @@ const CalendarComponent = () => {
     <div className="calendar-component">
       <div className="component-header">
         <CalendarIcon size={24} />
-        <h2>Calendar</h2>
+        <h2>Today's Schedule</h2>
+        <button onClick={loadEvents} className="refresh-btn" title="Refresh">
+          <RefreshCw size={18} />
+        </button>
       </div>
+
+      <div className="today-date">{getTodayDate()}</div>
 
       <div className="events-list">
         {events.length === 0 ? (
           <div className="empty-state">
             <CalendarIcon size={48} />
-            <p>No upcoming events</p>
+            <p>No events scheduled for today</p>
+            <small>Enjoy your free time!</small>
           </div>
         ) : (
-          events.slice(0, 5).map((event) => (
+          events.map((event) => (
             <div key={event.id} className="event-item">
-              <div className="event-date">
-                {formatDate(event.start.dateTime || event.start.date)}
+              <div className="event-time-badge">
+                {event.start.dateTime ? (
+                  <>
+                    <Clock size={14} />
+                    <span>{formatTime(event.start.dateTime)}</span>
+                  </>
+                ) : (
+                  <span className="all-day">All Day</span>
+                )}
               </div>
               <div className="event-details">
                 <h3>{event.summary}</h3>
-                {event.start.dateTime && (
-                  <div className="event-time">
-                    <Clock size={14} />
-                    <span>
-                      {formatTime(event.start.dateTime)} - {formatTime(event.end.dateTime)}
-                    </span>
-                  </div>
+                {event.location && (
+                  <p className="event-location">📍 {event.location}</p>
+                )}
+                {event.description && (
+                  <p className="event-description">{event.description}</p>
                 )}
               </div>
             </div>
           ))
         )}
       </div>
-
-      {events.length > 5 && (
-        <div className="view-more">
-          <button>View All Events ({events.length})</button>
-        </div>
-      )}
     </div>
   );
 };

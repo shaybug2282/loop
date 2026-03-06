@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
-import CalendarComponent from '../components/CalendarComponent';
+import WeekView from '../components/WeekView';
 import './PageLayout.css';
 
 const CalendarPage = () => {
@@ -18,10 +18,8 @@ const CalendarPage = () => {
         <h1>Calendar</h1>
       </div>
 
-      <div className="page-content">
-        <div className="full-width-component">
-          <CalendarComponent />
-        </div>
+      <div className="page-content calendar-page-content">
+        <WeekView />
       </div>
     </div>
   );

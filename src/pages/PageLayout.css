@@ -26,6 +26,10 @@
   margin: 0 auto;
 }
 
+.calendar-page-content {
+  max-width: 1600px;
+}
+
 .full-width-component {
   min-height: 600px;
 }

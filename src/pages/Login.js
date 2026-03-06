@@ -11,6 +11,10 @@ const Login = () => {
 
   const handleSuccess = async (credentialResponse) => {
     try {
+      // For Google OAuth, we need to use the token endpoint to get the access token
+      // The credential response contains an ID token, not an access token
+      // In production, you'd exchange this for an access token via your backend
+      
       // Decode the JWT token to get user info
       const decoded = JSON.parse(atob(credentialResponse.credential.split('.')[1]));
       
@@ -18,11 +22,11 @@ const Login = () => {
         name: decoded.name,
         email: decoded.email,
         picture: decoded.picture,
-        accessToken: credentialResponse.credential
+        accessToken: credentialResponse.access_token || credentialResponse.credential
       };
 
       // Initialize Google Calendar with the access token
-      initGoogleCalendar(credentialResponse.credential);
+      initGoogleCalendar(userData.accessToken);
 
       // Log the user in
       login(userData);
@@ -52,13 +56,18 @@ const Login = () => {
           <GoogleLogin
             onSuccess={handleSuccess}
             onError={handleError}
-            useOneTap
-            scope="https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events"
+            useOneTap={false}
+            flow="auth-code"
+            scope="openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks"
           />
         </div>
 
         <div className="login-footer">
-          <p>By signing in, you agree to sync your Google Calendar</p>
+          <p>This app will access your:</p>
+          <ul>
+            <li>Google Calendar (read & write)</li>
+            <li>Google Tasks (read & write)</li>
+          </ul>
         </div>
       </div>
     </div>
