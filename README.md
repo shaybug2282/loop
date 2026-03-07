@@ -1,6 +1,6 @@
 # React Dashboard App with Google Calendar & Tasks Integration
 
-A React application with Google OAuth authentication, full Google Calendar sync, Google Tasks integration, and contact management.
+A React application with Google OAuth authentication, full Google Calendar sync, Google Tasks integration, and contact management. yippee
 
 ## Features
 
