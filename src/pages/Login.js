@@ -4,26 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { initGoogleCalendar } from '../utils/googleCalendar';
 import './Login.css';
 
-const Login = () => {
-  const navigate = useNavigate();
-  const { login } = useAuth();
-
-  useEffect(() => {
-    // Load Google Identity Services
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-
-    script.onload = () => {
-      initializeGoogleSignIn();
-    };
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
 
   const initializeGoogleSignIn = () => {
     const client = window.google.accounts.oauth2.initTokenClient({
@@ -40,6 +20,28 @@ const Login = () => {
       };
     }
   };
+
+const Login = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
+  useEffect(() => {
+    // Load Google Identity Services
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      initializeGoogleSignIn(handleTokenResponse, process.env.REACT_APP_GOOGLE_CLIENT_ID);
+    };
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
 
   const handleTokenResponse = async (response) => {
     if (response.access_token) {
