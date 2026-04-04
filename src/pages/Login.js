@@ -4,44 +4,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { initGoogleCalendar } from '../utils/googleCalendar';
 import './Login.css';
 
-
-  const initializeGoogleSignIn = () => {
-    const client = window.google.accounts.oauth2.initTokenClient({
-      client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-      scope: 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks',
-      callback: handleTokenResponse,
-    });
-
-    // Attach click handler to button
-    const signInButton = document.getElementById('google-sign-in-button');
-    if (signInButton) {
-      signInButton.onclick = () => {
-        client.requestAccessToken();
-      };
-    }
-  };
-
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
-
-  useEffect(() => {
-    // Load Google Identity Services
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-
-    script.onload = () => {
-      initializeGoogleSignIn(handleTokenResponse, process.env.REACT_APP_GOOGLE_CLIENT_ID);
-    };
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, [handleTokenResponse]);
-
 
   const handleTokenResponse = useCallback(async (response) => {
     if (response.access_token) {
@@ -79,6 +44,35 @@ const Login = () => {
       alert('Failed to log in. Please try again.');
     }
   }, [login, navigate]);
+
+  useEffect(() => {
+    // Load Google Identity Services
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+        scope: 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks',
+        callback: handleTokenResponse,
+      });
+
+      // Attach click handler to button
+      const signInButton = document.getElementById('google-sign-in-button');
+      if (signInButton) {
+        signInButton.onclick = () => {
+          client.requestAccessToken();
+        };
+      }
+    };
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, [handleTokenResponse]);
 
   return (
     <div className="login-container">
