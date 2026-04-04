@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { initGoogleCalendar } from '../utils/googleCalendar';
@@ -40,10 +40,10 @@ const Login = () => {
     return () => {
       document.body.removeChild(script);
     };
-  }, []);
+  }, [handleTokenResponse]);
 
 
-  const handleTokenResponse = async (response) => {
+  const handleTokenResponse = useCallback(async (response) => {
     if (response.access_token) {
       try {
         // Get user info using the access token
@@ -78,7 +78,7 @@ const Login = () => {
       console.error('No access token received');
       alert('Failed to log in. Please try again.');
     }
-  };
+  }, [login, navigate]);
 
   return (
     <div className="login-container">
