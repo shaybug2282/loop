@@ -31,21 +31,14 @@ const AISummary = () => {
         return `- ${time}: ${event.summary}${event.location ? ` at ${event.location}` : ''}`;
       }).join('\n');
 
-      // Call Claude API
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      // Call our serverless function instead of Anthropic API directly
+      const response = await fetch('/api/generate-summary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.REACT_APP_ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          messages: [{
-            role: 'user',
-            content: `Summarize this daily schedule in a friendly, helpful way. Keep it concise (2-3 sentences). Here's what's scheduled for today:\n\n${eventList}`
-          }]
+          events: eventList
         })
       });
 
@@ -54,8 +47,7 @@ const AISummary = () => {
       }
 
       const data = await response.json();
-      const aiSummary = data.content[0].text;
-      setSummary(aiSummary);
+      setSummary(data.summary);
 
     } catch (err) {
       console.error('Error generating summary:', err);
