@@ -50,6 +50,10 @@
 .dashboard-item {
   min-height: 400px;
 }
+.calendar-with-summary {
+  display: flex;
+  flex-direction: column;
+}
 
 @media (max-width: 768px) {
   .dashboard {

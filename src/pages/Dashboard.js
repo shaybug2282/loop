@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import CalendarComponent from '../components/CalendarComponent';
+import AISummary from '../components/AISummary';
 import TodoList from '../components/TodoList';
 import ContactList from '../components/ContactList';
 import './Dashboard.css';
@@ -21,8 +22,9 @@ const Dashboard = () => {
       </div>
 
       <div className="dashboard-grid">
-        <div className="dashboard-item">
+        <div className="dashboard-item calendar-with-summary">
           <CalendarComponent />
+          <AISummary />
         </div>
         <div className="dashboard-item">
           <TodoList />
