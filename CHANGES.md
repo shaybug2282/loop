@@ -13,6 +13,11 @@ Updated `api/generate-summary.js` to use `claude-sonnet-4-6`, added a cached sys
 
 Potential bugs: `REACT_APP_ANTHROPIC_API_KEY` is bundled into the frontend by CRA — the API key should be moved to a non-`REACT_APP_` env var (e.g. `ANTHROPIC_API_KEY`) so it is only accessible server-side in the Vercel function.
 
+## 2026-04-11 — Supabase database editor page
+
+Added `src/utils/supabaseClient.js` (returns null when env vars are absent), `src/pages/DatabasePage.js` with inline row editing/creation/deletion via the Supabase JS client, and installed `@supabase/supabase-js`. Wired `/database` route into `App.js` and added a Database nav item to `Sidebar.js`.
+Potential bugs: edit/delete operations assume an `id` column as the primary key — tables with composite or differently named PKs will need the `.eq('id', ...)` calls updated; row values are always cast to strings on input, so number/boolean columns may need type coercion before insert/update.
+
 ## 2026-04-11 — Fix re-login prompt and 401 on Generate Summary
 
 Fixed `getValidToken()` in `googleCalendar.js`: added an `if (expiry === 0) return token` guard so sessions without a stored expiry timestamp no longer fall into the silent-refresh path (which was triggering the Google sign-in dialog on every button click). Also changed the silent-refresh failure branch to resolve with the existing token instead of rejecting, so a GIS error degrades gracefully.
