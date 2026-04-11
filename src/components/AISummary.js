@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { Sparkles, Loader } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { fetchTodayEvents } from '../utils/googleCalendar';
 import './AISummary.css';
 
 const AISummary = () => {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isAuthError, setIsAuthError] = useState(false);
 
   const generateSummary = async () => {
     try {
       setLoading(true);
       setError(null);
+      setIsAuthError(false);
       setSummary('');
 
       // Fetch today's events from Google Calendar
@@ -48,7 +52,8 @@ const AISummary = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate summary');
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to generate summary');
       }
 
       const data = await response.json();
@@ -56,6 +61,8 @@ const AISummary = () => {
 
     } catch (err) {
       console.error('Error generating summary:', err);
+      const authFailed = err.message.includes('Authentication expired') || err.message.includes('No access token');
+      setIsAuthError(authFailed);
       setError(err.message || 'Failed to generate summary. Please try again.');
     } finally {
       setLoading(false);
@@ -89,9 +96,10 @@ const AISummary = () => {
       {error && (
         <div className="summary-error">
           <p>{error}</p>
-          <button onClick={generateSummary} className="retry-btn">
-            Try Again
-          </button>
+          {isAuthError
+            ? <button onClick={() => navigate('/login')} className="retry-btn">Log in again</button>
+            : <button onClick={generateSummary} className="retry-btn">Try Again</button>
+          }
         </div>
       )}
 

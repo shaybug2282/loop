@@ -14,8 +14,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Verify API key is present before attempting the call
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error('ANTHROPIC_API_KEY is not set in the environment');
+    return res.status(500).json({
+      error: 'Server misconfiguration: ANTHROPIC_API_KEY is not set. Add it to your Vercel environment variables or .env file.'
+    });
+  }
+
   try {
-    console.log(process.env.ANTHROPIC_API_KEY);
     const { events, date } = req.body;
 
     if (!events || events.length === 0) {
@@ -24,12 +32,11 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log('key:',process.env.ANTHROPIC_API_KEY?.slice(0,10));
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'anthropic-beta': 'prompt-caching-2024-07-31'
       },
@@ -53,9 +60,11 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Anthropic API error:', errorData);
-      return res.status(response.status).json({ error: 'Failed to generate summary' });
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Anthropic API error:', response.status, errorData);
+      return res.status(500).json({
+        error: `AI service error (${response.status}): ${errorData.error?.message || 'check server logs'}`
+      });
     }
 
     const data = await response.json();
@@ -65,6 +74,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Server error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 }
