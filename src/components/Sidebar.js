@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, CheckSquare, Users, Database, LogOut, X } from 'lucide-react';
+import { Home, Calendar, CheckSquare, Users, LogOut, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
 
@@ -18,7 +18,6 @@ const Sidebar = ({ isOpen, onClose }) => {
     { path: '/calendar', icon: Calendar, label: 'Calendar' },
     { path: '/todos', icon: CheckSquare, label: 'To-Do List' },
     { path: '/contacts', icon: Users, label: 'Contacts' },
-    { path: '/database', icon: Database, label: 'Database' },
   ];
 
   return (
