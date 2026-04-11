@@ -63,6 +63,9 @@ export const getValidToken = async () => {
 
   if (!token) throw new Error('No access token found');
 
+  // No stored expiry — token age unknown, use as-is
+  if (expiry === 0) return token;
+
   // Token still valid for more than 5 minutes
   if (Date.now() < expiry - 5 * 60 * 1000) return token;
 
@@ -80,7 +83,8 @@ export const getValidToken = async () => {
         initGoogleCalendar(response.access_token, response.expires_in || 3600);
         resolve(response.access_token);
       } else {
-        reject(new Error('Failed to refresh access token'));
+        // Silent refresh failed — fall back to the stored token
+        resolve(token);
       }
     };
     tokenClientRef.requestAccessToken({ prompt: '' });
