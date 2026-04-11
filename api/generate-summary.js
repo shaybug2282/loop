@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log(process.env.ANTHROPIC_API_KEY)
+    console.log(process.env.ANTHROPIC_API_KEY);
     const { events, date } = req.body;
 
     if (!events || events.length === 0) {
@@ -24,6 +24,7 @@ export default async function handler(req, res) {
       });
     }
 
+    console.log('key:',process.env.ANTHROPIC_API_KEY?.slice(0,10));
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
         'anthropic-beta': 'prompt-caching-2024-07-31'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-6',
         max_tokens: 500,
         system: [
           {
