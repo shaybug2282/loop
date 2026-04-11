@@ -26,6 +26,8 @@ export default async function handler(req, res) {
   try {
     const { events, date } = req.body;
 
+   console.log('key prefix:', process.env.ANTHROPIC_API_KEY?.slice(0, 15));
+
     if (!events || events.length === 0) {
       return res.status(200).json({
         summary: "You have no events scheduled for today. Enjoy your free time!"
