@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { initGoogleCalendar } from '../utils/googleCalendar';
+import { initGoogleCalendar, setTokenClient } from '../utils/googleCalendar';
 import './Login.css';
 
 const Login = () => {
@@ -27,8 +27,8 @@ const Login = () => {
           accessToken: response.access_token,
         };
 
-        // Initialize Google Calendar with the access token
-        initGoogleCalendar(response.access_token);
+        // Initialize Google Calendar with the access token and its lifetime
+        initGoogleCalendar(response.access_token, response.expires_in || 3600);
 
         // Log the user in
         login(userData);
@@ -59,6 +59,9 @@ const Login = () => {
         scope: 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks',
         callback: handleTokenResponse,
       });
+
+      // Register client for silent token refresh
+      setTokenClient(client);
 
       // Attach click handler to button
       const signInButton = document.getElementById('google-sign-in-button');

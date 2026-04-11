@@ -1,22 +1,98 @@
 const CALENDAR_API_URL = 'https://www.googleapis.com/calendar/v3';
 const TASKS_API_URL = 'https://tasks.googleapis.com/tasks/v1';
 
-export const initGoogleCalendar = (accessToken) => {
+// Module-level references for token refresh management
+let tokenClientRef = null;
+let refreshTimer = null;
+
+// Register the GIS token client; also re-schedules any pending refresh from stored expiry.
+export const setTokenClient = (client) => {
+  tokenClientRef = client;
+  rescheduleRefresh();
+};
+
+// Re-schedule based on stored expiry — called after page reload to restore the refresh timer.
+export const rescheduleRefresh = () => {
+  const expiry = parseInt(localStorage.getItem('googleTokenExpiry') || '0', 10);
+  const remainingSeconds = (expiry - Date.now()) / 1000;
+  if (remainingSeconds > 30) {
+    scheduleTokenRefresh(remainingSeconds);
+  }
+};
+
+// Store token and expiry, then schedule a proactive refresh.
+// expiresIn: lifetime in seconds returned by GIS (default 3600).
+export const initGoogleCalendar = (accessToken, expiresIn = 3600) => {
   localStorage.setItem('googleAccessToken', accessToken);
+  localStorage.setItem('googleTokenExpiry', String(Date.now() + expiresIn * 1000));
+  scheduleTokenRefresh(expiresIn);
+};
+
+// Schedule a silent refresh 5 minutes before the token expires.
+const scheduleTokenRefresh = (expiresIn) => {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  const delay = Math.max((expiresIn - 300) * 1000, 0);
+  refreshTimer = setTimeout(silentRefresh, delay);
+};
+
+// Request a new token silently (no user prompt) using the stored GIS client.
+const silentRefresh = () => {
+  if (!tokenClientRef) return;
+  tokenClientRef.callback = (response) => {
+    if (response.access_token) {
+      initGoogleCalendar(response.access_token, response.expires_in || 3600);
+    }
+  };
+  tokenClientRef.requestAccessToken({ prompt: '' });
+};
+
+// Cancel the refresh timer and clear the client reference (call on logout).
+export const clearTokenRefresh = () => {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+  tokenClientRef = null;
+};
+
+// Returns a valid access token, silently refreshing if within 5 minutes of expiry.
+// Rejects if no token is stored or the refresh fails.
+export const getValidToken = async () => {
+  const token = localStorage.getItem('googleAccessToken');
+  const expiry = parseInt(localStorage.getItem('googleTokenExpiry') || '0', 10);
+
+  if (!token) throw new Error('No access token found');
+
+  // Token still valid for more than 5 minutes
+  if (Date.now() < expiry - 5 * 60 * 1000) return token;
+
+  // Token expired or expiring soon — attempt silent refresh
+  if (!tokenClientRef) return token; // GIS client unavailable; fall back to existing token
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error('Token refresh timed out')),
+      10000
+    );
+    tokenClientRef.callback = (response) => {
+      clearTimeout(timeout);
+      if (response.access_token) {
+        initGoogleCalendar(response.access_token, response.expires_in || 3600);
+        resolve(response.access_token);
+      } else {
+        reject(new Error('Failed to refresh access token'));
+      }
+    };
+    tokenClientRef.requestAccessToken({ prompt: '' });
+  });
 };
 
 // Fetch events for a specific date range
 export const fetchCalendarEvents = async (timeMin = null, timeMax = null) => {
-  const accessToken = localStorage.getItem('googleAccessToken');
-  
-  if (!accessToken) {
-    throw new Error('No access token found');
-  }
+  const accessToken = await getValidToken();
 
   try {
-    // Default to today if no timeMin provided
     const startTime = timeMin || new Date().toISOString();
-    // Default to 30 days from now if no timeMax provided
     const endTime = timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const response = await fetch(
@@ -30,8 +106,8 @@ export const fetchCalendarEvents = async (timeMin = null, timeMax = null) => {
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Token expired, need to re-authenticate
         localStorage.removeItem('googleAccessToken');
+        localStorage.removeItem('googleTokenExpiry');
         throw new Error('Authentication expired. Please log in again.');
       }
       throw new Error('Failed to fetch calendar events');
@@ -59,13 +135,11 @@ export const fetchTodayEvents = async () => {
 export const fetchWeekEvents = async () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
-  // Get start of week (Sunday)
+
   const startOfWeek = new Date(today);
   const dayOfWeek = today.getDay();
   startOfWeek.setDate(today.getDate() - dayOfWeek);
-  
-  // Get end of week (Saturday)
+
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 7);
 
@@ -74,14 +148,9 @@ export const fetchWeekEvents = async () => {
 
 // Fetch Google Tasks
 export const fetchGoogleTasks = async () => {
-  const accessToken = localStorage.getItem('googleAccessToken');
-  
-  if (!accessToken) {
-    throw new Error('No access token found');
-  }
+  const accessToken = await getValidToken();
 
   try {
-    // First, get all task lists
     const listsResponse = await fetch(
       `${TASKS_API_URL}/users/@me/lists`,
       {
@@ -94,6 +163,7 @@ export const fetchGoogleTasks = async () => {
     if (!listsResponse.ok) {
       if (listsResponse.status === 401) {
         localStorage.removeItem('googleAccessToken');
+        localStorage.removeItem('googleTokenExpiry');
         throw new Error('Authentication expired. Please log in again.');
       }
       throw new Error('Failed to fetch task lists');
@@ -102,7 +172,6 @@ export const fetchGoogleTasks = async () => {
     const listsData = await listsResponse.json();
     const taskLists = listsData.items || [];
 
-    // Fetch tasks from all lists
     const allTasks = [];
     for (const list of taskLists) {
       const tasksResponse = await fetch(
@@ -139,11 +208,7 @@ export const fetchGoogleTasks = async () => {
 
 // Update a Google Task
 export const updateGoogleTask = async (listId, taskId, updates) => {
-  const accessToken = localStorage.getItem('googleAccessToken');
-  
-  if (!accessToken) {
-    throw new Error('No access token found');
-  }
+  const accessToken = await getValidToken();
 
   try {
     const response = await fetch(
@@ -174,11 +239,7 @@ export const updateGoogleTask = async (listId, taskId, updates) => {
 
 // Delete a Google Task
 export const deleteGoogleTask = async (listId, taskId) => {
-  const accessToken = localStorage.getItem('googleAccessToken');
-  
-  if (!accessToken) {
-    throw new Error('No access token found');
-  }
+  const accessToken = await getValidToken();
 
   try {
     const response = await fetch(
@@ -203,11 +264,7 @@ export const deleteGoogleTask = async (listId, taskId) => {
 };
 
 export const createCalendarEvent = async (eventData) => {
-  const accessToken = localStorage.getItem('googleAccessToken');
-  
-  if (!accessToken) {
-    throw new Error('No access token found');
-  }
+  const accessToken = await getValidToken();
 
   try {
     const response = await fetch(
