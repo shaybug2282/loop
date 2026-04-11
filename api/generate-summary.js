@@ -15,11 +15,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { events } = req.body;
+    const { events, date } = req.body;
 
     if (!events || events.length === 0) {
-      return res.status(200).json({ 
-        summary: "You have no events scheduled for today. Enjoy your free time!" 
+      return res.status(200).json({
+        summary: "You have no events scheduled for today. Enjoy your free time!"
       });
     }
 
@@ -28,15 +28,25 @@ export default async function handler(req, res) {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.REACT_APP_ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 500,
-        messages: [{
-          role: 'user',
-          content: `Summarize this daily schedule in a friendly, helpful way. Keep it concise (2-3 sentences). Here's what's scheduled for today:\n\n${events}`
-        }]
+        system: [
+          {
+            type: 'text',
+            text: 'You are a helpful personal assistant that reads a user\'s calendar and gives a concise, friendly plain-English summary of their day. Write 2–4 sentences. Mention the total number of events, highlight any busy stretches or back-to-back meetings, and end with a short motivational note. Never use bullet points or headers — flowing prose only.',
+            cache_control: { type: 'ephemeral' }
+          }
+        ],
+        messages: [
+          {
+            role: 'user',
+            content: `Today is ${date}. Here are my calendar events for today:\n\n${events}\n\nPlease give me a friendly plain-English summary of my day.`
+          }
+        ]
       })
     });
 

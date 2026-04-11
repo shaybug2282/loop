@@ -23,13 +23,17 @@ const AISummary = () => {
         return;
       }
 
-      // Format events for Claude
+      // Format events for Claude, including description when available
       const eventList = events.map(event => {
-        const time = event.start.dateTime 
+        const time = event.start.dateTime
           ? new Date(event.start.dateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
           : 'All day';
-        return `- ${time}: ${event.summary}${event.location ? ` at ${event.location}` : ''}`;
+        const location = event.location ? ` at ${event.location}` : '';
+        const description = event.description ? ` — ${event.description.slice(0, 120)}` : '';
+        return `- ${time}: ${event.summary}${location}${description}`;
       }).join('\n');
+
+      const date = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
       // Call our serverless function instead of Anthropic API directly
       const response = await fetch('/api/generate-summary', {
@@ -38,7 +42,8 @@ const AISummary = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          events: eventList
+          events: eventList,
+          date
         })
       });
 
