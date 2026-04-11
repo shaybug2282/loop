@@ -15,6 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log(process.env.ANTHROPIC_API_KEY)
     const { events, date } = req.body;
 
     if (!events || events.length === 0) {
