@@ -7,6 +7,8 @@ import CalendarPage from './pages/CalendarPage';
 import TodosPage from './pages/TodosPage';
 import ContactsPage from './pages/ContactsPage';
 import FriendsPage from './pages/FriendsPage';
+import ProfilePage from './pages/ProfilePage';
+import MessagesPage from './pages/MessagesPage';
 import './App.css';
 
 // Protected Route Component
@@ -68,6 +70,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <FriendsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
               </ProtectedRoute>
             }
           />

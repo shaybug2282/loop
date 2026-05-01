@@ -1,0 +1,50 @@
+.messages-page {
+  min-height: 100vh;
+  background: var(--bg, #f5f5f5);
+}
+
+.messages-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.messages-header h1 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.menu-btn:hover { background: #f3f4f6; }
+
+.messages-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  height: calc(100vh - 70px);
+  color: #9ca3af;
+}
+
+.messages-empty p {
+  font-size: 0.95rem;
+  margin: 0;
+}

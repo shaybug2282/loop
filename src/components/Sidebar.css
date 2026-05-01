@@ -55,6 +55,15 @@
   display: flex;
   align-items: center;
   gap: 15px;
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 6px;
+  margin: -6px;
+  transition: background 0.15s;
+}
+
+.user-info:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .user-avatar {

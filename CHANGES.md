@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-05-01 — Profile page + friends page enhancements
+
+Added `display_name`, `show_email`, `phone_number` columns to `users`. New `ProfilePage` (accessible by clicking user info in sidebar) lets users set display name, toggle email visibility, and add phone number — saved via `api/update-profile.js` (service role key). New `MessagesPage` placeholder wired to `/messages`. `FriendsPage` now shows outgoing requests with "Pending" label, friend cards open a popup with display name, conditionally shown email/phone, and Tag (no-op), Message (→ /messages), and Unfriend (two-step confirm, calls `api/unfriend.js` which deletes both friendship rows) buttons. `api/get-friends-data.js` updated to run three parallel queries and return `sentRequests` plus full profile fields on friends.
+
+Potential bugs: Profile page reads from Supabase using the anon key (read-all RLS policy) — phone numbers are visible to anyone with the anon key who queries the table directly. Consider column-level security or a dedicated read endpoint scoped to friends-only before phone becomes sensitive data.
+
 ## 2026-05-01 — Friends system
 
 Added `friend_code` (unique 15-char string, auto-generated on INSERT via trigger, backfilled for existing users) to the `users` table; added `friend_requests` (pending/accepted/rejected lifecycle) and `friendships` (both directions stored for symmetric lookup) tables. Three serverless endpoints: `send-friend-request` (looks up user by code, creates request), `get-friends-data` (returns friend code, pending requests, confirmed friends), `respond-friend-request` (accept writes both friendship rows, reject updates status). `FriendsPage` has two sections — Requests (with Add Friend input) and Friends (with copyable friend code) — wired into sidebar and App.js routing.

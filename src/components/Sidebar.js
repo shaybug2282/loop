@@ -32,13 +32,13 @@ const Sidebar = ({ isOpen, onClose }) => {
           </button>
           
           {user && (
-            <div className="user-info">
+            <Link to="/profile" className="user-info" onClick={onClose}>
               <img src={user.picture} alt={user.name} className="user-avatar" />
               <div className="user-details">
                 <h3>{user.name}</h3>
                 <p>{user.email}</p>
               </div>
-            </div>
+            </Link>
           )}
         </div>
 

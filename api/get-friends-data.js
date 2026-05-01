@@ -1,6 +1,7 @@
-// Returns the current user's friend code, incoming pending requests, and confirmed friends.
+// Returns the current user's friend code, incoming pending requests, outgoing pending requests,
+// and confirmed friends (with profile fields needed for the contact card).
 // GET ?googleId=<google_id>
-// Returns: { friendCode, requests: [...], friends: [...] }
+// Returns: { friendCode, requests, sentRequests, friends }
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -29,34 +30,41 @@ export default async function handler(req, res) {
 
   if (meErr || !me) return res.status(404).json({ error: 'User not found' });
 
-  // Incoming pending requests with sender info
-  const { data: requests, error: reqErr } = await db
-    .from('friend_requests')
-    .select('id, created_at, sender:sender_id(id, name, email, picture_url)')
-    .eq('receiver_id', me.id)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false });
+  // Run all three queries in parallel
+  const [
+    { data: requests,     error: reqErr },
+    { data: sentReqs,     error: sentErr },
+    { data: friendships,  error: friendErr },
+  ] = await Promise.all([
+    // Incoming pending requests
+    db.from('friend_requests')
+      .select('id, created_at, sender:sender_id(id, name, display_name, email, picture_url)')
+      .eq('receiver_id', me.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
 
-  if (reqErr) {
-    console.error('get requests error:', reqErr.message);
-    return res.status(500).json({ error: reqErr.message });
-  }
+    // Outgoing pending requests
+    db.from('friend_requests')
+      .select('id, created_at, receiver:receiver_id(id, name, display_name, email, picture_url)')
+      .eq('sender_id', me.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
 
-  // Confirmed friends
-  const { data: friendships, error: friendErr } = await db
-    .from('friendships')
-    .select('friend:friend_id(id, name, email, picture_url, friend_code)')
-    .eq('user_id', me.id)
-    .order('created_at', { ascending: true });
+    // Confirmed friends — include all profile fields for the contact card
+    db.from('friendships')
+      .select('friend:friend_id(id, name, display_name, email, show_email, phone_number, picture_url, friend_code)')
+      .eq('user_id', me.id)
+      .order('created_at', { ascending: true }),
+  ]);
 
-  if (friendErr) {
-    console.error('get friendships error:', friendErr.message);
-    return res.status(500).json({ error: friendErr.message });
-  }
+  if (reqErr)    { console.error('requests error:',    reqErr.message); return res.status(500).json({ error: reqErr.message }); }
+  if (sentErr)   { console.error('sentReqs error:',   sentErr.message); return res.status(500).json({ error: sentErr.message }); }
+  if (friendErr) { console.error('friendships error:', friendErr.message); return res.status(500).json({ error: friendErr.message }); }
 
   return res.status(200).json({
-    friendCode: me.friend_code,
-    requests: requests ?? [],
-    friends: (friendships ?? []).map(f => f.friend),
+    friendCode:   me.friend_code,
+    requests:     requests   ?? [],
+    sentRequests: sentReqs   ?? [],
+    friends:      (friendships ?? []).map(f => f.friend),
   });
 }

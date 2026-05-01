@@ -74,6 +74,25 @@
   font-weight: 600;
   margin: 0;
   color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  background: #4f46e5;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 1px 7px;
+  line-height: 1.6;
+}
+
+.friend-count {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #9ca3af;
 }
 
 /* ── Add Friend Button ── */
@@ -144,7 +163,7 @@
 .add-status.success { color: #16a34a; }
 .add-status.error   { color: #dc2626; }
 
-/* ── Request List ── */
+/* ── Lists ── */
 .request-list,
 .friends-list {
   list-style: none;
@@ -163,6 +182,14 @@
 
 .request-item:last-child,
 .friend-item:last-child { border-bottom: none; }
+
+/* Clickable friends */
+.friend-item {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.friend-item:hover { background: #f9fafb; }
 
 .avatar {
   width: 40px;
@@ -225,6 +252,25 @@
 .reject-btn { background: #fee2e2; color: #dc2626; }
 .reject-btn:hover { background: #fecaca; }
 
+/* Sent / pending request row */
+.sent-request { opacity: 0.85; }
+
+.pending-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  flex-shrink: 0;
+  font-style: italic;
+}
+
+.friend-chevron {
+  color: #d1d5db;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
 /* ── My Code Row ── */
 .my-code-row {
   display: flex;
@@ -275,3 +321,115 @@
   text-align: center;
   margin: 0;
 }
+
+/* ── Friend Popup ── */
+.popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.popup-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  width: 100%;
+  max-width: 340px;
+  padding: 1.5rem;
+  position: relative;
+  animation: popup-in 0.18s ease;
+}
+
+@keyframes popup-in {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+}
+
+.popup-close:hover { background: #f3f4f6; color: #374151; }
+
+.popup-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.popup-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.popup-names { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.popup-display-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.popup-email,
+.popup-phone {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Popup Action Buttons ── */
+.popup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.popup-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: #374151;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.popup-btn:hover:not(:disabled) { background: #f3f4f6; border-color: #d1d5db; }
+.popup-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.message-btn:hover:not(:disabled) { color: #4f46e5; border-color: #c7d2fe; background: #eef2ff; }
+
+.unfriend-btn { color: #dc2626; }
+.unfriend-btn:hover:not(:disabled) { background: #fee2e2; border-color: #fca5a5; }
+.unfriend-btn.confirm { background: #fee2e2; border-color: #f87171; }
