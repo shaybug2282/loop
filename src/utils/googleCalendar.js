@@ -21,11 +21,24 @@ export const rescheduleRefresh = () => {
 };
 
 // Store token and expiry, then schedule a proactive refresh.
+// Also syncs the refreshed token to Supabase so the AI agent always has a valid token per user.
 // expiresIn: lifetime in seconds returned by GIS (default 3600).
 export const initGoogleCalendar = (accessToken, expiresIn = 3600) => {
+  const expiry = Date.now() + expiresIn * 1000;
   localStorage.setItem('googleAccessToken', accessToken);
-  localStorage.setItem('googleTokenExpiry', String(Date.now() + expiresIn * 1000));
+  localStorage.setItem('googleTokenExpiry', String(expiry));
   scheduleTokenRefresh(expiresIn);
+
+  // Sync refreshed token to Supabase via serverless function so it's encrypted server-side.
+  // Fire-and-forget — a sync failure doesn't block calendar use.
+  const googleId = localStorage.getItem('googleUserId');
+  if (googleId) {
+    fetch('/api/sync-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ googleId, accessToken, expiresIn }),
+    }).catch(() => {});
+  }
 };
 
 // Schedule a silent refresh 5 minutes before the token expires.

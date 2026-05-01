@@ -27,8 +27,26 @@ const Login = () => {
           accessToken: response.access_token,
         };
 
+        // Store google_id so googleCalendar.js can sync refreshed tokens to Supabase
+        localStorage.setItem('googleUserId', userInfo.id);
+
         // Initialize Google Calendar with the access token and its lifetime
         initGoogleCalendar(response.access_token, response.expires_in || 3600);
+
+        // Upsert user into Supabase via serverless function — token is encrypted server-side
+        await fetch('/api/sync-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            googleId: userInfo.id,
+            email: userInfo.email,
+            name: userInfo.name,
+            pictureUrl: userInfo.picture,
+            accessToken: response.access_token,
+            expiresIn: response.expires_in || 3600,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
+        });
 
         // Log the user in
         login(userData);

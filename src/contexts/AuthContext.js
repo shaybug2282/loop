@@ -62,6 +62,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
     localStorage.removeItem('googleAccessToken');
     localStorage.removeItem('googleTokenExpiry');
+    localStorage.removeItem('googleUserId');
     clearTokenRefresh();
   };
 

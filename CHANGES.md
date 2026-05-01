@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-05-01 — AES-256-GCM encryption for stored access tokens
+
+Added `api/_crypto.js` with `encrypt`/`decrypt` helpers using Node.js built-in `crypto` (AES-256-GCM, 96-bit IV, auth tag). Created `api/sync-user.js` serverless endpoint that receives user data from the client, encrypts the token server-side using `TOKEN_ENCRYPTION_KEY`, and upserts to Supabase — so the plaintext token never touches the DB and the key is server-only. Updated `Login.js` and `googleCalendar.js` to POST to `/api/sync-user` instead of writing to Supabase directly.
+
+Potential bugs: `TOKEN_ENCRYPTION_KEY` must be added to Vercel environment variables before deploying — missing or wrong-length key throws at encrypt time and returns 500. Existing rows in the `users` table have plaintext tokens and will need a one-time re-encryption pass once users sign in again.
+
+## 2026-05-01 — Supabase users table + login upsert
+
+Replaced the `test` table with a `users` table that persists one row per distinct Google account: stores `google_id`, `email`, `name`, `picture_url`, `access_token`, `token_expiry`, `timezone`, and `last_seen_at` (auto-updated via trigger). Login flow in `Login.js` upserts on `google_id` so returning users refresh their token rather than create a new row; `initGoogleCalendar` in `googleCalendar.js` syncs refreshed tokens back to Supabase so the AI agent always has a current token per user. `googleUserId` is stored in localStorage on login and cleared on logout.
+
+Potential bugs: `access_token` is stored in plaintext — should be encrypted at rest before the AI agent feature ships. The Supabase upsert in `Login.js` fires without awaiting the result in `initGoogleCalendar` (fire-and-forget), so token sync failures are silent.
+
 ## 2026-04-11 — Automatic Google token refresh
 
 Added proactive silent token refresh to `googleCalendar.js`: tokens are now stored with an expiry timestamp, a background timer fires 5 minutes before expiry to silently re-request a new token via GIS (`requestAccessToken({ prompt: '' })`), and all API calls go through `getValidToken()` which triggers an on-demand refresh if the token is near expiry.
