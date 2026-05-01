@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Brand purple background -->
+  <rect width="64" height="64" rx="14" fill="#4f46e5"/>
+  <!--
+    Curvy loopy L:
+    - Starts with a small top curl
+    - Flows down as the vertical stroke
+    - At the bottom forms a closed oval loop (the distinctive "loopy" feature)
+    - Exits the loop extending right as the horizontal foot
+  -->
+  <path
+    d="M 26,10
+       C 24,8 20,9 19,13
+       L 18,38
+       C 18,43 20,47 24,49
+       C 16,48 13,42 17,37
+       C 20,33 27,35 31,40
+       C 33,43 36,44 39,42
+       C 43,40 45,37 44,34"
+    fill="none"
+    stroke="white"
+    stroke-width="5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

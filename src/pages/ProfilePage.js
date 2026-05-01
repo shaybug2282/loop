@@ -5,6 +5,14 @@ import { useAuth } from '../contexts/AuthContext';
 import supabase from '../utils/supabaseClient';
 import './ProfilePage.css';
 
+// Formats a raw digit string into (XXX)XXX-XXXX as the user types
+const formatPhone = (raw) => {
+  const digits = raw.replace(/\D/g, '').slice(0, 10);
+  if (digits.length <= 3)  return digits.length ? `(${digits}` : '';
+  if (digits.length <= 6)  return `(${digits.slice(0,3)})${digits.slice(3)}`;
+  return `(${digits.slice(0,3)})${digits.slice(3,6)}-${digits.slice(6)}`;
+};
+
 const ProfilePage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user } = useAuth();
@@ -12,6 +20,8 @@ const ProfilePage = () => {
   const [displayName, setDisplayName] = useState('');
   const [showEmail, setShowEmail]     = useState(true);
   const [phoneNumber, setPhoneNumber] = useState('');
+
+  const handlePhoneChange = (e) => setPhoneNumber(formatPhone(e.target.value));
 
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
@@ -112,7 +122,7 @@ const ProfilePage = () => {
                 id="phoneNumber"
                 type="tel"
                 value={phoneNumber}
-                onChange={e => setPhoneNumber(e.target.value)}
+                onChange={handlePhoneChange}
                 placeholder="+1 (555) 000-0000"
                 maxLength={20}
               />

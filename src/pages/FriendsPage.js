@@ -64,11 +64,12 @@ const FriendPopup = ({ friend, onClose, onUnfriend }) => {
 
           <button
             className="popup-btn message-btn"
-            onClick={() => navigate('/messages')}
+            onClick={() => navigate('/messages', { state: { friend } })}
           >
             <MessageSquare size={16} />
             Message
           </button>
+
 
           <button
             className={`popup-btn unfriend-btn ${unfriendConfirm ? 'confirm' : ''}`}

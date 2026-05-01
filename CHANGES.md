@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-05-01 — Messaging, AI chat, favicon, friends widget
+
+E2E encrypted DMs: `messageCrypto.js` (ECDH P-256 key agreement + AES-256-GCM) — keypair generated once per browser, public key stored in Supabase. `MessagesPage` polls every 3s for new messages, decrypts locally, groups bubbles with a visual gap when >1 min between messages. `api/{send-message,get-conversation,get-conversations,get-my-id,store-public-key,get-public-key}.js` all use service role key. Navigate from friend popup passes friend via router state so the correct conversation opens directly.
+
+Replaced AISummary with an AI chat interface (`api/ai-chat.js`) — user types any message, calendar events are lazily fetched once as system context so schedule-aware questions work. `FriendsWidget` added to dashboard showing friends list and pending request badge. Phone number input auto-formats to (XXX)XXX-XXXX as the user types. Tab favicon updated to a curvy loopy SVG "L" on brand purple; page title changed to "Loop".
+
+Potential bugs: ECDH private key is stored unencrypted in localStorage — if the user clears localStorage they lose decryption ability for old messages. Messages page polls unconditionally; should pause polling when the tab is hidden (`document.visibilityState`).
+
 ## 2026-05-01 — Profile page + friends page enhancements
 
 Added `display_name`, `show_email`, `phone_number` columns to `users`. New `ProfilePage` (accessible by clicking user info in sidebar) lets users set display name, toggle email visibility, and add phone number — saved via `api/update-profile.js` (service role key). New `MessagesPage` placeholder wired to `/messages`. `FriendsPage` now shows outgoing requests with "Pending" label, friend cards open a popup with display name, conditionally shown email/phone, and Tag (no-op), Message (→ /messages), and Unfriend (two-step confirm, calls `api/unfriend.js` which deletes both friendship rows) buttons. `api/get-friends-data.js` updated to run three parallel queries and return `sentRequests` plus full profile fields on friends.

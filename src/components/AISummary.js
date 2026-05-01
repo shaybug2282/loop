@@ -1,71 +1,71 @@
-import React, { useState } from 'react';
-import { Sparkles, Loader } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, Send, Loader } from 'lucide-react';
 import { fetchTodayEvents } from '../utils/googleCalendar';
 import './AISummary.css';
 
+// AI chat interface. User types any message; calendar events are injected as
+// system context so the AI can answer schedule-aware questions naturally.
 const AISummary = () => {
-  const navigate = useNavigate();
-  const [summary, setSummary] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [isAuthError, setIsAuthError] = useState(false);
+  const [messages,  setMessages]  = useState([]);   // { role: 'user'|'ai', text, id }
+  const [input,     setInput]     = useState('');
+  const [loading,   setLoading]   = useState(false);
+  const [calCtx,    setCalCtx]    = useState(null); // cached calendar context string
+  const bottomRef = useRef(null);
+  const inputRef  = useRef(null);
 
-  const generateSummary = async () => {
+  // Auto-scroll on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Lazily load today's calendar events as context (once per session)
+  const getCalendarContext = async () => {
+    if (calCtx !== null) return calCtx;
     try {
-      setLoading(true);
-      setError(null);
-      setIsAuthError(false);
-      setSummary('');
-
-      // Fetch today's events from Google Calendar
       const events = await fetchTodayEvents();
-
-      if (events.length === 0) {
-        setSummary("You have no events scheduled for today. Enjoy your free time!");
-        setLoading(false);
-        return;
-      }
-
-      // Format events for Claude, including description when available
-      const eventList = events.map(event => {
-        const time = event.start.dateTime
-          ? new Date(event.start.dateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-          : 'All day';
-        const location = event.location ? ` at ${event.location}` : '';
-        const description = event.description ? ` — ${event.description.slice(0, 120)}` : '';
-        return `- ${time}: ${event.summary}${location}${description}`;
-      }).join('\n');
-
+      if (!events.length) { setCalCtx(''); return ''; }
       const date = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const list = events.map(ev => {
+        const time = ev.start.dateTime
+          ? new Date(ev.start.dateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+          : 'All day';
+        const loc  = ev.location ? ` at ${ev.location}` : '';
+        const desc = ev.description ? ` — ${ev.description.slice(0, 100)}` : '';
+        return `- ${time}: ${ev.summary}${loc}${desc}`;
+      }).join('\n');
+      const ctx = `Today is ${date}.\n${list}`;
+      setCalCtx(ctx);
+      return ctx;
+    } catch {
+      setCalCtx('');
+      return '';
+    }
+  };
 
-      // Call our serverless function instead of Anthropic API directly
-      const response = await fetch('/api/generate-summary', {
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+
+    const userMsg = { id: Date.now(), role: 'user', text };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const calendarContext = await getCalendarContext();
+      const res = await fetch('/api/ai-chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          events: eventList,
-          date
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, calendarContext: calendarContext || undefined }),
       });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || 'Failed to generate summary');
-      }
-
-      const data = await response.json();
-      setSummary(data.summary);
-
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'AI error');
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', text: data.reply }]);
     } catch (err) {
-      console.error('Error generating summary:', err);
-      const authFailed = err.message.includes('Authentication expired') || err.message.includes('No access token');
-      setIsAuthError(authFailed);
-      setError(err.message || 'Failed to generate summary. Please try again.');
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', text: `Sorry, something went wrong: ${err.message}`, isError: true }]);
     } finally {
       setLoading(false);
+      inputRef.current?.focus();
     }
   };
 
@@ -73,45 +73,48 @@ const AISummary = () => {
     <div className="ai-summary-component">
       <div className="component-header">
         <Sparkles size={24} />
-        <h2>AI Day Summary</h2>
+        <h2>AI Assistant</h2>
       </div>
 
-      {!summary && !loading && !error && (
-        <div className="summary-prompt">
-          <p>Get an AI-powered summary of your day</p>
-          <button onClick={generateSummary} className="generate-btn">
-            <Sparkles size={18} />
-            Generate Summary
-          </button>
-        </div>
-      )}
+      <div className="chat-body">
+        {messages.length === 0 && (
+          <p className="chat-hint">Ask me anything — I have access to your calendar.</p>
+        )}
 
-      {loading && (
-        <div className="summary-loading">
-          <Loader size={24} className="spinner" />
-          <p>Analyzing your schedule...</p>
-        </div>
-      )}
+        {messages.map(msg => (
+          <div key={msg.id} className={`chat-bubble-row ${msg.role}`}>
+            <div className={`chat-bubble ${msg.isError ? 'error' : ''}`}>
+              {msg.text}
+            </div>
+          </div>
+        ))}
 
-      {error && (
-        <div className="summary-error">
-          <p>{error}</p>
-          {isAuthError
-            ? <button onClick={() => navigate('/login')} className="retry-btn">Log in again</button>
-            : <button onClick={generateSummary} className="retry-btn">Try Again</button>
-          }
-        </div>
-      )}
+        {loading && (
+          <div className="chat-bubble-row ai">
+            <div className="chat-bubble typing">
+              <Loader size={14} className="spinner" />
+            </div>
+          </div>
+        )}
 
-      {summary && !loading && (
-        <div className="summary-content">
-          <div className="summary-text">{summary}</div>
-          <button onClick={generateSummary} className="regenerate-btn">
-            <Sparkles size={16} />
-            Regenerate
-          </button>
-        </div>
-      )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="chat-input-row">
+        <input
+          ref={inputRef}
+          className="chat-input"
+          type="text"
+          placeholder="Ask about your schedule, tasks, anything…"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && sendMessage()}
+          disabled={loading}
+        />
+        <button className="chat-send" onClick={sendMessage} disabled={!input.trim() || loading}>
+          <Send size={16} />
+        </button>
+      </div>
     </div>
   );
 };

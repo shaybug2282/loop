@@ -5,6 +5,7 @@ import CalendarComponent from '../components/CalendarComponent';
 import AISummary from '../components/AISummary';
 import TodoList from '../components/TodoList';
 import ContactList from '../components/ContactList';
+import FriendsWidget from '../components/FriendsWidget';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -31,6 +32,9 @@ const Dashboard = () => {
         </div>
         <div className="dashboard-item">
           <ContactList />
+        </div>
+        <div className="dashboard-item">
+          <FriendsWidget />
         </div>
       </div>
     </div>
