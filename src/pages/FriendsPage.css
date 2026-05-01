@@ -1,0 +1,277 @@
+.friends-page {
+  min-height: 100vh;
+  background: var(--bg, #f5f5f5);
+  padding-bottom: 2rem;
+}
+
+.friends-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.friends-header h1 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.menu-btn:hover { background: #f3f4f6; }
+
+.friends-loading,
+.friends-error {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+.friends-error { color: #dc2626; }
+
+.friends-content {
+  max-width: 640px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Section ── */
+.friends-section {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.section-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  color: #111827;
+}
+
+/* ── Add Friend Button ── */
+.add-friend-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.add-friend-btn:hover { background: #4338ca; }
+
+/* ── Add Friend Panel ── */
+.add-friend-panel {
+  padding: 0.75rem 1.25rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fafafa;
+}
+
+.add-friend-row {
+  display: flex;
+  gap: 8px;
+}
+
+.friend-code-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  font-family: monospace;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.friend-code-input:focus { border-color: #4f46e5; }
+
+.send-btn {
+  padding: 8px 16px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.send-btn:hover:not(:disabled) { background: #4338ca; }
+.send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.add-status {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+}
+
+.add-status.success { color: #16a34a; }
+.add-status.error   { color: #dc2626; }
+
+/* ── Request List ── */
+.request-list,
+.friends-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.request-item,
+.friend-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.request-item:last-child,
+.friend-item:last-child { border-bottom: none; }
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.request-info,
+.friend-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.request-name,
+.friend-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.request-email,
+.friend-email {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.request-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.accept-btn,
+.reject-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.accept-btn { background: #dcfce7; color: #16a34a; }
+.accept-btn:hover { background: #bbf7d0; }
+
+.reject-btn { background: #fee2e2; color: #dc2626; }
+.reject-btn:hover { background: #fecaca; }
+
+/* ── My Code Row ── */
+.my-code-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.75rem 1.25rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.my-code-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.my-code {
+  font-family: monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #111827;
+  flex: 1;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.copy-btn:hover { background: #f3f4f6; }
+
+/* ── Empty State ── */
+.empty-state {
+  padding: 1.5rem 1.25rem;
+  color: #9ca3af;
+  font-size: 0.875rem;
+  text-align: center;
+  margin: 0;
+}

@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-05-01 — Friends system
+
+Added `friend_code` (unique 15-char string, auto-generated on INSERT via trigger, backfilled for existing users) to the `users` table; added `friend_requests` (pending/accepted/rejected lifecycle) and `friendships` (both directions stored for symmetric lookup) tables. Three serverless endpoints: `send-friend-request` (looks up user by code, creates request), `get-friends-data` (returns friend code, pending requests, confirmed friends), `respond-friend-request` (accept writes both friendship rows, reject updates status). `FriendsPage` has two sections — Requests (with Add Friend input) and Friends (with copyable friend code) — wired into sidebar and App.js routing.
+
+Potential bugs: friend code input is normalized to uppercase client-side but codes are stored as mixed-case in the DB — the API uses `.toUpperCase()` on lookup, so codes generated with lowercase chars in `generate_friend_code` would never match. Recommend updating the charset to uppercase-only (already done: `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`).
+
 ## 2026-05-01 — AES-256-GCM encryption for stored access tokens
 
 Added `api/_crypto.js` with `encrypt`/`decrypt` helpers using Node.js built-in `crypto` (AES-256-GCM, 96-bit IV, auth tag). Created `api/sync-user.js` serverless endpoint that receives user data from the client, encrypts the token server-side using `TOKEN_ENCRYPTION_KEY`, and upserts to Supabase — so the plaintext token never touches the DB and the key is server-only. Updated `Login.js` and `googleCalendar.js` to POST to `/api/sync-user` instead of writing to Supabase directly.

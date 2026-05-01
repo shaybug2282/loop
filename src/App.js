@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
 import TodosPage from './pages/TodosPage';
 import ContactsPage from './pages/ContactsPage';
+import FriendsPage from './pages/FriendsPage';
 import './App.css';
 
 // Protected Route Component
@@ -59,6 +60,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ContactsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/friends"
+            element={
+              <ProtectedRoute>
+                <FriendsPage />
               </ProtectedRoute>
             }
           />
