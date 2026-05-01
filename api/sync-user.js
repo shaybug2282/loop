@@ -26,9 +26,10 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Token encryption failed — check TOKEN_ENCRYPTION_KEY' });
   }
 
+  // Service role key bypasses RLS — safe here because this runs server-side only.
   const supabase = createClient(
     process.env.REACT_APP_SUPABASE_URL,
-    process.env.REACT_APP_SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
   const expiryTs = new Date(Date.now() + (expiresIn || 3600) * 1000).toISOString();
