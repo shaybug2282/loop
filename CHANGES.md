@@ -1,5 +1,18 @@
 # Changes
 
+## 2026-06-23 — Enter key, shared GCal events, decline notifications
+
+**Enter key on all text inputs:** `FindTimeScreen` (hours), `PickTimeScreen` (date + time), and `ProfilePage` (display name, phone) now submit on Enter. `FriendsPage` friend-code input already had this.
+
+**Shared Google Calendar event:** `createGCalEvent` now accepts an `attendeeEmails` array and creates a single event with all participants as attendees. The event is created on the organizer's calendar when **all** invited users accept; Google delivers invitations to each attendee automatically. Previously, separate events were created on each user's calendar individually.
+
+**Decline notifications:** Declining an event no longer sets `status: 'declined'` on the whole row. Instead a `declines UUID[]` column tracks which users declined. The organizer sees an amber notification card in the widget: "[Name] declined · [time]". The invited user who declined no longer sees the event in their invite list. The event stays open for other invitees.
+
+**Required Supabase migration:**
+```sql
+ALTER TABLE pending_events ADD COLUMN IF NOT EXISTS declines UUID[] NOT NULL DEFAULT '{}';
+```
+
 ## 2026-06-23 — Messages popup fixed-height + ScheduleWidget error handling + notif polling
 
 **Messages popup:** `.mp-panel` now uses `height: min(520px, calc(100vh - 32px))` instead of only `max-height`, so the panel renders at full size immediately on open rather than starting small and expanding as content loads.

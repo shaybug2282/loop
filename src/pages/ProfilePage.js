@@ -111,6 +111,7 @@ const ProfilePage = () => {
                 type="text"
                 value={displayName}
                 onChange={e => setDisplayName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !saving) handleSave(); }}
                 placeholder={user?.name ?? 'Enter a display name'}
                 maxLength={50}
               />
@@ -124,6 +125,7 @@ const ProfilePage = () => {
                 type="tel"
                 value={phoneNumber}
                 onChange={handlePhoneChange}
+                onKeyDown={e => { if (e.key === 'Enter' && !saving) handleSave(); }}
                 placeholder="+1 (555) 000-0000"
                 maxLength={20}
               />

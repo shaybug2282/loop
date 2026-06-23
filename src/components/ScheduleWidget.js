@@ -84,11 +84,17 @@ const PickTimeScreen = ({ onSchedule, loading }) => {
       <p className="sw-sublabel">Choose a date and time:</p>
       <div className="sw-field">
         <label className="sw-label">Date</label>
-        <input type="date" className="sw-input" min={today} value={date} onChange={e => setDate(e.target.value)} />
+        <input type="date" className="sw-input" min={today} value={date}
+          onChange={e => setDate(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && ready && !loading) go(); }}
+        />
       </div>
       <div className="sw-field">
         <label className="sw-label">Time</label>
-        <input type="time" className="sw-input" value={time} onChange={e => setTime(e.target.value)} />
+        <input type="time" className="sw-input" value={time}
+          onChange={e => setTime(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && ready && !loading) go(); }}
+        />
       </div>
       <button className="sw-btn-primary" disabled={!ready || loading} onClick={go}>
         {loading ? 'Scheduling…' : 'Schedule'}
@@ -108,6 +114,7 @@ const FindTimeScreen = ({ onSearch, loading }) => {
           type="number" className="sw-input" placeholder="e.g. 2"
           min="0.5" max="12" step="0.5" value={val}
           onChange={e => setVal(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && val && n > 0 && !loading) onSearch(n, 0); }}
         />
       </div>
       <button className="sw-btn-primary" disabled={!val || n <= 0 || loading} onClick={() => onSearch(n, 0)}>
@@ -349,7 +356,7 @@ export default function ScheduleWidget() {
   };
 
   const canBack  = screen in BACK;
-  const myInvites = notifs.filter(e => !e.isCreator && e.status !== 'declined');
+  const myInvites = notifs.filter(e => !e.isCreator && !(e.declines ?? []).includes(myId));
   const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted');
 
   return (
@@ -378,6 +385,20 @@ export default function ScheduleWidget() {
             <span>{formatTime(e.event_time)} — all accepted! Check Google Calendar.</span>
           </div>
         ))}
+
+        {/* Decline notifications — shown to the event creator */}
+        {notifs
+          .filter(e => e.isCreator && (e.declines ?? []).length > 0)
+          .flatMap(e =>
+            (e.declinedUsers ?? []).map(u => (
+              <div key={`decline-${e.id}-${u.id}`} className="sw-decline-notif">
+                <span className="sw-decline-name">{u.display_name || u.name || 'Someone'}</span>
+                {' declined · '}
+                <span className="sw-decline-time">{formatTime(e.event_time)}</span>
+              </div>
+            ))
+          )
+        }
 
         {/* Invites received */}
         {myInvites.length > 0 && (

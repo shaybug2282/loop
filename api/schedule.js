@@ -90,7 +90,9 @@ function findFreeSlots(busySlots, windowStart, windowEnd, durationMs) {
   return selected.map(ts => new Date(ts).toISOString());
 }
 
-async function createGCalEvent(token, summary, startIso, durationHours) {
+// Creates a shared event on the organizer's calendar with all participants as attendees.
+// Google Calendar handles delivering invitations to each attendee automatically.
+async function createGCalEvent(token, summary, startIso, durationHours, attendeeEmails = []) {
   const start = new Date(startIso);
   const end   = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
   await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
@@ -98,8 +100,9 @@ async function createGCalEvent(token, summary, startIso, durationHours) {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify({
       summary,
-      start: { dateTime: start.toISOString(), timeZone: 'UTC' },
-      end:   { dateTime: end.toISOString(),   timeZone: 'UTC' },
+      start:     { dateTime: start.toISOString(), timeZone: 'UTC' },
+      end:       { dateTime: end.toISOString(),   timeZone: 'UTC' },
+      attendees: attendeeEmails.map(email => ({ email })),
     }),
   });
 }
@@ -121,11 +124,11 @@ export default async function handler(req, res) {
 
       const [{ data: created }, { data: invited }] = await Promise.all([
         client.from('pending_events')
-          .select('id,creator_id,invited_user_ids,event_time,duration_hours,status,acceptances,created_at')
+          .select('id,creator_id,invited_user_ids,event_time,duration_hours,status,acceptances,declines,created_at')
           .eq('creator_id', me.id)
           .in('status', ['pending', 'accepted']),
         client.from('pending_events')
-          .select('id,creator_id,invited_user_ids,event_time,duration_hours,status,acceptances,created_at')
+          .select('id,creator_id,invited_user_ids,event_time,duration_hours,status,acceptances,declines,created_at')
           .contains('invited_user_ids', [me.id])
           .in('status', ['pending', 'accepted']),
       ]);
@@ -138,17 +141,18 @@ export default async function handler(req, res) {
 
       if (!events.length) return res.status(200).json({ events: [] });
 
-      const allIds = [...new Set(events.flatMap(e => [e.creator_id, ...e.invited_user_ids]))];
+      const allIds = [...new Set(events.flatMap(e => [e.creator_id, ...e.invited_user_ids, ...(e.declines ?? [])]))];
       const { data: users } = await client
         .from('users').select('id,name,display_name,picture_url').in('id', allIds);
       const uMap = Object.fromEntries((users ?? []).map(u => [u.id, u]));
 
       const enriched = events.map(e => ({
         ...e,
-        creator:      uMap[e.creator_id] ?? null,
-        invitedUsers: e.invited_user_ids.map(id => uMap[id] ?? { id }),
-        isCreator:    e.creator_id === me.id,
-        myId:         me.id,
+        creator:       uMap[e.creator_id] ?? null,
+        invitedUsers:  e.invited_user_ids.map(id => uMap[id] ?? { id }),
+        declinedUsers: (e.declines ?? []).map(id => uMap[id] ?? { id }),
+        isCreator:     e.creator_id === me.id,
+        myId:          me.id,
       }));
 
       return res.status(200).json({ events: enriched });
@@ -192,8 +196,9 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Not invited to this event' });
 
       if (action === 'decline') {
-        await client.from('pending_events').update({ status: 'declined' }).eq('id', eventId);
-        return res.status(200).json({ ok: true, status: 'declined' });
+        const declines = [...new Set([...(ev.declines ?? []), me.id])];
+        await client.from('pending_events').update({ declines }).eq('id', eventId);
+        return res.status(200).json({ ok: true, status: 'pending', declined: true });
       }
 
       // Accept
@@ -201,22 +206,23 @@ export default async function handler(req, res) {
       const allAccepted = ev.invited_user_ids.every(id => acceptances.includes(id));
 
       if (allAccepted && !ev.google_event_created) {
-        // Fetch creator info for event name
         const { data: creatorUser } = await client.from('users')
           .select('name,display_name,access_token').eq('id', ev.creator_id).single();
         const summary = `${creatorUser?.display_name || creatorUser?.name || 'Someone'} Hangout!`;
 
-        // Get tokens for all participants
+        // Fetch all participants' emails for the shared attendee list.
         const { data: participants } = await client.from('users')
-          .select('id,access_token').in('id', [ev.creator_id, ...ev.invited_user_ids]);
+          .select('email').in('id', [ev.creator_id, ...ev.invited_user_ids]);
+        const attendeeEmails = (participants ?? []).map(u => u.email).filter(Boolean);
 
-        await Promise.allSettled((participants ?? []).map(async u => {
-          if (!u.access_token) return;
+        // Create one shared event on the creator's calendar; Google delivers
+        // invitations to every attendee automatically.
+        if (creatorUser?.access_token) {
           try {
-            const token = decrypt(u.access_token);
-            await createGCalEvent(token, summary, ev.event_time, ev.duration_hours);
+            const token = decrypt(creatorUser.access_token);
+            await createGCalEvent(token, summary, ev.event_time, ev.duration_hours, attendeeEmails);
           } catch {}
-        }));
+        }
 
         await client.from('pending_events')
           .update({ acceptances, status: 'accepted', google_event_created: true })
