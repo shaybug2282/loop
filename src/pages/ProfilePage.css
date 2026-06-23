@@ -1,6 +1,6 @@
 .profile-page {
   min-height: 100vh;
-  background: var(--bg, #f5f5f5);
+  background: var(--bg, #FDF5F7);
   padding-bottom: 2rem;
 }
 
@@ -10,7 +10,7 @@
   gap: 1rem;
   padding: 1.25rem 1.5rem;
   background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #F3D8E4;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -26,21 +26,21 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #374151;
+  color: #4A4A52;
   display: flex;
   align-items: center;
   padding: 4px;
   border-radius: 6px;
 }
 
-.menu-btn:hover { background: #f3f4f6; }
+.menu-btn:hover { background: #FDF5F7; }
 
 .profile-loading {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 2rem;
-  color: #6b7280;
+  color: #6B7280;
 }
 
 .profile-content {
@@ -64,7 +64,7 @@
   font-size: 1rem;
   font-weight: 600;
   margin: 0 0 1.1rem;
-  color: #111827;
+  color: #1A1A1A;
 }
 
 /* ── Identity card ── */
@@ -87,13 +87,13 @@
 .identity-name {
   font-weight: 600;
   font-size: 1rem;
-  color: #111827;
+  color: #1A1A1A;
   margin: 0;
 }
 
 .identity-email {
   font-size: 0.82rem;
-  color: #6b7280;
+  color: #6B7280;
   margin: 0;
 }
 
@@ -110,18 +110,18 @@
 .field-group label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
+  color: #4A4A52;
 }
 
 .field-hint {
   font-size: 0.76rem;
-  color: #9ca3af;
+  color: #A3A8B0;
   margin: 0;
 }
 
 .field-group input {
   padding: 9px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #F3D8E4;
   border-radius: 8px;
   font-size: 0.9rem;
   outline: none;
@@ -129,7 +129,7 @@
   margin-top: 2px;
 }
 
-.field-group input:focus { border-color: #4f46e5; }
+.field-group input:focus { border-color: #E8607A; }
 
 /* ── Toggle ── */
 .toggle-group {
@@ -153,8 +153,8 @@
   padding: 0;
 }
 
-.toggle.on  { background: #4f46e5; }
-.toggle.off { background: #d1d5db; }
+.toggle.on  { background: #E8607A; }
+.toggle.off { background: #F3D8E4; }
 
 .toggle-thumb {
   position: absolute;
@@ -179,7 +179,7 @@
   gap: 1rem;
   margin-top: 1.25rem;
   padding-top: 1rem;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid #FDF5F7;
 }
 
 .save-msg {
@@ -188,13 +188,13 @@
 }
 
 .save-msg.success { color: #16a34a; }
-.save-msg.error   { color: #dc2626; }
+.save-msg.error   { color: #C0392B; }
 
 .save-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #4f46e5;
+  background: #E8607A;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -205,7 +205,7 @@
   transition: background 0.15s;
 }
 
-.save-btn:hover:not(:disabled) { background: #4338ca; }
+.save-btn:hover:not(:disabled) { background: #C94D65; }
 .save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .spinner { animation: spin 0.8s linear infinite; }

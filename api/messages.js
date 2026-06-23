@@ -3,8 +3,17 @@
 // GET  ?op=conversation&googleId=&friendId=&since=  → messages between two users
 // GET  ?op=conversations&googleId=                  → all conversation partners
 // GET  ?op=public-key&userId=                       → ECDH public key for a user
-// POST { op:'send',      senderGoogleId, receiverId, ciphertext, iv }
+// POST { op:'send',      senderGoogleId, receiverId, payload }
 // POST { op:'store-key', googleId, publicKeyJwk }
+// POST { op:'delete',    googleId, messageId }       → undo send (within 30s)
+// POST { op:'edit',      googleId, messageId, payload } → edit (within 60s)
+//
+// DB note: messages table requires these columns —
+//   payload TEXT,        -- combined "ivB64.ctB64" replaces separate ciphertext/iv
+//   edited_at TIMESTAMPTZ
+// Migration: ALTER TABLE messages ADD COLUMN IF NOT EXISTS payload TEXT;
+//            ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+//            UPDATE messages SET payload = iv || '.' || ciphertext WHERE payload IS NULL;
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -31,7 +40,8 @@ export default async function handler(req, res) {
 
       let query = client
         .from('messages')
-        .select('id, sender_id, ciphertext, iv, created_at')
+        // Select both new payload and legacy ciphertext/iv for backwards compat
+        .select('id, sender_id, payload, ciphertext, iv, edited_at, created_at')
         .or(
           `and(sender_id.eq.${me.id},receiver_id.eq.${friendId}),` +
           `and(sender_id.eq.${friendId},receiver_id.eq.${me.id})`
@@ -108,9 +118,9 @@ export default async function handler(req, res) {
     const client = db();
 
     if (op === 'send') {
-      const { senderGoogleId, receiverId, ciphertext, iv } = req.body;
-      if (!senderGoogleId || !receiverId || !ciphertext || !iv)
-        return res.status(400).json({ error: 'senderGoogleId, receiverId, ciphertext, iv required' });
+      const { senderGoogleId, receiverId, payload } = req.body;
+      if (!senderGoogleId || !receiverId || !payload)
+        return res.status(400).json({ error: 'senderGoogleId, receiverId, payload required' });
 
       const { data: sender, error: senderErr } = await client
         .from('users').select('id').eq('google_id', senderGoogleId).single();
@@ -118,7 +128,7 @@ export default async function handler(req, res) {
 
       const { data, error } = await client
         .from('messages')
-        .insert({ sender_id: sender.id, receiver_id: receiverId, ciphertext, iv })
+        .insert({ sender_id: sender.id, receiver_id: receiverId, payload })
         .select('id, created_at')
         .single();
 
@@ -134,6 +144,49 @@ export default async function handler(req, res) {
         .from('users')
         .update({ public_key: JSON.stringify(publicKeyJwk) })
         .eq('google_id', googleId);
+
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Undo send — hard delete within 30 seconds of sending
+    if (op === 'delete') {
+      const { googleId, messageId } = req.body;
+      if (!googleId || !messageId) return res.status(400).json({ error: 'googleId and messageId required' });
+
+      const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
+      if (!me) return res.status(404).json({ error: 'User not found' });
+
+      const { data: msg } = await client.from('messages')
+        .select('id, created_at').eq('id', messageId).eq('sender_id', me.id).single();
+      if (!msg) return res.status(404).json({ error: 'Message not found or not yours' });
+
+      if (Date.now() - new Date(msg.created_at).getTime() > 30_000)
+        return res.status(403).json({ error: 'Undo window expired (30 seconds)' });
+
+      const { error } = await client.from('messages').delete().eq('id', messageId);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Edit message — re-encrypt and store within 60 seconds of sending
+    if (op === 'edit') {
+      const { googleId, messageId, payload } = req.body;
+      if (!googleId || !messageId || !payload) return res.status(400).json({ error: 'googleId, messageId, payload required' });
+
+      const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
+      if (!me) return res.status(404).json({ error: 'User not found' });
+
+      const { data: msg } = await client.from('messages')
+        .select('id, created_at').eq('id', messageId).eq('sender_id', me.id).single();
+      if (!msg) return res.status(404).json({ error: 'Message not found or not yours' });
+
+      if (Date.now() - new Date(msg.created_at).getTime() > 60_000)
+        return res.status(403).json({ error: 'Edit window expired (60 seconds)' });
+
+      const { error } = await client.from('messages')
+        .update({ payload, edited_at: new Date().toISOString() })
+        .eq('id', messageId);
 
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ ok: true });

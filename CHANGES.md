@@ -1,5 +1,28 @@
 # Changes
 
+## 2026-06-23 — Messages popup panel + undo send + edit + color scheme
+
+**Messages redesign:** Removed full-page `MessagesPage` and replaced with a fixed bottom-right floating panel (`MessagesPanel`) always rendered above all pages via `App.js`. Panel is ~340×500px (≈1/8 screen) with minimize/close controls; `/messages` route now redirects to dashboard. Added `MessagesContext` so any component can call `openMessages(friend)` — used by `FriendsWidget` and `FriendsPage` popup instead of `navigate('/messages')`.
+
+**Timestamps:** Time labels appear only at 30-second gaps between messages. Rapid messages are visually grouped with tighter spacing and no individual timestamps. First message in a conversation always shows a label.
+
+**Undo send (30s):** Right-click any own message within 30 seconds to delete it from both ends. Server enforces the window — returns 403 after expiry. Message is hard-deleted from DB.
+
+**Edit message (60s):** Right-click any own message within 60 seconds to edit inline. Re-encrypted with the same ECDH shared key; server stores new `payload` and sets `edited_at`. Message shows italic "· edited" note on both ends after save.
+
+**Condensed storage:** `messageCrypto.js` now produces a single `payload` column (`ivB64.ctB64`) instead of separate `ciphertext` and `iv` columns. `decryptMessage` handles both formats for backwards compatibility.
+
+**Required Supabase migration:**
+```sql
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS payload TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+UPDATE messages SET payload = iv || '.' || ciphertext WHERE payload IS NULL;
+```
+
+**Color scheme:** Replaced indigo/purple (`#4f46e5`) brand palette with rose/pink palette across all CSS files and the favicon. New accent: `#E8607A` → hover `#C94D65` → strong `#B5365A`. Surface colors: `#FDF5F7` / `#F9EAF0`. Border: `#F3D8E4`. Text: `#1A1A1A` / `#4A4A52` / `#6B7280`. Danger: `#C0392B`.
+
+Potential bugs: The 30s/60s windows are enforced server-side using `created_at`; clock skew between client and server could cause premature expiry errors. Existing messages in DB with legacy `ciphertext`/`iv` columns need the migration SQL above before `payload` reads will work.
+
 ## 2026-06-23 — Merge Contacts into Friends; add message shortcut on dashboard
 
 Removed the placeholder Contacts widget and its localStorage-backed data. The dashboard now shows a single `FriendsWidget` in that slot: each friend card displays their avatar, name, and (if shared) email and phone number, with a message icon that appears on hover and navigates directly to the DM conversation. `ContactList.js/css` and `ContactsPage.js` deleted; `/contacts` route redirects to `/friends`; "Contacts" removed from sidebar. The old small `FriendsWidget` (count-only) was replaced by this expanded card list.

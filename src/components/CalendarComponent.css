@@ -14,19 +14,19 @@
   gap: 12px;
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid #F3D8E4;
 }
 
 .component-header h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: #1A1A1A;
   flex: 1;
 }
 
 .component-header svg {
-  color: #667eea;
+  color: #E8607A;
 }
 
 .refresh-btn {
@@ -34,7 +34,7 @@
   border: none;
   cursor: pointer;
   padding: 6px;
-  color: #667eea;
+  color: #E8607A;
   display: flex;
   align-items: center;
   border-radius: 6px;
@@ -42,16 +42,16 @@
 }
 
 .refresh-btn:hover {
-  background: #f0f0f0;
+  background: #F3D8E4;
 }
 
 .today-date {
   font-size: 14px;
   font-weight: 600;
-  color: #667eea;
+  color: #E8607A;
   margin-bottom: 16px;
   padding: 10px 14px;
-  background: #f8f9ff;
+  background: #F9EAF0;
   border-radius: 8px;
   text-align: center;
 }
@@ -59,7 +59,7 @@
 .loading {
   text-align: center;
   padding: 40px;
-  color: #999;
+  color: #A3A8B0;
 }
 
 .error-state {
@@ -77,7 +77,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: #667eea;
+  background: #E8607A;
   color: white;
   border: none;
   border-radius: 6px;
@@ -87,7 +87,7 @@
 }
 
 .retry-btn:hover {
-  background: #5568d3;
+  background: #C94D65;
 }
 
 .events-list {
@@ -97,8 +97,8 @@
 
 .event-item {
   padding: 16px;
-  border-left: 4px solid #667eea;
-  background: #f8f9ff;
+  border-left: 4px solid #E8607A;
+  background: #F9EAF0;
   border-radius: 8px;
   margin-bottom: 12px;
   transition: all 0.2s;
@@ -115,7 +115,7 @@
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #667eea;
+  color: #E8607A;
   background: white;
   padding: 4px 10px;
   border-radius: 6px;
@@ -132,18 +132,18 @@
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: #1A1A1A;
 }
 
 .event-location {
   font-size: 13px;
-  color: #666;
+  color: #4A4A52;
   margin: 4px 0;
 }
 
 .event-description {
   font-size: 13px;
-  color: #777;
+  color: #6B7280;
   margin: 8px 0 0 0;
   line-height: 1.5;
 }
@@ -153,7 +153,7 @@
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: #666;
+  color: #4A4A52;
 }
 
 .empty-state {
@@ -162,7 +162,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
+  color: #A3A8B0;
 }
 
 .empty-state svg {
@@ -185,12 +185,12 @@
 .view-more {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid #F3D8E4;
   text-align: center;
 }
 
 .view-more button {
-  background: #667eea;
+  background: #E8607A;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -202,5 +202,5 @@
 }
 
 .view-more button:hover {
-  background: #5568d3;
+  background: #C94D65;
 }

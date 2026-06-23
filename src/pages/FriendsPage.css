@@ -1,6 +1,6 @@
 .friends-page {
   min-height: 100vh;
-  background: var(--bg, #f5f5f5);
+  background: var(--bg, #FDF5F7);
   padding-bottom: 2rem;
 }
 
@@ -10,7 +10,7 @@
   gap: 1rem;
   padding: 1.25rem 1.5rem;
   background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #F3D8E4;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -26,23 +26,23 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #374151;
+  color: #4A4A52;
   display: flex;
   align-items: center;
   padding: 4px;
   border-radius: 6px;
 }
 
-.menu-btn:hover { background: #f3f4f6; }
+.menu-btn:hover { background: #FDF5F7; }
 
 .friends-loading,
 .friends-error {
   text-align: center;
   padding: 2rem;
-  color: #6b7280;
+  color: #6B7280;
 }
 
-.friends-error { color: #dc2626; }
+.friends-error { color: #C0392B; }
 
 .friends-content {
   max-width: 640px;
@@ -66,21 +66,21 @@
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid #FDF5F7;
 }
 
 .section-header h2 {
   font-size: 1rem;
   font-weight: 600;
   margin: 0;
-  color: #111827;
+  color: #1A1A1A;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .badge {
-  background: #4f46e5;
+  background: #E8607A;
   color: #fff;
   font-size: 0.7rem;
   font-weight: 600;
@@ -92,7 +92,7 @@
 .friend-count {
   font-size: 0.8rem;
   font-weight: 400;
-  color: #9ca3af;
+  color: #A3A8B0;
 }
 
 /* ── Add Friend Button ── */
@@ -100,7 +100,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #4f46e5;
+  background: #E8607A;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -111,12 +111,12 @@
   transition: background 0.15s;
 }
 
-.add-friend-btn:hover { background: #4338ca; }
+.add-friend-btn:hover { background: #C94D65; }
 
 /* ── Add Friend Panel ── */
 .add-friend-panel {
   padding: 0.75rem 1.25rem 1rem;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid #FDF5F7;
   background: #fafafa;
 }
 
@@ -128,7 +128,7 @@
 .friend-code-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #F3D8E4;
   border-radius: 8px;
   font-size: 0.9rem;
   letter-spacing: 0.05em;
@@ -137,11 +137,11 @@
   transition: border-color 0.15s;
 }
 
-.friend-code-input:focus { border-color: #4f46e5; }
+.friend-code-input:focus { border-color: #E8607A; }
 
 .send-btn {
   padding: 8px 16px;
-  background: #4f46e5;
+  background: #E8607A;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -152,7 +152,7 @@
   white-space: nowrap;
 }
 
-.send-btn:hover:not(:disabled) { background: #4338ca; }
+.send-btn:hover:not(:disabled) { background: #C94D65; }
 .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .add-status {
@@ -161,7 +161,7 @@
 }
 
 .add-status.success { color: #16a34a; }
-.add-status.error   { color: #dc2626; }
+.add-status.error   { color: #C0392B; }
 
 /* ── Lists ── */
 .request-list,
@@ -177,7 +177,7 @@
   align-items: center;
   gap: 12px;
   padding: 0.85rem 1.25rem;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid #FDF5F7;
 }
 
 .request-item:last-child,
@@ -189,7 +189,7 @@
   transition: background 0.12s;
 }
 
-.friend-item:hover { background: #f9fafb; }
+.friend-item:hover { background: #FDF5F7; }
 
 .avatar {
   width: 40px;
@@ -212,7 +212,7 @@
 .friend-name {
   font-size: 0.9rem;
   font-weight: 500;
-  color: #111827;
+  color: #1A1A1A;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -221,7 +221,7 @@
 .request-email,
 .friend-email {
   font-size: 0.78rem;
-  color: #9ca3af;
+  color: #A3A8B0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -249,7 +249,7 @@
 .accept-btn { background: #dcfce7; color: #16a34a; }
 .accept-btn:hover { background: #bbf7d0; }
 
-.reject-btn { background: #fee2e2; color: #dc2626; }
+.reject-btn { background: #fee2e2; color: #C0392B; }
 .reject-btn:hover { background: #fecaca; }
 
 /* Sent / pending request row */
@@ -260,13 +260,13 @@
   align-items: center;
   gap: 4px;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: #A3A8B0;
   flex-shrink: 0;
   font-style: italic;
 }
 
 .friend-chevron {
-  color: #d1d5db;
+  color: #F3D8E4;
   font-size: 1.2rem;
   flex-shrink: 0;
 }
@@ -277,13 +277,13 @@
   align-items: center;
   gap: 10px;
   padding: 0.75rem 1.25rem;
-  background: #f9fafb;
-  border-bottom: 1px solid #f3f4f6;
+  background: #FDF5F7;
+  border-bottom: 1px solid #FDF5F7;
 }
 
 .my-code-label {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: #6B7280;
   white-space: nowrap;
 }
 
@@ -292,7 +292,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.08em;
-  color: #111827;
+  color: #1A1A1A;
   flex: 1;
 }
 
@@ -301,22 +301,22 @@
   align-items: center;
   gap: 4px;
   background: none;
-  border: 1px solid #d1d5db;
+  border: 1px solid #F3D8E4;
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 0.78rem;
-  color: #374151;
+  color: #4A4A52;
   cursor: pointer;
   transition: background 0.15s;
   white-space: nowrap;
 }
 
-.copy-btn:hover { background: #f3f4f6; }
+.copy-btn:hover { background: #FDF5F7; }
 
 /* ── Empty State ── */
 .empty-state {
   padding: 1.5rem 1.25rem;
-  color: #9ca3af;
+  color: #A3A8B0;
   font-size: 0.875rem;
   text-align: center;
   margin: 0;
@@ -357,13 +357,13 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #9ca3af;
+  color: #A3A8B0;
   padding: 4px;
   border-radius: 6px;
   display: flex;
 }
 
-.popup-close:hover { background: #f3f4f6; color: #374151; }
+.popup-close:hover { background: #FDF5F7; color: #4A4A52; }
 
 .popup-identity {
   display: flex;
@@ -385,7 +385,7 @@
 .popup-display-name {
   font-size: 1.05rem;
   font-weight: 600;
-  color: #111827;
+  color: #1A1A1A;
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -395,7 +395,7 @@
 .popup-email,
 .popup-phone {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: #6B7280;
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -416,20 +416,20 @@
   gap: 5px;
   padding: 10px 6px;
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid #F3D8E4;
+  background: #FDF5F7;
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
-  color: #374151;
+  color: #4A4A52;
   transition: background 0.15s, border-color 0.15s;
 }
 
-.popup-btn:hover:not(:disabled) { background: #f3f4f6; border-color: #d1d5db; }
+.popup-btn:hover:not(:disabled) { background: #FDF5F7; border-color: #F3D8E4; }
 .popup-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.message-btn:hover:not(:disabled) { color: #4f46e5; border-color: #c7d2fe; background: #eef2ff; }
+.message-btn:hover:not(:disabled) { color: #E8607A; border-color: #c7d2fe; background: #F9EAF0; }
 
-.unfriend-btn { color: #dc2626; }
+.unfriend-btn { color: #C0392B; }
 .unfriend-btn:hover:not(:disabled) { background: #fee2e2; border-color: #fca5a5; }
 .unfriend-btn.confirm { background: #fee2e2; border-color: #f87171; }

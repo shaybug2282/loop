@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Menu, UserPlus, Check, X, Copy, ChevronDown, ChevronUp, Clock, Tag, MessageSquare, UserMinus } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import { useMessages } from '../contexts/MessagesContext';
 import './FriendsPage.css';
 
 // ── Friend Contact Card Popup ──────────────────────────────────────────────
 const FriendPopup = ({ friend, onClose, onUnfriend }) => {
-  const navigate = useNavigate();
+  const { openMessages } = useMessages();
   const [unfriendConfirm, setUnfriendConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -64,7 +64,7 @@ const FriendPopup = ({ friend, onClose, onUnfriend }) => {
 
           <button
             className="popup-btn message-btn"
-            onClick={() => navigate('/messages', { state: { friend } })}
+            onClick={() => { openMessages(friend); onClose(); }}
           >
             <MessageSquare size={16} />
             Message

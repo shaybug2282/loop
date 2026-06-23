@@ -34,7 +34,7 @@
 
 .sidebar-header {
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #F3D8E4;
 }
 
 .close-btn {
@@ -48,7 +48,7 @@
 }
 
 .close-btn:hover {
-  background: #f5f5f5;
+  background: #FDF5F7;
 }
 
 .user-info {
@@ -77,13 +77,13 @@
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: #1A1A1A;
 }
 
 .user-details p {
   margin: 4px 0 0 0;
   font-size: 13px;
-  color: #666;
+  color: #4A4A52;
 }
 
 .sidebar-nav {
@@ -97,21 +97,21 @@
   align-items: center;
   gap: 15px;
   padding: 15px 20px;
-  color: #555;
+  color: #4A4A52;
   text-decoration: none;
   transition: all 0.2s;
   border-left: 3px solid transparent;
 }
 
 .nav-item:hover {
-  background: #f5f5f5;
-  color: #667eea;
+  background: #FDF5F7;
+  color: #E8607A;
 }
 
 .nav-item.active {
   background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, transparent 100%);
-  color: #667eea;
-  border-left-color: #667eea;
+  color: #E8607A;
+  border-left-color: #E8607A;
   font-weight: 600;
 }
 
@@ -121,7 +121,7 @@
 
 .sidebar-footer {
   padding: 20px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid #F3D8E4;
 }
 
 .logout-btn {
@@ -131,7 +131,7 @@
   width: 100%;
   padding: 15px 20px;
   background: none;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #F3D8E4;
   border-radius: 8px;
   color: #d32f2f;
   font-size: 15px;
@@ -140,7 +140,7 @@
 }
 
 .logout-btn:hover {
-  background: #ffebee;
+  background: #FFF0EF;
   border-color: #d32f2f;
 }
 

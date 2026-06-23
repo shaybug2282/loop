@@ -14,19 +14,19 @@
   gap: 12px;
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid #F3D8E4;
 }
 
 .component-header h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: #1A1A1A;
   flex: 1;
 }
 
 .component-header svg {
-  color: #667eea;
+  color: #E8607A;
 }
 
 .refresh-btn {
@@ -34,7 +34,7 @@
   border: none;
   cursor: pointer;
   padding: 6px;
-  color: #667eea;
+  color: #E8607A;
   display: flex;
   align-items: center;
   border-radius: 6px;
@@ -42,7 +42,7 @@
 }
 
 .refresh-btn:hover {
-  background: #f0f0f0;
+  background: #F3D8E4;
 }
 
 .todo-input-form {
@@ -54,7 +54,7 @@
 .todo-input {
   flex: 1;
   padding: 12px 16px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #F3D8E4;
   border-radius: 8px;
   font-size: 15px;
   transition: border-color 0.2s;
@@ -62,11 +62,11 @@
 
 .todo-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #E8607A;
 }
 
 .add-btn {
-  background: #667eea;
+  background: #E8607A;
   color: white;
   border: none;
   padding: 12px 16px;
@@ -79,13 +79,13 @@
 }
 
 .add-btn:hover {
-  background: #5568d3;
+  background: #C94D65;
 }
 
 .loading {
   text-align: center;
   padding: 40px;
-  color: #999;
+  color: #A3A8B0;
 }
 
 .todos-container {
@@ -98,7 +98,7 @@
   align-items: center;
   gap: 12px;
   padding: 14px;
-  background: #f8f9ff;
+  background: #F9EAF0;
   border-radius: 8px;
   margin-bottom: 8px;
   transition: all 0.2s;
@@ -113,7 +113,7 @@
 }
 
 .todo-item.completed {
-  background: #f0f0f0;
+  background: #F3D8E4;
   opacity: 0.7;
 }
 
@@ -124,7 +124,7 @@
   padding: 4px;
   display: flex;
   align-items: center;
-  color: #667eea;
+  color: #E8607A;
   transition: transform 0.2s;
   flex-shrink: 0;
 }
@@ -134,13 +134,13 @@
 }
 
 .todo-item.completed .checkbox {
-  color: #4caf50;
+  color: #059669;
 }
 
 .todo-text {
   flex: 1;
   font-size: 15px;
-  color: #333;
+  color: #1A1A1A;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -148,7 +148,7 @@
 
 .todo-item.completed .todo-text {
   text-decoration: line-through;
-  color: #999;
+  color: #A3A8B0;
 }
 
 .google-badge {
@@ -165,7 +165,7 @@
 .edit-input {
   flex: 1;
   padding: 8px 12px;
-  border: 2px solid #667eea;
+  border: 2px solid #E8607A;
   border-radius: 6px;
   font-size: 15px;
 }
@@ -191,20 +191,20 @@
 }
 
 .edit-btn {
-  color: #667eea;
+  color: #E8607A;
 }
 
 .edit-btn:hover {
-  background: #f0f0f0;
+  background: #F3D8E4;
 }
 
 .save-edit-btn {
-  color: #4caf50;
+  color: #059669;
   opacity: 1;
 }
 
 .save-edit-btn:hover {
-  background: #e8f5e9;
+  background: #ECFDF5;
 }
 
 .cancel-edit-btn {
@@ -213,7 +213,7 @@
 }
 
 .cancel-edit-btn:hover {
-  background: #ffebee;
+  background: #FFF0EF;
 }
 
 .delete-btn {
@@ -234,18 +234,18 @@
 }
 
 .delete-btn:hover {
-  color: #b71c1c;
-  background: #ffebee;
+  color: #C0392B;
+  background: #FFF0EF;
 }
 
 .completed-divider {
   font-size: 12px;
   font-weight: 600;
-  color: #999;
+  color: #A3A8B0;
   text-transform: uppercase;
   margin: 20px 0 12px 0;
   padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid #F3D8E4;
 }
 
 .empty-state {
@@ -254,7 +254,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
+  color: #A3A8B0;
 }
 
 .empty-state svg {

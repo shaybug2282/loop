@@ -14,7 +14,7 @@
   justify-content: space-between;
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid #F3D8E4;
 }
 
 .fw-title {
@@ -23,17 +23,17 @@
   gap: 10px;
 }
 
-.fw-title svg { color: #4f46e5; }
+.fw-title svg { color: #E8607A; }
 
 .fw-title h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: #1A1A1A;
 }
 
 .fw-badge {
-  background: #4f46e5;
+  background: #E8607A;
   color: #fff;
   font-size: 0.68rem;
   font-weight: 700;
@@ -45,7 +45,7 @@
 .fw-view-all {
   background: none;
   border: none;
-  color: #4f46e5;
+  color: #E8607A;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -54,7 +54,7 @@
 
 .fw-view-all:hover { text-decoration: underline; }
 
-.fw-loading { color: #9ca3af; font-size: 13px; margin: 0; }
+.fw-loading { color: #A3A8B0; font-size: 13px; margin: 0; }
 
 .fw-empty {
   flex: 1;
@@ -66,16 +66,16 @@
   gap: 10px;
 }
 
-.fw-empty-icon { color: #d1d5db; }
+.fw-empty-icon { color: #F3D8E4; }
 
 .fw-empty p {
-  color: #9ca3af;
+  color: #A3A8B0;
   font-size: 14px;
   margin: 0;
 }
 
 .fw-add-btn {
-  background: #4f46e5;
+  background: #E8607A;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -86,7 +86,7 @@
   transition: background 0.15s;
 }
 
-.fw-add-btn:hover { background: #4338ca; }
+.fw-add-btn:hover { background: #C94D65; }
 
 /* ── Friend list ── */
 
@@ -109,10 +109,10 @@
   border-radius: 10px;
   cursor: pointer;
   transition: background 0.12s;
-  background: #f8f9ff;
+  background: #F9EAF0;
 }
 
-.fw-item:hover { background: #eef2ff; }
+.fw-item:hover { background: #F9EAF0; }
 
 .fw-avatar {
   width: 40px;
@@ -123,7 +123,7 @@
 }
 
 .fw-avatar.placeholder {
-  background: linear-gradient(135deg, #4f46e5, #764ba2);
+  background: linear-gradient(135deg, #E8607A, #B5365A);
   color: #fff;
   display: flex;
   align-items: center;
@@ -143,7 +143,7 @@
 .fw-name {
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: #1A1A1A;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -154,13 +154,13 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #6b7280;
+  color: #6B7280;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.fw-detail svg { flex-shrink: 0; color: #9ca3af; }
+.fw-detail svg { flex-shrink: 0; color: #A3A8B0; }
 
 /* ── Message button ── */
 
@@ -170,7 +170,7 @@
   border: none;
   padding: 6px;
   border-radius: 8px;
-  color: #9ca3af;
+  color: #A3A8B0;
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
   display: flex;
@@ -184,6 +184,6 @@
 }
 
 .fw-msg-btn:hover {
-  color: #4f46e5;
-  background: #e0e7ff;
+  color: #E8607A;
+  background: #FDE8EF;
 }

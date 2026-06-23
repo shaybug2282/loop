@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, UserPlus, MessageSquare, Mail, Phone } from 'lucide-react';
+import { useMessages } from '../contexts/MessagesContext';
 import './FriendsWidget.css';
 
 // Dashboard friends panel: shows friends with contact info and a direct-message shortcut.
 const FriendsWidget = () => {
   const navigate = useNavigate();
+  const { openMessages } = useMessages();
   const [friends,      setFriends]      = useState([]);
   const [requestCount, setRequestCount] = useState(0);
   const [loading,      setLoading]      = useState(true);
@@ -25,7 +27,7 @@ const FriendsWidget = () => {
 
   const handleMessage = (e, friend) => {
     e.stopPropagation();
-    navigate('/messages', { state: { friend } });
+    openMessages(friend);
   };
 
   return (

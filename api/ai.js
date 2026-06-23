@@ -28,7 +28,7 @@ export default async function handler(req, res) {
         'anthropic-beta':    'prompt-caching-2024-07-31',
       },
       body: JSON.stringify({
-        model:      'claude-sonnet-4-6',
+        model:      'claude-haiku-4-5',
         max_tokens: 1024,
         system:   [{ type: 'text', text: systemText, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: message.trim() }],
