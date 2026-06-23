@@ -214,14 +214,15 @@ const BACK = {
 };
 
 export default function ScheduleWidget() {
-  const [screen,   setScreen]   = useState('start');
-  const [friends,  setFriends]  = useState([]);
-  const [selected, setSelected] = useState(new Set());
-  const [hours,    setHours]    = useState(1);
-  const [times,    setTimes]    = useState([]);
-  const [notifs,   setNotifs]   = useState([]);
-  const [myId,     setMyId]     = useState(null);
-  const [loading,  setLoading]  = useState(false);
+  const [screen,        setScreen]        = useState('start');
+  const [friends,       setFriends]       = useState([]);
+  const [selected,      setSelected]      = useState(new Set());
+  const [hours,         setHours]         = useState(1);
+  const [times,         setTimes]         = useState([]);
+  const [notifs,        setNotifs]        = useState([]);
+  const [myId,          setMyId]          = useState(null);
+  const [loading,       setLoading]       = useState(false);
+  const [scheduleError, setScheduleError] = useState(null);
 
   const googleId = localStorage.getItem('googleUserId');
 
@@ -244,6 +245,13 @@ export default function ScheduleWidget() {
     })();
   }, [googleId, loadNotifs]);
 
+  // Poll so invited users see incoming invites without refreshing.
+  useEffect(() => {
+    if (!googleId) return;
+    const t = setInterval(loadNotifs, 15_000);
+    return () => clearInterval(t);
+  }, [googleId, loadNotifs]);
+
   // Fetch friends when entering friend-select screen
   useEffect(() => {
     if (screen !== 'friends' || !googleId) return;
@@ -255,6 +263,7 @@ export default function ScheduleWidget() {
     setScreen('start');
     setSelected(new Set());
     setTimes([]);
+    setScheduleError(null);
     loadNotifs();
   };
 
@@ -284,6 +293,7 @@ export default function ScheduleWidget() {
   };
 
   const choose = async (time, dur = hours) => {
+    setScheduleError(null);
     setLoading(true);
     try {
       const r = await fetch('/api/schedule', {
@@ -294,11 +304,17 @@ export default function ScheduleWidget() {
           invitedUserIds: [...selected], eventTime: time, durationHours: dur,
         }),
       });
-      if (!r.ok) throw new Error();
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.error || `Server error (${r.status})`);
+      }
       setScreen('pending');
       loadNotifs();
-    } catch { setScreen('start'); }
-    finally { setLoading(false); }
+    } catch (err) {
+      setScheduleError(err.message || 'Could not create event. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const respond = async (eventId, action) => {
@@ -340,7 +356,7 @@ export default function ScheduleWidget() {
     <div className="sw-widget">
       <div className="sw-header">
         {canBack && (
-          <button className="sw-back" onClick={() => setScreen(BACK[screen])}>
+          <button className="sw-back" onClick={() => { setScreen(BACK[screen]); setScheduleError(null); }}>
             <ChevronLeft size={16} />
           </button>
         )}
@@ -348,6 +364,13 @@ export default function ScheduleWidget() {
       </div>
 
       <div className="sw-body">
+        {scheduleError && (
+          <div className="sw-error-banner">
+            {scheduleError}
+            <button className="sw-error-dismiss" onClick={() => setScheduleError(null)}>✕</button>
+          </div>
+        )}
+
         {/* Accepted events the user created */}
         {myCreated.map(e => (
           <div key={e.id} className="sw-created-done">

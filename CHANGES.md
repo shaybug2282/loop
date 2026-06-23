@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-06-23 — Messages popup fixed-height + ScheduleWidget error handling + notif polling
+
+**Messages popup:** `.mp-panel` now uses `height: min(520px, calc(100vh - 32px))` instead of only `max-height`, so the panel renders at full size immediately on open rather than starting small and expanding as content loads.
+
+**ScheduleWidget — error surfacing:** `choose()` no longer silently resets to `start` on API failure. It now captures the server error message and displays it as an inline error banner above the widget body. The user stays on the current screen and can retry or dismiss the banner. `reset()` and the back button both clear the error.
+
+**ScheduleWidget — invite polling:** Added a 15-second `setInterval` on `loadNotifs` so invited users see incoming event invites in their widget without needing to reload the page. Previously, the invited user's notif list was only fetched once on mount.
+
 ## 2026-06-23 — Schedule! widget
 
 Replaced the To-do list widget on the Dashboard with a new **Schedule!** widget (`ScheduleWidget.js/css`). The widget has a multi-screen flow:
