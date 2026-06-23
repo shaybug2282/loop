@@ -13,7 +13,7 @@ const FriendsWidget = () => {
   useEffect(() => {
     const googleId = localStorage.getItem('googleUserId');
     if (!googleId) return;
-    fetch(`/api/get-friends-data?googleId=${encodeURIComponent(googleId)}`)
+    fetch(`/api/friends?op=data&googleId=${encodeURIComponent(googleId)}`)
       .then(r => r.json())
       .then(d => {
         setFriends(d.friends ?? []);

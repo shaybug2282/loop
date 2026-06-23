@@ -44,7 +44,7 @@ const Conversation = ({ friend, myId, myPrivateKey, onBack }) => {
   useEffect(() => {
     async function init() {
       try {
-        const res = await fetch(`/api/get-public-key?userId=${friend.id}`);
+        const res = await fetch(`/api/messages?op=public-key&userId=${friend.id}`);
         if (!res.ok) throw new Error('Friend has not set up messaging yet');
         const { publicKeyJwk } = await res.json();
         const theirPubKey = await importPublicKey(publicKeyJwk);
@@ -64,7 +64,7 @@ const Conversation = ({ friend, myId, myPrivateKey, onBack }) => {
     const since = lastSeenRef.current
       ? `&since=${encodeURIComponent(lastSeenRef.current)}`
       : '';
-    const res = await fetch(`/api/get-conversation?googleId=${encodeURIComponent(googleId)}&friendId=${friend.id}${since}`);
+    const res = await fetch(`/api/messages?op=conversation&googleId=${encodeURIComponent(googleId)}&friendId=${friend.id}${since}`);
     if (!res.ok) return;
     const { messages: raw } = await res.json();
     if (!raw.length) return;
@@ -115,10 +115,10 @@ const Conversation = ({ friend, myId, myPrivateKey, onBack }) => {
     setInput('');
     try {
       const { ciphertext, iv } = await encryptMessage(sharedKey, text);
-      const res = await fetch('/api/send-message', {
+      const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ senderGoogleId: googleId, receiverId: friend.id, ciphertext, iv }),
+        body: JSON.stringify({ op: 'send', senderGoogleId: googleId, receiverId: friend.id, ciphertext, iv }),
       });
       if (res.ok) {
         const saved = await res.json();
@@ -192,7 +192,7 @@ const ConversationList = ({ onSelect }) => {
   const googleId = localStorage.getItem('googleUserId');
 
   useEffect(() => {
-    fetch(`/api/get-conversations?googleId=${encodeURIComponent(googleId)}`)
+    fetch(`/api/messages?op=conversations&googleId=${encodeURIComponent(googleId)}`)
       .then(r => r.json())
       .then(d => { setConvos(d.conversations ?? []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -245,12 +245,12 @@ const MessagesPage = () => {
 
       // Upload public key and resolve UUID in parallel
       const [, idRes] = await Promise.all([
-        fetch('/api/store-public-key', {
+        fetch('/api/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ googleId, publicKeyJwk }),
+          body: JSON.stringify({ op: 'store-key', googleId, publicKeyJwk }),
         }),
-        fetch(`/api/get-my-id?googleId=${encodeURIComponent(googleId)}`),
+        fetch(`/api/user?op=my-id&googleId=${encodeURIComponent(googleId)}`),
       ]);
 
       if (idRes.ok) {

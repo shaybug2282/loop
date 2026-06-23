@@ -17,10 +17,10 @@ const FriendPopup = ({ friend, onClose, onUnfriend }) => {
     if (!unfriendConfirm) { setUnfriendConfirm(true); return; }
     setLoading(true);
     try {
-      const res = await fetch('/api/unfriend', {
+      const res = await fetch('/api/friends', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ googleId, friendUserId: friend.id }),
+        body: JSON.stringify({ op: 'unfriend', googleId, friendUserId: friend.id }),
       });
       if (!res.ok) throw new Error();
       onUnfriend(friend.id);
@@ -110,7 +110,7 @@ const FriendsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/get-friends-data?googleId=${encodeURIComponent(googleId)}`);
+      const res = await fetch(`/api/friends?op=data&googleId=${encodeURIComponent(googleId)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load');
       setFriendCode(data.friendCode ?? '');
@@ -138,10 +138,10 @@ const FriendsPage = () => {
     setAddLoading(true);
     setAddStatus(null);
     try {
-      const res = await fetch('/api/send-friend-request', {
+      const res = await fetch('/api/friends', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ senderGoogleId: googleId, friendCode: inputCode.trim() }),
+        body: JSON.stringify({ op: 'send', senderGoogleId: googleId, friendCode: inputCode.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send request');
@@ -157,10 +157,10 @@ const FriendsPage = () => {
 
   const handleRespond = async (requestId, action) => {
     try {
-      const res = await fetch('/api/respond-friend-request', {
+      const res = await fetch('/api/friends', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ googleId, requestId, action }),
+        body: JSON.stringify({ op: 'respond', googleId, requestId, action }),
       });
       if (!res.ok) throw new Error();
       loadData();

@@ -53,10 +53,10 @@ const AISummary = () => {
 
     try {
       const calendarContext = await getCalendarContext();
-      const res = await fetch('/api/ai-chat', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, calendarContext: calendarContext || undefined }),
+        body: JSON.stringify({ op: 'chat', message: text, calendarContext: calendarContext || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'AI error');

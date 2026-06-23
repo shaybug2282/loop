@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-23 — Consolidate serverless functions (14 → 5) for Vercel Hobby plan
+
+Merged 14 individual `/api/*.js` serverless functions into 4 router files — `api/friends.js`, `api/messages.js`, `api/user.js`, `api/ai.js` — plus the existing `api/_crypto.js` utility (not a Vercel function). Each router uses `req.query.op` for GET and `req.body.op` for POST to dispatch to the appropriate handler. Updated all client-side callers in 7 files (`Login.js`, `googleCalendar.js`, `MessagesPage.js`, `FriendsPage.js`, `AISummary.js`, `FriendsWidget.js`, `ProfilePage.js`); deleted all 14 old individual files.
+
+Potential bugs: `generate-summary.js` was deleted as dead code — if any code path still references `/api/generate-summary` it will 404. Verify Vercel re-detects the function count after next deploy (should show 4 functions, well under the 12 Hobby cap).
+
 ## 2026-05-01 — Messaging, AI chat, favicon, friends widget
 
 E2E encrypted DMs: `messageCrypto.js` (ECDH P-256 key agreement + AES-256-GCM) — keypair generated once per browser, public key stored in Supabase. `MessagesPage` polls every 3s for new messages, decrypts locally, groups bubbles with a visual gap when >1 min between messages. `api/{send-message,get-conversation,get-conversations,get-my-id,store-public-key,get-public-key}.js` all use service role key. Navigate from friend popup passes friend via router state so the correct conversation opens directly.

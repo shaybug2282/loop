@@ -33,10 +33,10 @@ export const initGoogleCalendar = (accessToken, expiresIn = 3600) => {
   // Fire-and-forget — a sync failure doesn't block calendar use.
   const googleId = localStorage.getItem('googleUserId');
   if (googleId) {
-    fetch('/api/sync-user', {
+    fetch('/api/user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ googleId, accessToken, expiresIn }),
+      body: JSON.stringify({ op: 'sync', googleId, accessToken, expiresIn }),
     }).catch(() => {});
   }
 };

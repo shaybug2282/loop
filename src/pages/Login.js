@@ -34,10 +34,11 @@ const Login = () => {
         initGoogleCalendar(response.access_token, response.expires_in || 3600);
 
         // Upsert user into Supabase via serverless function — token is encrypted server-side
-        await fetch('/api/sync-user', {
+        await fetch('/api/user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            op: 'sync',
             googleId: userInfo.id,
             email: userInfo.email,
             name: userInfo.name,
