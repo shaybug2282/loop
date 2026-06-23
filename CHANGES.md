@@ -1,5 +1,40 @@
 # Changes
 
+## 2026-06-23 — Schedule! widget
+
+Replaced the To-do list widget on the Dashboard with a new **Schedule!** widget (`ScheduleWidget.js/css`). The widget has a multi-screen flow:
+
+- **Start:** three options — Event / With a friend / Other. Event and Other show a "not yet" stub.
+- **With a friend:** multi-select friend list; arrow button (bottom-right) appears once ≥1 friend is selected.
+- **Timing:** "Pick a time" (date + time inputs → creates event immediately) or "Find a time" (enter hours → calls `/api/schedule` to compare calendars).
+- **Find a time:** queries Google Calendar FreeBusy API for all selected users via server-side token decryption; proposes 3 daytime slots (9 AM–6 PM preferred, any hour if needed), spaced ≥6 hours apart. If none found, offers to extend to the following week.
+- **Proposed times:** user selects one → event is written to `pending_events` table.
+- **Pending:** confirmation screen; invited users see the event as a notification in their own Schedule! widget with Accept / Decline.
+- **All accepted:** Google Calendar events are created on every participant's primary calendar; event name is `{creatorName} Hangout!`
+
+New `api/schedule.js` router (counts as 1 Vercel function):
+- `GET ?op=pending-events` — events where user is creator or invitee, status pending/accepted
+- `POST op:create-event` — write pending_event row
+- `POST op:respond` — accept/decline; triggers GCal creation when all have accepted
+- `POST op:find-times` — server-side FreeBusy query across all participants
+
+**Required Supabase migration:**
+```sql
+CREATE TABLE pending_events (
+  id               UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  creator_id       UUID REFERENCES users(id),
+  invited_user_ids UUID[]     NOT NULL DEFAULT '{}',
+  event_time       TIMESTAMPTZ NOT NULL,
+  duration_hours   FLOAT      NOT NULL DEFAULT 1,
+  status           TEXT       NOT NULL DEFAULT 'pending',
+  acceptances      UUID[]     NOT NULL DEFAULT '{}',
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  google_event_created BOOLEAN DEFAULT false
+);
+```
+
+Potential bugs: Google Calendar tokens may be expired at find-time; expired tokens are silently skipped (that user's busy times are ignored, so proposed slots might conflict). Server-side clock drift could affect window calculations. The `pending_events` table must exist before the widget is functional.
+
 ## 2026-06-23 — Panel height, gradient removal, FriendsPage header
 
 **Messages panel height:** `MessagesPanel.css` updated from `max-height: 500px` to `max-height: min(1500px, calc(100vh - 32px))` — roughly 3× taller while staying within the viewport.

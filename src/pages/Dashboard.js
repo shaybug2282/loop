@@ -3,7 +3,7 @@ import { Menu } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import CalendarComponent from '../components/CalendarComponent';
 import AISummary from '../components/AISummary';
-import TodoList from '../components/TodoList';
+import ScheduleWidget from '../components/ScheduleWidget';
 import FriendsWidget from '../components/FriendsWidget';
 import './Dashboard.css';
 
@@ -27,7 +27,7 @@ const Dashboard = () => {
           <AISummary />
         </div>
         <div className="dashboard-item">
-          <TodoList />
+          <ScheduleWidget />
         </div>
         <div className="dashboard-item">
           <FriendsWidget />
