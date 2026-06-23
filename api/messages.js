@@ -1,19 +1,16 @@
 // Messages router — all messaging and E2E key operations in one function.
 //
-// GET  ?op=conversation&googleId=&friendId=&since=  → messages between two users
-// GET  ?op=conversations&googleId=                  → all conversation partners
-// GET  ?op=public-key&userId=                       → ECDH public key for a user
-// POST { op:'send',      senderGoogleId, receiverId, payload }
+// GET  ?op=conversation&googleId=&friendId=  → messages between two users
+// GET  ?op=conversations&googleId=           → all conversation partners
+// GET  ?op=public-key&userId=                → ECDH public key for a user
+// POST { op:'send',      senderGoogleId, receiverId, ciphertext, iv }
 // POST { op:'store-key', googleId, publicKeyJwk }
-// POST { op:'delete',    googleId, messageId }       → undo send (within 30s)
-// POST { op:'edit',      googleId, messageId, payload } → edit (within 60s)
+// POST { op:'delete',    googleId, messageId }              → undo send (within 30s)
+// POST { op:'edit',      googleId, messageId, ciphertext, iv } → edit (within 60s)
 //
-// DB note: messages table requires these columns —
-//   payload TEXT,        -- combined "ivB64.ctB64" replaces separate ciphertext/iv
-//   edited_at TIMESTAMPTZ
-// Migration: ALTER TABLE messages ADD COLUMN IF NOT EXISTS payload TEXT;
-//            ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
-//            UPDATE messages SET payload = iv || '.' || ciphertext WHERE payload IS NULL;
+// DB: uses the existing ciphertext TEXT and iv TEXT columns.
+// Edit feature requires one additional column (run once in Supabase SQL editor):
+//   ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -31,26 +28,22 @@ export default async function handler(req, res) {
     const client = db();
 
     if (op === 'conversation') {
-      const { googleId, friendId, since } = req.query;
+      const { googleId, friendId } = req.query;
       if (!googleId || !friendId) return res.status(400).json({ error: 'googleId and friendId required' });
 
       const { data: me, error: meErr } = await client
         .from('users').select('id').eq('google_id', googleId).single();
       if (meErr || !me) return res.status(404).json({ error: 'User not found' });
 
-      let query = client
+      const { data, error } = await client
         .from('messages')
-        // Select both new payload and legacy ciphertext/iv for backwards compat
-        .select('id, sender_id, payload, ciphertext, iv, edited_at, created_at')
+        .select('id, sender_id, ciphertext, iv, created_at')
         .or(
           `and(sender_id.eq.${me.id},receiver_id.eq.${friendId}),` +
           `and(sender_id.eq.${friendId},receiver_id.eq.${me.id})`
         )
         .order('created_at', { ascending: true });
 
-      if (since) query = query.gt('created_at', since);
-
-      const { data, error } = await query;
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ messages: data ?? [] });
     }
@@ -118,9 +111,9 @@ export default async function handler(req, res) {
     const client = db();
 
     if (op === 'send') {
-      const { senderGoogleId, receiverId, payload } = req.body;
-      if (!senderGoogleId || !receiverId || !payload)
-        return res.status(400).json({ error: 'senderGoogleId, receiverId, payload required' });
+      const { senderGoogleId, receiverId, ciphertext, iv } = req.body;
+      if (!senderGoogleId || !receiverId || !ciphertext || !iv)
+        return res.status(400).json({ error: 'senderGoogleId, receiverId, ciphertext, iv required' });
 
       const { data: sender, error: senderErr } = await client
         .from('users').select('id').eq('google_id', senderGoogleId).single();
@@ -128,7 +121,7 @@ export default async function handler(req, res) {
 
       const { data, error } = await client
         .from('messages')
-        .insert({ sender_id: sender.id, receiver_id: receiverId, payload })
+        .insert({ sender_id: sender.id, receiver_id: receiverId, ciphertext, iv })
         .select('id, created_at')
         .single();
 
@@ -149,7 +142,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // Undo send — hard delete within 30 seconds of sending
+    // Undo send — hard delete within 30 seconds
     if (op === 'delete') {
       const { googleId, messageId } = req.body;
       if (!googleId || !messageId) return res.status(400).json({ error: 'googleId and messageId required' });
@@ -169,10 +162,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // Edit message — re-encrypt and store within 60 seconds of sending
+    // Edit message — re-encrypt within 60 seconds
+    // Requires: ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
     if (op === 'edit') {
-      const { googleId, messageId, payload } = req.body;
-      if (!googleId || !messageId || !payload) return res.status(400).json({ error: 'googleId, messageId, payload required' });
+      const { googleId, messageId, ciphertext, iv } = req.body;
+      if (!googleId || !messageId || !ciphertext || !iv)
+        return res.status(400).json({ error: 'googleId, messageId, ciphertext, iv required' });
 
       const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
       if (!me) return res.status(404).json({ error: 'User not found' });
@@ -184,9 +179,17 @@ export default async function handler(req, res) {
       if (Date.now() - new Date(msg.created_at).getTime() > 60_000)
         return res.status(403).json({ error: 'Edit window expired (60 seconds)' });
 
-      const { error } = await client.from('messages')
-        .update({ payload, edited_at: new Date().toISOString() })
+      // Try to set edited_at; if the column doesn't exist yet, update content only.
+      let { error } = await client.from('messages')
+        .update({ ciphertext, iv, edited_at: new Date().toISOString() })
         .eq('id', messageId);
+
+      if (error?.message?.includes('edited_at')) {
+        // Column not yet added — update content without the timestamp
+        ({ error } = await client.from('messages')
+          .update({ ciphertext, iv })
+          .eq('id', messageId));
+      }
 
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ ok: true });

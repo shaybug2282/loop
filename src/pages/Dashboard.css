@@ -1,6 +1,6 @@
 .dashboard {
   min-height: 100vh;
-  background: linear-gradient(135deg, #FDF5F7 0%, #F9EAF0 100%);
+  background: #FDF5F7;
   padding: 20px;
 }
 
@@ -33,10 +33,7 @@
   margin: 0;
   font-size: 32px;
   font-weight: 700;
-  background: linear-gradient(135deg, #E8607A 0%, #B5365A 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #E8607A;
 }
 
 .dashboard-grid {

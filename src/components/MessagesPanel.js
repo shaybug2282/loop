@@ -14,31 +14,29 @@ import {
 } from '../utils/messageCrypto';
 import './MessagesPanel.css';
 
-const POLL_MS  = 3000;
-const GAP_MS   = 30_000; // 30 seconds — threshold for showing a new timestamp
+const POLL_MS = 3000;
+const GAP_MS  = 30_000; // 30-second gap threshold for time labels
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatMsgTime(iso) {
-  const d     = new Date(iso);
-  const today = new Date();
-  const isToday = d.toDateString() === today.toDateString();
+  const d = new Date(iso);
+  const isToday = d.toDateString() === new Date().toDateString();
   return isToday
     ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
       ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-// True when there is a 30s+ gap before this message (or it is the first one).
+// Show a time label only when there is a 30s+ gap (or before the first message).
 function hasGapBefore(msgs, i) {
   if (i === 0) return true;
   return new Date(msgs[i].created_at) - new Date(msgs[i - 1].created_at) >= GAP_MS;
 }
 
-// True when this message continues a run from the same sender with no gap.
+// Same sender, no gap → tighter visual grouping.
 function isGrouped(msgs, i) {
-  if (i === 0) return false;
-  if (hasGapBefore(msgs, i)) return false;
+  if (i === 0 || hasGapBefore(msgs, i)) return false;
   return msgs[i].sender_id === msgs[i - 1].sender_id;
 }
 
@@ -48,10 +46,8 @@ const CtxMenu = ({ menu, onUndoSend, onEdit, onClose }) => {
   const ref = useRef(null);
 
   useEffect(() => {
-    const dismiss = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) onClose();
-    };
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const dismiss = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    const onKey   = e => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('mousedown', dismiss);
     document.addEventListener('keydown',   onKey);
     return () => {
@@ -60,7 +56,6 @@ const CtxMenu = ({ menu, onUndoSend, onEdit, onClose }) => {
     };
   }, [onClose]);
 
-  // Clamp so menu never overflows viewport
   const style = {
     top:  Math.min(menu.y, window.innerHeight - 110),
     left: Math.max(Math.min(menu.x, window.innerWidth - 160), 8),
@@ -73,14 +68,14 @@ const CtxMenu = ({ menu, onUndoSend, onEdit, onClose }) => {
         onClick={() => { if (menu.canUndo) { onUndoSend(); onClose(); } }}
       >
         Undo Send
-        {!menu.canUndo && <span className="mp-ctx-note">· 30s expired</span>}
+        {!menu.canUndo && <span className="mp-ctx-note">· expired</span>}
       </button>
       <button
         className={`mp-ctx-item ${!menu.canEdit ? 'disabled' : ''}`}
         onClick={() => { if (menu.canEdit) { onEdit(); onClose(); } }}
       >
         Edit Message
-        {!menu.canEdit && <span className="mp-ctx-note">· 1 min expired</span>}
+        {!menu.canEdit && <span className="mp-ctx-note">· expired</span>}
       </button>
     </div>
   );
@@ -89,28 +84,27 @@ const CtxMenu = ({ menu, onUndoSend, onEdit, onClose }) => {
 // ── Conversation ──────────────────────────────────────────────────────────────
 
 const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
-  const [messages,   setMessages]   = useState([]);
-  const [input,      setInput]      = useState('');
-  const [sending,    setSending]    = useState(false);
-  const [sharedKey,  setSharedKey]  = useState(null);
-  const [keyReady,   setKeyReady]   = useState(false);
-  const [keyError,   setKeyError]   = useState(null);
-  const [editingId,  setEditingId]  = useState(null);
-  const [editDraft,  setEditDraft]  = useState('');
-  const [ctxMenu,    setCtxMenu]    = useState(null);
+  const [messages,  setMessages]  = useState([]);
+  const [input,     setInput]     = useState('');
+  const [sending,   setSending]   = useState(false);
+  const [sharedKey, setSharedKey] = useState(null);
+  const [keyReady,  setKeyReady]  = useState(false);
+  const [keyError,  setKeyError]  = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [ctxMenu,   setCtxMenu]   = useState(null);
 
-  const bottomRef   = useRef(null);
-  const lastSeenRef = useRef(null);
-  const inputRef    = useRef(null);
-  const googleId    = localStorage.getItem('googleUserId');
+  const bottomRef = useRef(null);
+  const inputRef  = useRef(null);
+  const googleId  = localStorage.getItem('googleUserId');
 
-  // Derive shared ECDH key on mount (once per friend)
+  // Derive shared ECDH key once per friend
   useEffect(() => {
     let cancelled = false;
     async function init() {
       try {
         const res = await fetch(`/api/messages?op=public-key&userId=${friend.id}`);
-        if (!res.ok) throw new Error('Friend has not set up messaging yet');
+        if (!res.ok) throw new Error("Friend hasn't set up messaging yet");
         const { publicKeyJwk } = await res.json();
         const theirPub = await importPublicKey(publicKeyJwk);
         const key = await deriveSharedKey(myPrivateKey, theirPub);
@@ -123,25 +117,21 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
     return () => { cancelled = true; };
   }, [friend.id, myPrivateKey]);
 
+  // Fetch and decrypt the full conversation — replaces local state on each poll.
+  // Full fetch (no `since` param) handles edits and deletes correctly.
   const fetchMessages = useCallback(async () => {
     if (!sharedKey || document.visibilityState === 'hidden') return;
-    const since = lastSeenRef.current
-      ? `&since=${encodeURIComponent(lastSeenRef.current)}`
-      : '';
     const res = await fetch(
-      `/api/messages?op=conversation&googleId=${encodeURIComponent(googleId)}&friendId=${friend.id}${since}`
+      `/api/messages?op=conversation&googleId=${encodeURIComponent(googleId)}&friendId=${friend.id}`
     );
     if (!res.ok) return;
     const { messages: raw } = await res.json();
-    if (!raw.length) return;
+    if (!raw) return;
 
     const decrypted = await Promise.all(
       raw.map(async m => {
         try {
-          // Support both new `payload` and legacy `ciphertext + iv`
-          const text = m.payload
-            ? await decryptMessage(sharedKey, m.payload)
-            : await decryptMessage(sharedKey, m.ciphertext, m.iv);
+          const text = await decryptMessage(sharedKey, m.ciphertext, m.iv);
           return { ...m, text };
         } catch {
           return { ...m, text: '[encrypted]' };
@@ -149,26 +139,20 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
       })
     );
 
-    lastSeenRef.current = raw[raw.length - 1].created_at;
+    // Preserve client-side `edited_at` for messages the sender edited locally
     setMessages(prev => {
-      const ids = new Set(prev.map(m => m.id));
-      const added = decrypted.filter(m => !ids.has(m.id));
-      // Apply edits/deletes from server side (handle deleted messages)
-      const updated = prev.map(m => {
-        const serverVer = decrypted.find(d => d.id === m.id);
-        return serverVer ?? m;
-      });
-      return added.length ? [...updated, ...added] : updated;
+      const localEdits = new Map(prev.filter(m => m.local_edited).map(m => [m.id, m.edited_at]));
+      return decrypted.map(m => ({
+        ...m,
+        edited_at: m.edited_at ?? localEdits.get(m.id) ?? null,
+      }));
     });
   }, [sharedKey, googleId, friend.id]);
 
   // Initial load
   useEffect(() => {
-    if (!keyReady) return;
-    lastSeenRef.current = null;
-    setMessages([]);
-    fetchMessages();
-  }, [keyReady]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (keyReady) fetchMessages();
+  }, [keyReady, fetchMessages]);
 
   // Polling — pause when minimized or tab hidden
   useEffect(() => {
@@ -177,7 +161,7 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
     return () => clearInterval(t);
   }, [keyReady, isMinimized, fetchMessages]);
 
-  // Auto-scroll to latest message
+  // Auto-scroll on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -188,16 +172,18 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
     setSending(true);
     setInput('');
     try {
-      const { payload } = await encryptMessage(sharedKey, text);
+      const { ciphertext, iv } = await encryptMessage(sharedKey, text);
       const res = await fetch('/api/messages', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ op: 'send', senderGoogleId: googleId, receiverId: friend.id, payload }),
+        body:    JSON.stringify({
+          op: 'send', senderGoogleId: googleId,
+          receiverId: friend.id, ciphertext, iv,
+        }),
       });
       if (res.ok) {
         const saved = await res.json();
-        setMessages(prev => [...prev, { ...saved, sender_id: myId, payload, text }]);
-        lastSeenRef.current = saved.created_at;
+        setMessages(prev => [...prev, { ...saved, sender_id: myId, ciphertext, iv, text }]);
       }
     } finally {
       setSending(false);
@@ -205,7 +191,7 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
     }
   };
 
-  const handleUndoSend = async (messageId) => {
+  const handleUndoSend = async messageId => {
     const res = await fetch('/api/messages', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -217,16 +203,17 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
   const handleEditSave = async () => {
     const newText = editDraft.trim();
     if (!newText || !sharedKey) return;
-    const { payload } = await encryptMessage(sharedKey, newText);
+    const { ciphertext, iv } = await encryptMessage(sharedKey, newText);
     const res = await fetch('/api/messages', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ op: 'edit', googleId, messageId: editingId, payload }),
+      body:    JSON.stringify({ op: 'edit', googleId, messageId: editingId, ciphertext, iv }),
     });
     if (res.ok) {
+      const now = new Date().toISOString();
       setMessages(prev => prev.map(m =>
         m.id === editingId
-          ? { ...m, text: newText, payload, edited_at: new Date().toISOString() }
+          ? { ...m, ciphertext, iv, text: newText, edited_at: now, local_edited: true }
           : m
       ));
       setEditingId(null);
@@ -254,22 +241,18 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
       )}
 
       <div className="mp-conv-body">
-        {keyError && <p className="mp-status error">{keyError}</p>}
-        {!keyReady && !keyError && <p className="mp-status">Setting up secure channel…</p>}
-        {keyReady && messages.length === 0 && (
-          <p className="mp-status">No messages yet. Say hello!</p>
-        )}
+        {keyError   && <p className="mp-status error">{keyError}</p>}
+        {!keyReady  && !keyError && <p className="mp-status">Setting up secure channel…</p>}
+        {keyReady   && messages.length === 0 && <p className="mp-status">No messages yet. Say hello!</p>}
 
         {messages.map((msg, i) => {
           const isMine  = msg.sender_id === myId;
-          const grouped = isGrouped(messages, i);
           const gap     = hasGapBefore(messages, i);
+          const grouped = isGrouped(messages, i);
 
           return (
             <React.Fragment key={msg.id}>
-              {gap && (
-                <div className="mp-time-label">{formatMsgTime(msg.created_at)}</div>
-              )}
+              {gap && <div className="mp-time-label">{formatMsgTime(msg.created_at)}</div>}
               <div
                 className={`mp-bubble-row ${isMine ? 'mine' : 'theirs'} ${grouped ? 'grouped' : ''}`}
                 onContextMenu={isMine ? e => openCtxMenu(e, msg) : undefined}
@@ -288,7 +271,7 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
                         autoFocus
                       />
                       <div className="mp-edit-actions">
-                        <button className="mp-edit-save" onClick={handleEditSave}>Save</button>
+                        <button className="mp-edit-save"   onClick={handleEditSave}>Save</button>
                         <button className="mp-edit-cancel" onClick={() => setEditingId(null)}>Cancel</button>
                       </div>
                     </div>
@@ -307,7 +290,7 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
       </div>
 
       <div className="mp-input-row">
-        <span className="mp-e2e"><Lock size={10} /></span>
+        <span className="mp-e2e" title="End-to-end encrypted"><Lock size={10} /></span>
         <input
           ref={inputRef}
           className="mp-input"
@@ -383,12 +366,10 @@ const MessagesPanel = () => {
   const { isOpen, isMinimized, friend, openMessages, closeMessages, toggleMinimize, goToList } =
     useMessages();
 
-  const [myId,     setMyId]     = useState(null);
+  const [myId,      setMyId]      = useState(null);
   const [myPrivKey, setMyPrivKey] = useState(null);
-
   const googleId = localStorage.getItem('googleUserId');
 
-  // Set up ECDH keypair + upload public key + resolve own UUID on first open
   useEffect(() => {
     if (!isOpen || !googleId) return;
     async function setup() {
@@ -416,7 +397,6 @@ const MessagesPanel = () => {
 
   return (
     <div className={`mp-panel ${isMinimized ? 'minimized' : ''}`}>
-      {/* Header */}
       <div className="mp-header">
         {friend && !isMinimized && (
           <button className="mp-header-btn" onClick={goToList} title="Back">
@@ -434,7 +414,6 @@ const MessagesPanel = () => {
         </div>
       </div>
 
-      {/* Body — hidden when minimized */}
       {!isMinimized && (
         <div className="mp-body">
           {friend && myPrivKey ? (

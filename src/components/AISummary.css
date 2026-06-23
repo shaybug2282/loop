@@ -65,7 +65,7 @@
 }
 
 .chat-bubble-row.user .chat-bubble {
-  background: linear-gradient(135deg, #E8607A 0%, #B5365A 100%);
+  background: #E8607A;
   color: white;
   border-bottom-right-radius: 4px;
 }
@@ -109,7 +109,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #E8607A 0%, #B5365A 100%);
+  background: #E8607A;
   color: white;
   border: none;
   cursor: pointer;

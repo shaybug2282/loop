@@ -123,7 +123,7 @@
 }
 
 .fw-avatar.placeholder {
-  background: linear-gradient(135deg, #E8607A, #B5365A);
+  background: #E8607A;
   color: #fff;
   display: flex;
   align-items: center;

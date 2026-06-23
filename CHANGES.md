@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-06-23 — Panel height, gradient removal, FriendsPage header
+
+**Messages panel height:** `MessagesPanel.css` updated from `max-height: 500px` to `max-height: min(1500px, calc(100vh - 32px))` — roughly 3× taller while staying within the viewport.
+
+**Gradients removed:** All `linear-gradient` declarations replaced with flat equivalents across `App.css`, `WeekView.css`, `FriendsWidget.css`, `AISummary.css`, `Sidebar.css`, `Dashboard.css`, `PageLayout.css`, and `Login.css`. Text gradient on page `h1` headings replaced with `color: #E8607A`; background gradients replaced with `#FDF5F7`; accent button gradients replaced with `#E8607A`. Potential bug: Login page background is now a flat `#E8607A` instead of a gradient — may look different on large viewports.
+
+**FriendsPage header restyled:** Font size increased to `2rem`, weight to `700`, color set to `#E8607A`, gap updated to `20px`, and menu button now has white background + box shadow — matching the Dashboard and PageLayout header style.
+
 ## 2026-06-23 — Messages popup panel + undo send + edit + color scheme
 
 **Messages redesign:** Removed full-page `MessagesPage` and replaced with a fixed bottom-right floating panel (`MessagesPanel`) always rendered above all pages via `App.js`. Panel is ~340×500px (≈1/8 screen) with minimize/close controls; `/messages` route now redirects to dashboard. Added `MessagesContext` so any component can call `openMessages(friend)` — used by `FriendsWidget` and `FriendsPage` popup instead of `navigate('/messages')`.

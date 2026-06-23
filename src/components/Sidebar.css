@@ -109,7 +109,7 @@
 }
 
 .nav-item.active {
-  background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, transparent 100%);
+  background: rgba(232, 96, 122, 0.08);
   color: #E8607A;
   border-left-color: #E8607A;
   font-weight: 600;

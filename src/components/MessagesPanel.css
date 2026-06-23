@@ -5,7 +5,7 @@
   bottom: 0;
   right: 24px;
   width: 340px;
-  max-height: 500px;
+  max-height: min(1500px, calc(100vh - 32px));
   background: #fff;
   border-radius: 12px 12px 0 0;
   box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.16);

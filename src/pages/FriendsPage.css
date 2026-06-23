@@ -7,7 +7,7 @@
 .friends-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 20px;
   padding: 1.25rem 1.5rem;
   background: #fff;
   border-bottom: 1px solid #F3D8E4;
@@ -17,23 +17,28 @@
 }
 
 .friends-header h1 {
-  font-size: 1.4rem;
-  font-weight: 600;
+  font-size: 2rem;
+  font-weight: 700;
   margin: 0;
+  color: #E8607A;
 }
 
 .menu-btn {
-  background: none;
+  background: white;
   border: none;
+  padding: 10px;
+  border-radius: 10px;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   color: #4A4A52;
   display: flex;
   align-items: center;
-  padding: 4px;
-  border-radius: 6px;
+  transition: box-shadow 0.2s;
 }
 
-.menu-btn:hover { background: #FDF5F7; }
+.menu-btn:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
 
 .friends-loading,
 .friends-error {

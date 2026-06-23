@@ -109,14 +109,14 @@
 }
 
 .day-header {
-  background: linear-gradient(135deg, #E8607A 0%, #B5365A 100%);
+  background: #E8607A;
   color: white;
   padding: 12px;
   text-align: center;
 }
 
 .day-column.today .day-header {
-  background: linear-gradient(135deg, #C94D65 0%, #6a3f91 100%);
+  background: #C94D65;
 }
 
 .day-name {
