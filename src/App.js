@@ -5,7 +5,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
 import TodosPage from './pages/TodosPage';
-import ContactsPage from './pages/ContactsPage';
 import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
 import MessagesPage from './pages/MessagesPage';
@@ -57,14 +56,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/contacts"
-            element={
-              <ProtectedRoute>
-                <ContactsPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/contacts" element={<Navigate to="/friends" />} />
           <Route
             path="/friends"
             element={

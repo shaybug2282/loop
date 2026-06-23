@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-23 — Merge Contacts into Friends; add message shortcut on dashboard
+
+Removed the placeholder Contacts widget and its localStorage-backed data. The dashboard now shows a single `FriendsWidget` in that slot: each friend card displays their avatar, name, and (if shared) email and phone number, with a message icon that appears on hover and navigates directly to the DM conversation. `ContactList.js/css` and `ContactsPage.js` deleted; `/contacts` route redirects to `/friends`; "Contacts" removed from sidebar. The old small `FriendsWidget` (count-only) was replaced by this expanded card list.
+
+Potential bugs: The message icon calls `navigate('/messages', { state: { friend } })` — MessagesPage must still handle `location.state?.friend` on mount (it does), but if the friend has not yet uploaded a public key the conversation view will show the "hasn't set up messaging" error.
+
 ## 2026-06-23 — Consolidate serverless functions (14 → 5) for Vercel Hobby plan
 
 Merged 14 individual `/api/*.js` serverless functions into 4 router files — `api/friends.js`, `api/messages.js`, `api/user.js`, `api/ai.js` — plus the existing `api/_crypto.js` utility (not a Vercel function). Each router uses `req.query.op` for GET and `req.body.op` for POST to dispatch to the appropriate handler. Updated all client-side callers in 7 files (`Login.js`, `googleCalendar.js`, `MessagesPage.js`, `FriendsPage.js`, `AISummary.js`, `FriendsWidget.js`, `ProfilePage.js`); deleted all 14 old individual files.

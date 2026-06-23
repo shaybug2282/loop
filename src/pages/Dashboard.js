@@ -4,7 +4,6 @@ import Sidebar from '../components/Sidebar';
 import CalendarComponent from '../components/CalendarComponent';
 import AISummary from '../components/AISummary';
 import TodoList from '../components/TodoList';
-import ContactList from '../components/ContactList';
 import FriendsWidget from '../components/FriendsWidget';
 import './Dashboard.css';
 
@@ -14,7 +13,7 @@ const Dashboard = () => {
   return (
     <div className="dashboard">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
+
       <div className="dashboard-header">
         <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
           <Menu size={24} />
@@ -29,9 +28,6 @@ const Dashboard = () => {
         </div>
         <div className="dashboard-item">
           <TodoList />
-        </div>
-        <div className="dashboard-item">
-          <ContactList />
         </div>
         <div className="dashboard-item">
           <FriendsWidget />
