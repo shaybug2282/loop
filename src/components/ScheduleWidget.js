@@ -237,8 +237,15 @@ export default function ScheduleWidget() {
     if (!googleId) return;
     try {
       const r = await fetch(`/api/schedule?op=pending-events&googleId=${encodeURIComponent(googleId)}`);
-      if (r.ok) setNotifs((await r.json()).events ?? []);
-    } catch {}
+      if (r.ok) {
+        setNotifs((await r.json()).events ?? []);
+      } else {
+        const body = await r.json().catch(() => ({}));
+        console.error('[ScheduleWidget] pending-events failed:', r.status, body);
+      }
+    } catch (err) {
+      console.error('[ScheduleWidget] loadNotifs error:', err);
+    }
   }, [googleId]);
 
   useEffect(() => {
