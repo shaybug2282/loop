@@ -43,8 +43,6 @@ function buildActivities(events) {
     .slice(0, 20);
 }
 
-const EVT_COLOR = { invited: 'orange', decline: 'red', accept: 'green', confirmed: 'pink' };
-
 // Always-visible bell button that opens a scrollable notification panel.
 const NotificationCenter = () => {
   const { isAuthenticated } = useAuth();

@@ -41,6 +41,9 @@ const WeekView = () => {
     } finally {
       setLoading(false);
     }
+  // currentWeekStart is intentionally in deps: changing it triggers a re-fetch
+  // even though fetchWeekEvents() resolves the window internally.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWeekStart, googleId]);
 
   useEffect(() => {
