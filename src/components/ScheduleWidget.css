@@ -458,3 +458,23 @@
 .sw-decline-time {
   color: #a16207;
 }
+
+/* ── Clickable title (when widget is on dashboard) ── */
+.sw-title-link {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.sw-title-link:hover { opacity: 0.78; }
+
+/* ── Past-time validation error ── */
+.sw-time-error {
+  font-size: 12px;
+  color: #C0392B;
+  margin: -4px 0 6px;
+  padding: 0 2px;
+}
+
+/* ── Duration badge in NotifCard ── */
+.sw-notif-dur {
+  color: #A3A8B0;
+}

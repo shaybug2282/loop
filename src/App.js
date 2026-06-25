@@ -9,6 +9,9 @@ import CalendarPage from './pages/CalendarPage';
 import TodosPage from './pages/TodosPage';
 import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
+import SchedulePage from './pages/SchedulePage';
+import PrivacyPage from './pages/PrivacyPage';
+import Footer from './components/Footer';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -54,13 +57,20 @@ function App() {
               path="/profile"
               element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
             />
+            <Route
+              path="/schedule"
+              element={<ProtectedRoute><SchedulePage /></ProtectedRoute>}
+            />
             {/* /messages redirects home; the panel handles all messaging */}
             <Route path="/messages" element={<Navigate to="/dashboard" />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
 
           {/* Global floating messages panel — rendered on top of all pages */}
           <MessagesPanel />
+          {/* Global footer — shown on every page */}
+          <Footer />
         </Router>
       </MessagesProvider>
     </AuthProvider>

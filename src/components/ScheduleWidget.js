@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, Calendar, Clock } from 'lucide-react';
 import './ScheduleWidget.css';
 
@@ -6,6 +7,13 @@ function formatTime(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) +
     ' at ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatDuration(hours) {
+  if (!hours) return '';
+  if (hours < 1) return `${Math.round(hours * 60)} min`;
+  if (hours === 1) return '1 hr';
+  return `${Number.isInteger(hours) ? hours : hours} hrs`;
 }
 
 // ── Sub-screens ───────────────────────────────────────────────────────────────
@@ -71,12 +79,21 @@ const TimingScreen = ({ onPick, onFind }) => (
 const PickTimeScreen = ({ onSchedule, loading }) => {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('10:00');
-  const today = new Date().toISOString().split('T')[0];
+  const [timeError, setTimeError] = useState('');
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  // Enforce minimum time when the selected date is today.
+  const minTime = date === today
+    ? `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    : undefined;
   const ready = date && time;
 
   const go = () => {
     if (!ready) return;
-    onSchedule(new Date(`${date}T${time}`).toISOString(), 1);
+    const selected = new Date(`${date}T${time}`);
+    if (selected <= new Date()) { setTimeError('Please choose a time in the future.'); return; }
+    setTimeError('');
+    onSchedule(selected.toISOString(), 1);
   };
 
   return (
@@ -85,17 +102,18 @@ const PickTimeScreen = ({ onSchedule, loading }) => {
       <div className="sw-field">
         <label className="sw-label">Date</label>
         <input type="date" className="sw-input" min={today} value={date}
-          onChange={e => setDate(e.target.value)}
+          onChange={e => { setDate(e.target.value); setTimeError(''); }}
           onKeyDown={e => { if (e.key === 'Enter' && ready && !loading) go(); }}
         />
       </div>
       <div className="sw-field">
         <label className="sw-label">Time</label>
-        <input type="time" className="sw-input" value={time}
-          onChange={e => setTime(e.target.value)}
+        <input type="time" className="sw-input" value={time} min={minTime}
+          onChange={e => { setTime(e.target.value); setTimeError(''); }}
           onKeyDown={e => { if (e.key === 'Enter' && ready && !loading) go(); }}
         />
       </div>
+      {timeError && <p className="sw-time-error">{timeError}</p>}
       <button className="sw-btn-primary" disabled={!ready || loading} onClick={go}>
         {loading ? 'Scheduling…' : 'Schedule'}
       </button>
@@ -183,6 +201,7 @@ const NotifCard = ({ event, myId, onRespond }) => {
       <div className="sw-notif-time">
         <Clock size={12} />
         {formatTime(event.event_time)}
+        {event.duration_hours ? <span className="sw-notif-dur"> · {formatDuration(event.duration_hours)}</span> : null}
       </div>
       <div className="sw-notif-people">
         <span className="sw-tag organizer">
@@ -230,6 +249,10 @@ export default function ScheduleWidget() {
   const [myId,          setMyId]          = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [scheduleError, setScheduleError] = useState(null);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const onSchedulePage = location.pathname === '/schedule';
 
   const googleId = localStorage.getItem('googleUserId');
 
@@ -374,7 +397,11 @@ export default function ScheduleWidget() {
             <ChevronLeft size={16} />
           </button>
         )}
-        <h2 className="sw-title">Schedule!</h2>
+        <h2
+          className={`sw-title${!onSchedulePage ? ' sw-title-link' : ''}`}
+          onClick={!onSchedulePage ? () => navigate('/schedule') : undefined}
+          title={!onSchedulePage ? 'Open Schedule page' : undefined}
+        >Schedule!</h2>
       </div>
 
       <div className="sw-body">
@@ -389,7 +416,7 @@ export default function ScheduleWidget() {
         {myCreated.map(e => (
           <div key={e.id} className="sw-created-done">
             <Clock size={12} />
-            <span>{formatTime(e.event_time)} — all accepted! Check Google Calendar.</span>
+            <span>{formatTime(e.event_time)} · {formatDuration(e.duration_hours)} — all confirmed!</span>
           </div>
         ))}
 
@@ -401,7 +428,7 @@ export default function ScheduleWidget() {
               <div key={`decline-${e.id}-${u.id}`} className="sw-decline-notif">
                 <span className="sw-decline-name">{u.display_name || u.name || 'Someone'}</span>
                 {' declined · '}
-                <span className="sw-decline-time">{formatTime(e.event_time)}</span>
+                <span className="sw-decline-time">{formatTime(e.event_time)} ({formatDuration(e.duration_hours)})</span>
               </div>
             ))
           )

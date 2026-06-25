@@ -16,3 +16,4 @@
 # Architecture
 - Project is being deployed through Vercel. 
 - Backend database will be handled by Supabase.
+- When implementing commands, keep the number of serverless functions as consolidated as possible without causing future issues.

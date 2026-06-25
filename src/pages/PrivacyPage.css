@@ -1,0 +1,26 @@
+.privacy-page {
+  min-height: 100vh;
+  background: #FDF5F7;
+  padding: 32px 24px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.privacy-page h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #E8607A;
+  margin: 0 0 24px;
+}
+
+.privacy-back {
+  display: inline-block;
+  font-size: 13px;
+  color: #E8607A;
+  text-decoration: none;
+  margin-bottom: 20px;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+
+.privacy-back:hover { opacity: 0.75; }

@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-06-23 — Schedule page, widget improvements, footer
+
+**Schedule page (`/schedule`):** New page with 3 panels — the full Schedule! widget, an Upcoming Events list (future events sorted by time, showing duration and confirmed/pending status), and a Notification Log (activity feed: declines, acceptances, confirmations, invites received). Accessible via sidebar "Schedule" nav item (CalendarCheck icon) and by clicking the "Schedule!" title on the dashboard widget.
+
+**Widget title navigation:** Clicking "Schedule!" in the widget header navigates to `/schedule` when on the dashboard. Title is not clickable when already on the schedule page.
+
+**Future-only events:** `PickTimeScreen` now validates that the selected datetime is in the future. Selecting today restricts the time input minimum to the current hour:minute. Submitting a past time shows an inline error rather than silently sending to the API.
+
+**Duration in all notifications:** `formatDuration` added. Duration is shown in `NotifCard` (invite cards), decline notifications, and all-confirmed banners, and throughout the Schedule page panels.
+
+**Footer:** Global `<Footer>` rendered at the app level on every page. Shows "Copyright 2026 Danish Pastry House is a Front." and a "Privacy Policy" link to `/privacy`, which is currently a blank page.
+
 ## 2026-06-23 — Enter key, shared GCal events, decline notifications
 
 **Enter key on all text inputs:** `FindTimeScreen` (hours), `PickTimeScreen` (date + time), and `ProfilePage` (display name, phone) now submit on Enter. `FriendsPage` friend-code input already had this.
