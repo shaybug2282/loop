@@ -76,3 +76,36 @@
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* ── Unauthenticated home screen ── */
+
+.dash-placeholder {
+  background: #fff;
+  border-radius: 16px;
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #C4B5C0;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 12px rgba(232, 96, 122, 0.06);
+  border: 1.5px dashed #F3D0DC;
+  text-align: center;
+  padding: 24px;
+}
+
+.dash-signin-btn {
+  margin-left: auto;
+  background: #E8607A;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dash-signin-btn:hover { background: #d44f6a; }

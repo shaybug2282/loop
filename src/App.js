@@ -36,10 +36,8 @@ function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route
-              path="/dashboard"
-              element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-            />
+            {/* Dashboard is publicly accessible; auth state handled inside the component */}
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route
               path="/calendar"
               element={<ProtectedRoute><CalendarPage /></ProtectedRoute>}

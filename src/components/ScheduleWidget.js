@@ -1,7 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, Calendar, Clock } from 'lucide-react';
 import './ScheduleWidget.css';
+
+// Module-level singletons — survive re-mounts and are shared across every
+// ScheduleWidget instance (dashboard + schedule page) without any sync.
+const _dismissed = (() => {
+  try { const s = sessionStorage.getItem('sw-dismissed'); return new Set(s ? JSON.parse(s) : []); }
+  catch { return new Set(); }
+})();
+const _scheduled = new Set(); // event IDs that already have a 60-s auto-dismiss timer
 
 function formatTime(iso) {
   const d = new Date(iso);
@@ -249,20 +257,8 @@ export default function ScheduleWidget() {
   const [myId,          setMyId]          = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [scheduleError, setScheduleError] = useState(null);
-  // Dismissed IDs persisted to sessionStorage so they survive navigation and
-  // stay in sync between the dashboard widget and the Schedule page widget.
-  const [dismissed, setDismissed] = useState(() => {
-    try { const s = sessionStorage.getItem('sw-dismissed'); return s ? new Set(JSON.parse(s)) : new Set(); }
-    catch { return new Set(); }
-  });
-
-  // dismissedRef mirrors dismissed state so timer callbacks never see stale values.
-  const dismissedRef = useRef(null);
-  if (!dismissedRef.current) {
-    try { const s = sessionStorage.getItem('sw-dismissed'); dismissedRef.current = s ? new Set(JSON.parse(s)) : new Set(); }
-    catch { dismissedRef.current = new Set(); }
-  }
-  const scheduledRef = useRef(new Set()); // IDs that already have a 60s timer queued
+  // Counter used only to force a re-render when _dismissed changes.
+  const [, setDismissVersion] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -310,25 +306,26 @@ export default function ScheduleWidget() {
       .then(r => r.json()).then(d => setFriends(d.friends ?? [])).catch(() => {});
   }, [screen, googleId]);
 
-  // Dismiss a notification manually or via auto-timer.
+  // Add id to the module singleton and re-render this instance.
   const dismiss = useCallback(id => {
-    if (dismissedRef.current.has(id)) return;
-    dismissedRef.current.add(id);
-    try { sessionStorage.setItem('sw-dismissed', JSON.stringify([...dismissedRef.current])); } catch {}
-    setDismissed(new Set(dismissedRef.current));
+    if (_dismissed.has(id)) return;
+    _dismissed.add(id);
+    try { sessionStorage.setItem('sw-dismissed', JSON.stringify([..._dismissed])); } catch {}
+    setDismissVersion(v => v + 1);
   }, []);
 
-  // Auto-clear all notification types after 60 s. Schedule each timer exactly once.
+  // Auto-clear all notification types after 60 s. _scheduled is module-level so
+  // timers are never duplicated even across re-mounts.
   useEffect(() => {
     if (!myId) return;
     notifs.forEach(e => {
-      if (dismissedRef.current.has(e.id)) return;
+      if (_dismissed.has(e.id)) return;
       const isInvite    = !e.isCreator && !(e.declines ?? []).includes(myId);
       const isDecline   = e.isCreator  && (e.declines ?? []).length > 0;
       const isConfirmed = e.isCreator  && e.status === 'accepted';
       if (!isInvite && !isDecline && !isConfirmed) return;
-      if (scheduledRef.current.has(e.id)) return;
-      scheduledRef.current.add(e.id);
+      if (_scheduled.has(e.id)) return;
+      _scheduled.add(e.id);
       setTimeout(() => dismiss(e.id), 60_000);
     });
   }, [notifs, myId, dismiss]);
@@ -423,8 +420,8 @@ export default function ScheduleWidget() {
   };
 
   const canBack  = screen in BACK;
-  const myInvites = notifs.filter(e => !e.isCreator && !(e.declines ?? []).includes(myId) && !dismissed.has(e.id));
-  const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted' && !dismissed.has(e.id));
+  const myInvites = notifs.filter(e => !e.isCreator && !(e.declines ?? []).includes(myId) && !_dismissed.has(e.id));
+  const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted' && !_dismissed.has(e.id));
 
   return (
     <div className="sw-widget">
@@ -462,7 +459,7 @@ export default function ScheduleWidget() {
 
         {/* Decline notifications — shown to the event creator */}
         {notifs
-          .filter(e => e.isCreator && (e.declines ?? []).length > 0 && !dismissed.has(e.id))
+          .filter(e => e.isCreator && (e.declines ?? []).length > 0 && !_dismissed.has(e.id))
           .flatMap(e =>
             (e.declinedUsers ?? []).map(u => (
               <div key={`decline-${e.id}-${u.id}`} className="sw-decline-notif">

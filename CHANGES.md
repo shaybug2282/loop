@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-06-23 — Unauthenticated home screen + sign-in prompt
+
+`/dashboard` (and `/`) is now publicly accessible without signing in. Unauthenticated visitors see the full dashboard layout with three greyed placeholder cards. A "Sign in" button is shown in the header. After 30 seconds, a modal with the Google OAuth button auto-appears. Signing in via the modal calls `login()` in AuthContext and the dashboard re-renders immediately with full content — no page reload or redirect needed. All other protected routes (`/calendar`, `/schedule`, etc.) still redirect to `/login` as before.
+
+## 2026-06-23 — Notification dismiss fix (module-level singleton)
+
+Replaced per-instance React state for dismissed notifications with a module-level `_dismissed` Set initialized from `sessionStorage` once at module load. All `ScheduleWidget` instances share the same Set — dismissals on the dashboard are immediately reflected on the Schedule page and vice versa, and they survive component re-mounts (navigation) without any synchronization logic. A version counter (`setDismissVersion`) forces re-renders when the Set changes.
+
 ## 2026-06-23 — Auto-clearing dismissible widget notifications (updated)
 
 All notification types (invite, decline, confirmed-green) auto-clear after 60 s and can be manually dismissed via a hover-reveal ✕ button. Dismissed IDs are now written to `sessionStorage` under the key `sw-dismissed` so they survive navigation and component re-mounts — both the dashboard widget and the Schedule page widget read from and write to the same key, keeping them in sync. Notifications dismissed in either place stay gone for the rest of the browser session.
