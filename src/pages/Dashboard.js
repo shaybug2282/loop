@@ -9,13 +9,6 @@ import SignInModal from '../components/SignInModal';
 import { useAuth } from '../contexts/AuthContext';
 import './Dashboard.css';
 
-// Greyed placeholder shown in place of each widget for unauthenticated users.
-const PlaceholderCard = ({ label }) => (
-  <div className="dash-placeholder">
-    <p>{label}</p>
-  </div>
-);
-
 const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSignIn,  setShowSignIn]  = useState(false);
@@ -39,7 +32,7 @@ const Dashboard = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="dashboard">
+      <div className="dashboard dashboard-guest">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="dashboard-header">
           <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
@@ -50,16 +43,13 @@ const Dashboard = () => {
             Sign in
           </button>
         </div>
-        <div className="dashboard-grid">
-          <div className="dashboard-item calendar-with-summary">
-            <PlaceholderCard label="Sign in to view your calendar" />
-          </div>
-          <div className="dashboard-item">
-            <PlaceholderCard label="Sign in to use the scheduler" />
-          </div>
-          <div className="dashboard-item">
-            <PlaceholderCard label="Sign in to see your friends" />
-          </div>
+        <div className="dash-hero">
+          <p className="dash-hero-eyebrow">Welcome</p>
+          <h2 className="dash-hero-heading">So, you want to hang out with your friends?</h2>
+          <p className="dash-hero-body">Let us help! Loop is the AI social calendar that makes scheduling events easy.</p>
+          <button className="dash-hero-cta" onClick={() => setShowSignIn(true)}>
+            Get started — it's free
+          </button>
         </div>
         {showSignIn && <SignInModal onClose={() => setShowSignIn(false)} />}
       </div>

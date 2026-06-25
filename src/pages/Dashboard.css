@@ -79,20 +79,67 @@
 
 /* ── Unauthenticated home screen ── */
 
-.dash-placeholder {
-  background: #fff;
-  border-radius: 16px;
-  min-height: 360px;
+.dashboard-guest {
+  min-height: 100vh;
   display: flex;
+  flex-direction: column;
+}
+
+.dash-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #C4B5C0;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 2px 12px rgba(232, 96, 122, 0.06);
-  border: 1.5px dashed #F3D0DC;
   text-align: center;
-  padding: 24px;
+  padding: 60px 24px 80px;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.dash-hero-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #E8607A;
+  margin: 0 0 20px;
+}
+
+.dash-hero-heading {
+  font-size: clamp(1.9rem, 5vw, 2.8rem);
+  font-weight: 800;
+  color: #1F2937;
+  line-height: 1.2;
+  margin: 0 0 20px;
+}
+
+.dash-hero-body {
+  font-size: 1.05rem;
+  color: #6B7280;
+  line-height: 1.65;
+  margin: 0 0 40px;
+  max-width: 480px;
+}
+
+.dash-hero-cta {
+  background: #E8607A;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 14px 32px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(232, 96, 122, 0.32);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
+}
+
+.dash-hero-cta:hover {
+  background: #d44f6a;
+  box-shadow: 0 6px 24px rgba(232, 96, 122, 0.4);
+  transform: translateY(-1px);
 }
 
 .dash-signin-btn {
