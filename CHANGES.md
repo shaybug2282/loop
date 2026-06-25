@@ -4,10 +4,9 @@
 
 Root cause: `MessagesPanel` called `store-key` on every panel open, which unconditionally overwrote the Supabase `public_key` column. If localStorage was ever cleared (browser data wipe, private window, new device), `getOrCreateKeyPair()` generated a brand-new ECDH keypair and uploaded it, rotating the shared ECDH key for both parties and permanently breaking decryption of all prior messages.
 
-Fix — three layers:
-1. `messageCrypto.js`: `getOrCreateKeyPair()` now returns `isNew: true/false`
-2. `MessagesPanel.js`: `store-key` is only called when `isNew === true` (first-time key generation only — never on subsequent opens)
-3. `api/messages.js`: `store-key` handler checks if `public_key` already exists in Supabase; if so, returns early without overwriting (belt-and-suspenders guard)
+Fix — the guard lives entirely on the server:
+1. `api/messages.js`: `store-key` handler checks if `public_key` already exists in Supabase; if so, returns early without overwriting. The first call sets the key permanently; every subsequent call (including after localStorage is cleared and a new keypair is generated) is a no-op on the server — the stored key is never rotated.
+2. `MessagesPanel.js`: client continues to send the current local public key on every panel open. This ensures the key is present in Supabase even in edge cases (first deploy, database migration). The server's guard handles deduplication safely.
 
 Also fixed: `edited_at` is now included in the `conversation` SELECT, so the "· edited" marker persists across page refreshes instead of only showing for locally-edited messages in the current session.
 
