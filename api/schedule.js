@@ -213,7 +213,9 @@ export default async function handler(req, res) {
         // Fetch all participants' emails for the shared attendee list.
         const { data: participants } = await client.from('users')
           .select('email').in('id', [ev.creator_id, ...ev.invited_user_ids]);
-        const attendeeEmails = (participants ?? []).map(u => u.email).filter(Boolean);
+        const attendeeEmails = (participants ?? []).map(u => {
+          try { return decrypt(u.email); } catch { return u.email; }
+        }).filter(Boolean);
 
         // Create one shared event on the creator's calendar; Google delivers
         // invitations to every attendee automatically.

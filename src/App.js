@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MessagesProvider } from './contexts/MessagesContext';
 import MessagesPanel from './components/MessagesPanel';
+import MessageToast  from './components/MessageToast';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
@@ -67,6 +68,8 @@ function App() {
 
           {/* Global floating messages panel — rendered on top of all pages */}
           <MessagesPanel />
+          {/* Background message notifier — always rendered, shows toast for new messages */}
+          <MessageToast />
           {/* Global footer — shown on every page */}
           <Footer />
         </Router>

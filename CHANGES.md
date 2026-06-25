@@ -1,5 +1,21 @@
 # Changes
 
+## 2026-06-25 — Home button, message toast, sign-out closes messages, notification log cap
+
+**Home button:** Added a `<Link to="/dashboard">` with a `Home` icon (lucide-react) to the top-left of every page header (CalendarPage, TodosPage, FriendsPage, ProfilePage, SchedulePage). Styles live in `PageLayout.css` as `.home-btn`.
+
+**Message toast:** New `MessageToast` component polls `/api/messages?op=conversations` every 15 s in the background. When a conversation's `lastMessageAt` advances and that conversation is not currently open in the panel, a 20-second slide-up toast appears bottom-right. Clicking the toast opens the panel to that conversation. Rendered globally in `App.js`.
+
+**Sign-out closes messages:** `MessagesPanel` now watches `isAuthenticated` from `AuthContext`; if it becomes `false` while the panel is open, `closeMessages()` is called automatically.
+
+**Notification log cap:** `SchedulePage` notification log now shows at most 20 entries (most recent first). Extra entries are silently omitted.
+
+
+
+## 2026-06-23 — Email encryption at rest
+
+Emails are now encrypted before being written to `users.email` using the existing AES-256-GCM scheme (`TOKEN_ENCRYPTION_KEY`). Every read path decrypts before returning: GCal attendee list (`api/schedule.js`), and the friends/requests payloads (`api/friends.js`). A `safeDecrypt` fallback handles any rows written before this change — if the value doesn't match the encrypted format it is returned as-is, so existing users are unaffected until their next login re-encrypts the column.
+
 ## 2026-06-23 — Fix: messages not loading (edited_at column missing)
 
 Adding `edited_at` to the `conversation` SELECT broke all message loading for databases where the migration `ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ` had not been run. The SELECT returned a Supabase error; `fetchMessages` hit `if (!res.ok) return` and silently bailed every poll, so no messages ever appeared. Reverted the SELECT to `id, sender_id, ciphertext, iv, created_at`. The "· edited" label still works for messages edited in the current session via `local_edited` state.

@@ -18,6 +18,26 @@
   color: #E8607A;
 }
 
+.home-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: none;
+  padding: 10px;
+  border-radius: 10px;
+  color: #E8607A;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s, transform 0.15s;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.home-btn:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
 .page-content {
   max-width: 1000px;
   margin: 0 auto;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Menu, Clock, Calendar, Bell } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Menu, Clock, Calendar, Bell, Home } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ScheduleWidget from '../components/ScheduleWidget';
 import './SchedulePage.css';
@@ -93,6 +94,7 @@ const NotificationLog = ({ events }) => {
     seen.add(a.event.id); return true;
   });
   deduped.sort((a, b) => new Date(b.event.event_time) - new Date(a.event.event_time));
+  const capped = deduped.slice(0, 20);
 
   const label = a => {
     const t = `${formatTime(a.event.event_time)} (${formatDuration(a.event.duration_hours)})`;
@@ -109,11 +111,11 @@ const NotificationLog = ({ events }) => {
   return (
     <div className="sp-panel">
       <h3 className="sp-panel-title"><Bell size={15} /> Notification Log</h3>
-      {deduped.length === 0 ? (
+      {capped.length === 0 ? (
         <p className="sp-empty">No activity yet</p>
       ) : (
         <ul className="sp-list">
-          {deduped.map((a, i) => (
+          {capped.map((a, i) => (
             <li key={i} className={`sp-log-item sp-log-${a.type}`}>
               {label(a)}
             </li>
@@ -152,6 +154,7 @@ const SchedulePage = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="schedule-page-header">
+        <Link to="/dashboard" className="home-btn" title="Dashboard"><Home size={18} /></Link>
         <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
           <Menu size={24} />
         </button>

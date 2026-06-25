@@ -6,6 +6,13 @@
 // POST { op:'unfriend', ... }   → remove friendship (both directions)
 
 import { createClient } from '@supabase/supabase-js';
+import { decrypt } from './_crypto.js';
+
+// Handles rows written before encryption was added — falls back to plaintext.
+function safeDecrypt(val) {
+  if (!val) return val;
+  try { return decrypt(val); } catch { return val; }
+}
 
 const db = () => createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -46,11 +53,13 @@ export default async function handler(req, res) {
       if (sentErr)   return res.status(500).json({ error: sentErr.message });
       if (friendErr) return res.status(500).json({ error: friendErr.message });
 
+      const decryptEmail = u => u ? { ...u, email: safeDecrypt(u.email) } : u;
+
       return res.status(200).json({
         friendCode:   me.friend_code,
-        requests:     requests   ?? [],
-        sentRequests: sentReqs   ?? [],
-        friends:      (friendships ?? []).map(f => f.friend),
+        requests:     (requests   ?? []).map(r => ({ ...r, sender:   decryptEmail(r.sender) })),
+        sentRequests: (sentReqs   ?? []).map(r => ({ ...r, receiver: decryptEmail(r.receiver) })),
+        friends:      (friendships ?? []).map(f => decryptEmail(f.friend)),
       });
     }
 

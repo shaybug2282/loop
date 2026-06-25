@@ -54,7 +54,7 @@ export default async function handler(req, res) {
         google_id:    googleId,
         access_token: encryptedToken,
         token_expiry: expiryTs,
-        ...(email      && { email }),
+        ...(email      && { email: encrypt(email) }),
         ...(name       && { name }),
         ...(pictureUrl && { picture_url: pictureUrl }),
         ...(timezone   && { timezone }),

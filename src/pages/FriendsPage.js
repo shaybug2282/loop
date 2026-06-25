@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Menu, UserPlus, Check, X, Copy, ChevronDown, ChevronUp, Clock, Tag, MessageSquare, UserMinus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Menu, UserPlus, Check, X, Copy, ChevronDown, ChevronUp, Clock, Tag, MessageSquare, UserMinus, Home } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useMessages } from '../contexts/MessagesContext';
 import './FriendsPage.css';
@@ -189,6 +190,7 @@ const FriendsPage = () => {
       )}
 
       <div className="friends-header">
+        <Link to="/dashboard" className="home-btn" title="Dashboard"><Home size={18} /></Link>
         <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
           <Menu size={24} />
         </button>

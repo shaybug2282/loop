@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Save, Loader } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Menu, Save, Loader, Home } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../contexts/AuthContext';
 import supabase from '../utils/supabaseClient';
@@ -77,6 +78,7 @@ const ProfilePage = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="profile-header">
+        <Link to="/dashboard" className="home-btn" title="Dashboard"><Home size={18} /></Link>
         <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
           <Menu size={24} />
         </button>

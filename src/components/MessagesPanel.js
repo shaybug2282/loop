@@ -5,6 +5,7 @@ import {
   X, Minus, ArrowLeft, Send, MessageSquare, Lock,
 } from 'lucide-react';
 import { useMessages } from '../contexts/MessagesContext';
+import { useAuth } from '../contexts/AuthContext';
 import {
   getOrCreateKeyPair,
   importPublicKey,
@@ -366,9 +367,15 @@ const MessagesPanel = () => {
   const { isOpen, isMinimized, friend, openMessages, closeMessages, toggleMinimize, goToList } =
     useMessages();
 
+  const { isAuthenticated } = useAuth();
   const [myId,      setMyId]      = useState(null);
   const [myPrivKey, setMyPrivKey] = useState(null);
   const googleId = localStorage.getItem('googleUserId');
+
+  // Close the panel automatically when the user signs out.
+  useEffect(() => {
+    if (!isAuthenticated && isOpen) closeMessages();
+  }, [isAuthenticated, isOpen, closeMessages]);
 
   useEffect(() => {
     if (!isOpen || !googleId) return;
