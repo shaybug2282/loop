@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, Calendar, Clock } from 'lucide-react';
 import './ScheduleWidget.css';
@@ -249,6 +249,11 @@ export default function ScheduleWidget() {
   const [myId,          setMyId]          = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [scheduleError, setScheduleError] = useState(null);
+  const [dismissed,     setDismissed]     = useState(new Set());
+
+  // Refs so timer callbacks always see current dismissed state without stale closures.
+  const dismissedRef  = useRef(new Set());
+  const scheduledRef  = useRef(new Set()); // IDs that already have a 60s timer queued
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -295,6 +300,27 @@ export default function ScheduleWidget() {
     fetch(`/api/friends?op=data&googleId=${encodeURIComponent(googleId)}`)
       .then(r => r.json()).then(d => setFriends(d.friends ?? [])).catch(() => {});
   }, [screen, googleId]);
+
+  // Dismiss a notification manually or via auto-timer.
+  const dismiss = useCallback(id => {
+    if (dismissedRef.current.has(id)) return;
+    dismissedRef.current.add(id);
+    setDismissed(prev => new Set([...prev, id]));
+  }, []);
+
+  // Auto-clear notifications after 60 s. Schedule a timer once per ID.
+  useEffect(() => {
+    if (!myId) return;
+    notifs.forEach(e => {
+      if (dismissedRef.current.has(e.id)) return;
+      const isInvite  = !e.isCreator && !(e.declines ?? []).includes(myId);
+      const isDecline = e.isCreator  && (e.declines ?? []).length > 0;
+      if (!isInvite && !isDecline) return;
+      if (scheduledRef.current.has(e.id)) return;
+      scheduledRef.current.add(e.id);
+      setTimeout(() => dismiss(e.id), 60_000);
+    });
+  }, [notifs, myId, dismiss]);
 
   const reset = () => {
     setScreen('start');
@@ -386,7 +412,7 @@ export default function ScheduleWidget() {
   };
 
   const canBack  = screen in BACK;
-  const myInvites = notifs.filter(e => !e.isCreator && !(e.declines ?? []).includes(myId));
+  const myInvites = notifs.filter(e => !e.isCreator && !(e.declines ?? []).includes(myId) && !dismissed.has(e.id));
   const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted');
 
   return (
@@ -422,13 +448,14 @@ export default function ScheduleWidget() {
 
         {/* Decline notifications — shown to the event creator */}
         {notifs
-          .filter(e => e.isCreator && (e.declines ?? []).length > 0)
+          .filter(e => e.isCreator && (e.declines ?? []).length > 0 && !dismissed.has(e.id))
           .flatMap(e =>
             (e.declinedUsers ?? []).map(u => (
               <div key={`decline-${e.id}-${u.id}`} className="sw-decline-notif">
                 <span className="sw-decline-name">{u.display_name || u.name || 'Someone'}</span>
                 {' declined · '}
                 <span className="sw-decline-time">{formatTime(e.event_time)} ({formatDuration(e.duration_hours)})</span>
+                <button className="sw-notif-x" onClick={() => dismiss(e.id)} title="Dismiss">✕</button>
               </div>
             ))
           )
@@ -441,7 +468,10 @@ export default function ScheduleWidget() {
               {myInvites.length === 1 ? '1 invite' : `${myInvites.length} invites`}
             </p>
             {myInvites.map(e => (
-              <NotifCard key={e.id} event={e} myId={myId} onRespond={respond} />
+              <div key={e.id} className="sw-notif-wrap">
+                <NotifCard event={e} myId={myId} onRespond={respond} />
+                <button className="sw-notif-x" onClick={() => dismiss(e.id)} title="Dismiss">✕</button>
+              </div>
             ))}
           </div>
         )}

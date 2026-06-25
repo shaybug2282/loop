@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-23 — Auto-clearing dismissible widget notifications
+
+Invite and decline notifications in the Schedule widget now auto-clear after 60 seconds. A timer is scheduled the first time each notification appears; once dismissed (manually or by timer) the notification is suppressed for the session even as `loadNotifs` polls every 15 s. Hovering over any notification card reveals a small ✕ button (top-right, circular) that dismisses it immediately. Dismiss state is held in memory — notifications reappear on page reload.
+
 ## 2026-06-23 — Schedule page, widget improvements, footer
 
 **Schedule page (`/schedule`):** New page with 3 panels — the full Schedule! widget, an Upcoming Events list (future events sorted by time, showing duration and confirmed/pending status), and a Notification Log (activity feed: declines, acceptances, confirmations, invites received). Accessible via sidebar "Schedule" nav item (CalendarCheck icon) and by clicking the "Schedule!" title on the dashboard widget.
