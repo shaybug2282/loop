@@ -1,16 +1,10 @@
 # Changes
 
-## 2026-06-23 — Fix: messages showing [encrypted]
+## 2026-06-23 — Fix: messages not loading (edited_at column missing)
 
-Root cause: `MessagesPanel` called `store-key` on every panel open, which unconditionally overwrote the Supabase `public_key` column. If localStorage was ever cleared (browser data wipe, private window, new device), `getOrCreateKeyPair()` generated a brand-new ECDH keypair and uploaded it, rotating the shared ECDH key for both parties and permanently breaking decryption of all prior messages.
+Adding `edited_at` to the `conversation` SELECT broke all message loading for databases where the migration `ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ` had not been run. The SELECT returned a Supabase error; `fetchMessages` hit `if (!res.ok) return` and silently bailed every poll, so no messages ever appeared. Reverted the SELECT to `id, sender_id, ciphertext, iv, created_at`. The "· edited" label still works for messages edited in the current session via `local_edited` state.
 
-Fix — the guard lives entirely on the server:
-1. `api/messages.js`: `store-key` handler checks if `public_key` already exists in Supabase; if so, returns early without overwriting. The first call sets the key permanently; every subsequent call (including after localStorage is cleared and a new keypair is generated) is a no-op on the server — the stored key is never rotated.
-2. `MessagesPanel.js`: client continues to send the current local public key on every panel open. This ensures the key is present in Supabase even in edge cases (first deploy, database migration). The server's guard handles deduplication safely.
-
-Also fixed: `edited_at` is now included in the `conversation` SELECT, so the "· edited" marker persists across page refreshes instead of only showing for locally-edited messages in the current session.
-
-Note: messages that were already broken (encrypted under a rotated shared key) cannot be automatically recovered — the original private key would need to be restored to localStorage.
+Note on [encrypted] messages: if either user's `ecdhKeyPair` is cleared from localStorage (browser data wipe, new device), a fresh ECDH keypair is generated and uploaded to Supabase, rotating the shared key. All prior messages become permanently unreadable — this is an inherent limitation of client-side E2E encryption with localStorage key storage. Do not clear browser data to preserve message history.
 
 ## 2026-06-23 — Unauthenticated home screen + sign-in prompt
 

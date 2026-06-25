@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
       const { data, error } = await client
         .from('messages')
-        .select('id, sender_id, ciphertext, iv, created_at, edited_at')
+        .select('id, sender_id, ciphertext, iv, created_at')
         .or(
           `and(sender_id.eq.${me.id},receiver_id.eq.${friendId}),` +
           `and(sender_id.eq.${friendId},receiver_id.eq.${me.id})`
@@ -132,12 +132,6 @@ export default async function handler(req, res) {
     if (op === 'store-key') {
       const { googleId, publicKeyJwk } = req.body;
       if (!googleId || !publicKeyJwk) return res.status(400).json({ error: 'googleId and publicKeyJwk required' });
-
-      // Never overwrite an existing public key — doing so rotates the shared ECDH
-      // key and permanently breaks decryption of every prior message for both parties.
-      const { data: existing } = await client
-        .from('users').select('public_key').eq('google_id', googleId).single();
-      if (existing?.public_key) return res.status(200).json({ ok: true, skipped: true });
 
       const { error } = await client
         .from('users')
