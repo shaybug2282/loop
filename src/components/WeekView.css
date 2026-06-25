@@ -157,6 +157,35 @@
   transform: translateX(2px);
 }
 
+/* Pending (unconfirmed) Loop events */
+.week-event-pending {
+  background: #FFFBEB;
+  border-left: 3px dashed #F59E0B;
+}
+
+.week-event-pending:hover { background: #FEF3C7; }
+
+/* Fully confirmed Loop events */
+.week-event-confirmed {
+  background: #F0FDF4;
+  border-left: 3px solid #10B981;
+}
+
+.week-event-confirmed:hover { background: #DCFCE7; }
+
+.event-pending-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #D97706;
+  margin-top: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.week-event-confirmed .event-pending-label {
+  color: #059669;
+}
+
 .event-time {
   display: flex;
   align-items: center;

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Clock, Calendar, Bell, Home } from 'lucide-react';
+import { Menu, Clock, Calendar, Home } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ScheduleWidget from '../components/ScheduleWidget';
+import GroupsWidget from '../components/GroupsWidget';
 import './SchedulePage.css';
 
 function formatTime(iso) {
@@ -21,9 +22,13 @@ function formatDuration(hours) {
 // ── Upcoming Events panel ─────────────────────────────────────────────────────
 
 const UpcomingEvents = ({ events }) => {
+  const [expanded, setExpanded] = useState(false);
+
   const upcoming = events
     .filter(e => new Date(e.event_time) > new Date())
     .sort((a, b) => new Date(a.event_time) - new Date(b.event_time));
+
+  const visible = expanded ? upcoming : upcoming.slice(0, 2);
 
   return (
     <div className="sp-panel">
@@ -31,96 +36,43 @@ const UpcomingEvents = ({ events }) => {
       {upcoming.length === 0 ? (
         <p className="sp-empty">No upcoming events</p>
       ) : (
-        <ul className="sp-list">
-          {upcoming.map(e => {
-            const otherPeople = e.isCreator
-              ? (e.invitedUsers ?? []).map(u => u.display_name || u.name).filter(Boolean)
-              : [e.creator?.display_name || e.creator?.name].filter(Boolean);
+        <>
+          <ul className="sp-list">
+            {visible.map(e => {
+              const otherPeople = e.isCreator
+                ? (e.invitedUsers ?? []).map(u => u.display_name || u.name).filter(Boolean)
+                : [e.creator?.display_name || e.creator?.name].filter(Boolean);
 
-            return (
-              <li key={e.id} className="sp-event-item">
-                <div className="sp-event-time">
-                  <Clock size={11} />
-                  {formatTime(e.event_time)}
-                </div>
-                <div className="sp-event-meta">
-                  <span className="sp-badge duration">{formatDuration(e.duration_hours)}</span>
-                  <span className={`sp-badge status-${e.status}`}>
-                    {e.status === 'accepted' ? 'Confirmed' : 'Pending'}
-                  </span>
-                </div>
-                {otherPeople.length > 0 && (
-                  <div className="sp-event-with">
-                    {e.isCreator ? 'with' : 'from'} {otherPeople.join(', ')}
+              return (
+                <li key={e.id} className="sp-event-item">
+                  <div className="sp-event-time">
+                    <Clock size={11} />
+                    {formatTime(e.event_time)}
                   </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-};
-
-// ── Notification Log panel ────────────────────────────────────────────────────
-
-const NotificationLog = ({ events }) => {
-  const activities = [];
-
-  events.forEach(e => {
-    if (e.isCreator) {
-      (e.declinedUsers ?? []).forEach(u => {
-        activities.push({ type: 'decline', user: u, event: e });
-      });
-      (e.invitedUsers ?? []).forEach(u => {
-        if ((e.acceptances ?? []).includes(u.id)) {
-          activities.push({ type: 'accept', user: u, event: e });
-        }
-      });
-      if (e.status === 'accepted') {
-        activities.push({ type: 'confirmed', event: e });
-      }
-    } else {
-      activities.push({ type: 'invited', event: e });
-    }
-  });
-
-  // Most-recent event time first; deduplicate "confirmed" per event
-  const seen = new Set();
-  const deduped = activities.filter(a => {
-    if (a.type !== 'confirmed') return true;
-    if (seen.has(a.event.id)) return false;
-    seen.add(a.event.id); return true;
-  });
-  deduped.sort((a, b) => new Date(b.event.event_time) - new Date(a.event.event_time));
-  const capped = deduped.slice(0, 20);
-
-  const label = a => {
-    const t = `${formatTime(a.event.event_time)} (${formatDuration(a.event.duration_hours)})`;
-    const name = n => n?.display_name || n?.name || 'Someone';
-    switch (a.type) {
-      case 'decline':   return <><span className="sp-log-name">{name(a.user)}</span> declined · {t}</>;
-      case 'accept':    return <><span className="sp-log-name">{name(a.user)}</span> confirmed · {t}</>;
-      case 'confirmed': return <>All confirmed · {t}</>;
-      case 'invited':   return <>Invited by <span className="sp-log-name">{name(a.event.creator)}</span> · {t}</>;
-      default:          return null;
-    }
-  };
-
-  return (
-    <div className="sp-panel">
-      <h3 className="sp-panel-title"><Bell size={15} /> Notification Log</h3>
-      {capped.length === 0 ? (
-        <p className="sp-empty">No activity yet</p>
-      ) : (
-        <ul className="sp-list">
-          {capped.map((a, i) => (
-            <li key={i} className={`sp-log-item sp-log-${a.type}`}>
-              {label(a)}
-            </li>
-          ))}
-        </ul>
+                  <div className="sp-event-meta">
+                    <span className="sp-badge duration">{formatDuration(e.duration_hours)}</span>
+                    <span className={`sp-badge status-${e.status}`}>
+                      {e.status === 'accepted' ? 'Confirmed' : 'Pending'}
+                    </span>
+                  </div>
+                  {otherPeople.length > 0 && (
+                    <div className="sp-event-with">
+                      {e.isCreator ? 'with' : 'from'} {otherPeople.join(', ')}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {upcoming.length > 2 && (
+            <button
+              className="sp-expand-btn"
+              onClick={() => setExpanded(v => !v)}
+            >
+              {expanded ? 'Show less' : `View events log (${upcoming.length - 2} more)`}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -162,15 +114,9 @@ const SchedulePage = () => {
       </div>
 
       <div className="schedule-page-grid">
-        <div className="sp-col">
-          <ScheduleWidget />
-        </div>
-        <div className="sp-col">
-          <UpcomingEvents events={events} />
-        </div>
-        <div className="sp-col">
-          <NotificationLog events={events} />
-        </div>
+        <div className="sp-col"><ScheduleWidget /></div>
+        <div className="sp-col"><GroupsWidget /></div>
+        <div className="sp-col"><UpcomingEvents events={events} /></div>
       </div>
     </div>
   );

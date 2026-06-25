@@ -1,5 +1,21 @@
 # Changes
 
+## 2026-06-25 — Global notification bell, Groups feature, WeekView pending events
+
+**Notification center removed from SchedulePage, moved to global bell:** `NotificationCenter` component (fixed top-right, `z-index: 900`) polls every 60 s for schedule activity AND pending group invites. Badge shows total actionable count. Group invites show Join/Decline buttons inline. CSS: `NotificationCenter.css`.
+
+**Groups feature:** Full CRUD for social groups. Run `supabase_groups_migration.sql` in the Supabase SQL editor to create `groups`, `group_members`, `group_messages` tables. API: `api/groups.js` with ops: list, create, respond, invite, remove-member, update, delete, touch, send-message, messages, pending-invites. Widget on SchedulePage col 2: create form with color picker + icon upload, member avatar cluster, click to expand Schedule/Message/Edit actions, edit modal with rename/description/add-remove members/delete. Inviting members auto-sends an encrypted DM via `sendDm()` utility in `messageCrypto.js`.
+
+**Group chat:** `GroupChatPanel` (fixed bottom-right, offset from MessagesPanel), `GroupChatContext` tracks open chat. Messages server-side AES-256-GCM encrypted. Wired into App.js via `GroupChatProvider`.
+
+**ScheduleWidget group preset:** Clicking "Schedule" in GroupsWidget stores member IDs in `sessionStorage['sw-group-preset']`, navigates to `/schedule`. ScheduleWidget reads and clears it on mount, skipping to the timing screen with group members pre-selected.
+
+**WeekView pending events:** Fetches `/api/schedule?op=pending-events` alongside Google Calendar events. Pending events render with a dashed amber border; confirmed Loop events with a solid green border. Neither blocks Google Calendar events from showing.
+
+**SchedulePage layout:** 3-column grid now: ScheduleWidget | GroupsWidget | UpcomingEvents (condensed to 2 items + "View events log" expand button). Old NotificationLog removed.
+
+
+
 ## 2026-06-25 — Home button, message toast, sign-out closes messages, notification log cap
 
 **Home button:** Added a `<Link to="/dashboard">` with a `Home` icon (lucide-react) to the top-left of every page header (CalendarPage, TodosPage, FriendsPage, ProfilePage, SchedulePage). Styles live in `PageLayout.css` as `.home-btn`.

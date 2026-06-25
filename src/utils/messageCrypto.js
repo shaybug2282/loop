@@ -67,3 +67,21 @@ export async function decryptMessage(sharedKey, ciphertext, iv) {
   const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivBuf }, sharedKey, cipherBuf);
   return new TextDecoder().decode(decrypted);
 }
+
+// Send an E2E-encrypted DM from the logged-in user to a recipient (by DB userId).
+// toUserId: recipient's DB UUID. googleId: sender's Google ID. text: plaintext.
+export async function sendDm(googleId, toUserId, text) {
+  const { privateKey } = await getOrCreateKeyPair();
+  const keyRes = await fetch(`/api/messages?op=get-key&userId=${encodeURIComponent(toUserId)}`);
+  if (!keyRes.ok) throw new Error('Could not fetch recipient public key');
+  const { publicKeyJwk } = await keyRes.json();
+  if (!publicKeyJwk) throw new Error('Recipient has no public key');
+  const theirPubKey  = await importPublicKey(publicKeyJwk);
+  const sharedKey    = await deriveSharedKey(privateKey, theirPubKey);
+  const { ciphertext, iv } = await encryptMessage(sharedKey, text);
+  await fetch('/api/messages', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ op: 'send', googleId, toUserId, ciphertext, iv }),
+  });
+}

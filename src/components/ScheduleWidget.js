@@ -306,6 +306,21 @@ export default function ScheduleWidget() {
       .then(r => r.json()).then(d => setFriends(d.friends ?? [])).catch(() => {});
   }, [screen, googleId]);
 
+  // If a group "Schedule" action pre-populated members, skip to timing screen.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('sw-group-preset');
+      if (!raw) return;
+      sessionStorage.removeItem('sw-group-preset');
+      const ids = JSON.parse(raw);
+      if (Array.isArray(ids) && ids.length > 0) {
+        setSelected(new Set(ids));
+        setScreen('timing');
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Add id to the module singleton and re-render this instance.
   const dismiss = useCallback(id => {
     if (_dismissed.has(id)) return;

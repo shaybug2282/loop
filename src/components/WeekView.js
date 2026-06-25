@@ -4,10 +4,12 @@ import { fetchWeekEvents } from '../utils/googleCalendar';
 import './WeekView.css';
 
 const WeekView = () => {
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [events,        setEvents]        = useState([]);
+  const [pendingEvents, setPendingEvents] = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState(null);
   const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
+  const googleId = localStorage.getItem('googleUserId');
 
   function getStartOfWeek(date) {
     const d = new Date(date);
@@ -21,19 +23,25 @@ const WeekView = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const endOfWeek = new Date(currentWeekStart);
-      endOfWeek.setDate(currentWeekStart.getDate() + 7);
-      
-      const weekEvents = await fetchWeekEvents();
+
+      const [weekEvents, pendingRes] = await Promise.all([
+        fetchWeekEvents(),
+        googleId
+          ? fetch(`/api/schedule?op=pending-events&googleId=${encodeURIComponent(googleId)}`)
+              .then(r => r.ok ? r.json() : { events: [] })
+              .catch(() => ({ events: [] }))
+          : { events: [] },
+      ]);
+
       setEvents(weekEvents);
+      setPendingEvents(pendingRes.events ?? []);
     } catch (error) {
       console.error('Error loading events:', error);
       setError(error.message);
     } finally {
       setLoading(false);
     }
-  }, [currentWeekStart]);
+  }, [currentWeekStart, googleId]);
 
   useEffect(() => {
     loadEvents();
@@ -71,10 +79,24 @@ const WeekView = () => {
     const dayEnd = new Date(date);
     dayEnd.setHours(23, 59, 59, 999);
 
-    return events.filter(event => {
+    const gcal = events.filter(event => {
       const eventStart = new Date(event.start.dateTime || event.start.date);
       return eventStart >= dayStart && eventStart <= dayEnd;
     });
+
+    const pending = pendingEvents
+      .filter(e => {
+        const t = new Date(e.event_time);
+        return t >= dayStart && t <= dayEnd;
+      })
+      .map(e => {
+        const with_ = e.isCreator
+          ? (e.invitedUsers ?? []).map(u => u.display_name || u.name).filter(Boolean).join(', ')
+          : e.creator?.display_name || e.creator?.name || '';
+        return { ...e, _isPending: true, _with: with_ };
+      });
+
+    return { gcal, pending };
   };
 
   const formatTime = (dateString) => {
@@ -147,7 +169,8 @@ const WeekView = () => {
 
       <div className="week-grid">
         {weekDays.map((day, index) => {
-          const dayEvents = getEventsForDay(day);
+          const { gcal, pending } = getEventsForDay(day);
+          const hasAny    = gcal.length > 0 || pending.length > 0;
           const todayClass = isToday(day) ? 'today' : '';
 
           return (
@@ -161,25 +184,48 @@ const WeekView = () => {
                 </div>
               </div>
               <div className="day-events">
-                {dayEvents.length === 0 ? (
+                {!hasAny ? (
                   <div className="no-events">No events</div>
                 ) : (
-                  dayEvents.map(event => (
-                    <div key={event.id} className="week-event">
-                      {event.start.dateTime ? (
+                  <>
+                    {gcal.map(event => (
+                      <div key={event.id} className="week-event">
+                        {event.start.dateTime ? (
+                          <div className="event-time">
+                            <Clock size={12} />
+                            {formatTime(event.start.dateTime)}
+                          </div>
+                        ) : (
+                          <div className="event-time all-day">All Day</div>
+                        )}
+                        <div className="event-title">{event.summary}</div>
+                        {event.location && (
+                          <div className="event-location">📍 {event.location}</div>
+                        )}
+                      </div>
+                    ))}
+                    {pending.map(e => (
+                      <div
+                        key={e.id}
+                        className={`week-event week-event-pending${e.status === 'accepted' ? ' week-event-confirmed' : ''}`}
+                      >
                         <div className="event-time">
                           <Clock size={12} />
-                          {formatTime(event.start.dateTime)}
+                          {formatTime(e.event_time)}
                         </div>
-                      ) : (
-                        <div className="event-time all-day">All Day</div>
-                      )}
-                      <div className="event-title">{event.summary}</div>
-                      {event.location && (
-                        <div className="event-location">📍 {event.location}</div>
-                      )}
-                    </div>
-                  ))
+                        <div className="event-title">
+                          {e.status === 'accepted' ? '✓ ' : '⏳ '}
+                          Planned event
+                        </div>
+                        {e._with && (
+                          <div className="event-location">with {e._with}</div>
+                        )}
+                        <div className="event-pending-label">
+                          {e.status === 'accepted' ? 'Confirmed' : 'Awaiting response'}
+                        </div>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
             </div>
