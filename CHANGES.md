@@ -1,8 +1,8 @@
 # Changes
 
-## 2026-06-23 — Auto-clearing dismissible widget notifications
+## 2026-06-23 — Auto-clearing dismissible widget notifications (updated)
 
-Invite and decline notifications in the Schedule widget now auto-clear after 60 seconds. A timer is scheduled the first time each notification appears; once dismissed (manually or by timer) the notification is suppressed for the session even as `loadNotifs` polls every 15 s. Hovering over any notification card reveals a small ✕ button (top-right, circular) that dismisses it immediately. Dismiss state is held in memory — notifications reappear on page reload.
+All notification types (invite, decline, confirmed-green) auto-clear after 60 s and can be manually dismissed via a hover-reveal ✕ button. Dismissed IDs are now written to `sessionStorage` under the key `sw-dismissed` so they survive navigation and component re-mounts — both the dashboard widget and the Schedule page widget read from and write to the same key, keeping them in sync. Notifications dismissed in either place stay gone for the rest of the browser session.
 
 ## 2026-06-23 — Schedule page, widget improvements, footer
 

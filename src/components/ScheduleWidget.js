@@ -249,11 +249,20 @@ export default function ScheduleWidget() {
   const [myId,          setMyId]          = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [scheduleError, setScheduleError] = useState(null);
-  const [dismissed,     setDismissed]     = useState(new Set());
+  // Dismissed IDs persisted to sessionStorage so they survive navigation and
+  // stay in sync between the dashboard widget and the Schedule page widget.
+  const [dismissed, setDismissed] = useState(() => {
+    try { const s = sessionStorage.getItem('sw-dismissed'); return s ? new Set(JSON.parse(s)) : new Set(); }
+    catch { return new Set(); }
+  });
 
-  // Refs so timer callbacks always see current dismissed state without stale closures.
-  const dismissedRef  = useRef(new Set());
-  const scheduledRef  = useRef(new Set()); // IDs that already have a 60s timer queued
+  // dismissedRef mirrors dismissed state so timer callbacks never see stale values.
+  const dismissedRef = useRef(null);
+  if (!dismissedRef.current) {
+    try { const s = sessionStorage.getItem('sw-dismissed'); dismissedRef.current = s ? new Set(JSON.parse(s)) : new Set(); }
+    catch { dismissedRef.current = new Set(); }
+  }
+  const scheduledRef = useRef(new Set()); // IDs that already have a 60s timer queued
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -305,17 +314,19 @@ export default function ScheduleWidget() {
   const dismiss = useCallback(id => {
     if (dismissedRef.current.has(id)) return;
     dismissedRef.current.add(id);
-    setDismissed(prev => new Set([...prev, id]));
+    try { sessionStorage.setItem('sw-dismissed', JSON.stringify([...dismissedRef.current])); } catch {}
+    setDismissed(new Set(dismissedRef.current));
   }, []);
 
-  // Auto-clear notifications after 60 s. Schedule a timer once per ID.
+  // Auto-clear all notification types after 60 s. Schedule each timer exactly once.
   useEffect(() => {
     if (!myId) return;
     notifs.forEach(e => {
       if (dismissedRef.current.has(e.id)) return;
-      const isInvite  = !e.isCreator && !(e.declines ?? []).includes(myId);
-      const isDecline = e.isCreator  && (e.declines ?? []).length > 0;
-      if (!isInvite && !isDecline) return;
+      const isInvite    = !e.isCreator && !(e.declines ?? []).includes(myId);
+      const isDecline   = e.isCreator  && (e.declines ?? []).length > 0;
+      const isConfirmed = e.isCreator  && e.status === 'accepted';
+      if (!isInvite && !isDecline && !isConfirmed) return;
       if (scheduledRef.current.has(e.id)) return;
       scheduledRef.current.add(e.id);
       setTimeout(() => dismiss(e.id), 60_000);
@@ -413,7 +424,7 @@ export default function ScheduleWidget() {
 
   const canBack  = screen in BACK;
   const myInvites = notifs.filter(e => !e.isCreator && !(e.declines ?? []).includes(myId) && !dismissed.has(e.id));
-  const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted');
+  const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted' && !dismissed.has(e.id));
 
   return (
     <div className="sw-widget">
@@ -440,9 +451,12 @@ export default function ScheduleWidget() {
 
         {/* Accepted events the user created */}
         {myCreated.map(e => (
-          <div key={e.id} className="sw-created-done">
-            <Clock size={12} />
-            <span>{formatTime(e.event_time)} · {formatDuration(e.duration_hours)} — all confirmed!</span>
+          <div key={e.id} className="sw-notif-wrap">
+            <div className="sw-created-done">
+              <Clock size={12} />
+              <span>{formatTime(e.event_time)} · {formatDuration(e.duration_hours)} — all confirmed!</span>
+            </div>
+            <button className="sw-notif-x" onClick={() => dismiss(e.id)} title="Dismiss">✕</button>
           </div>
         ))}
 
