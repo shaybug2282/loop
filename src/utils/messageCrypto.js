@@ -11,7 +11,9 @@ const ECDH_PARAMS = { name: 'ECDH', namedCurve: 'P-256' };
 const AES_PARAMS  = { name: 'AES-GCM', length: 256 };
 const LS_KEY      = 'ecdhKeyPair';
 
-// Returns { privateKey, publicKey, publicKeyJwk }
+// Returns { privateKey, publicKey, publicKeyJwk, isNew }
+// isNew is true only when a keypair is generated for the first time (localStorage was empty).
+// Callers must only upload the public key to the server when isNew === true.
 export async function getOrCreateKeyPair() {
   const stored = localStorage.getItem(LS_KEY);
   if (stored) {
@@ -20,7 +22,7 @@ export async function getOrCreateKeyPair() {
       crypto.subtle.importKey('jwk', privateKeyJwk, ECDH_PARAMS, false, ['deriveKey']),
       crypto.subtle.importKey('jwk', publicKeyJwk,  ECDH_PARAMS, true,  []),
     ]);
-    return { privateKey, publicKey, publicKeyJwk };
+    return { privateKey, publicKey, publicKeyJwk, isNew: false };
   }
   const keyPair = await crypto.subtle.generateKey(ECDH_PARAMS, true, ['deriveKey']);
   const [privateKeyJwk, publicKeyJwk] = await Promise.all([
@@ -28,7 +30,7 @@ export async function getOrCreateKeyPair() {
     crypto.subtle.exportKey('jwk', keyPair.publicKey),
   ]);
   localStorage.setItem(LS_KEY, JSON.stringify({ privateKeyJwk, publicKeyJwk }));
-  return { privateKey: keyPair.privateKey, publicKey: keyPair.publicKey, publicKeyJwk };
+  return { privateKey: keyPair.privateKey, publicKey: keyPair.publicKey, publicKeyJwk, isNew: true };
 }
 
 // Import a JWK public key object → CryptoKey (for ECDH)

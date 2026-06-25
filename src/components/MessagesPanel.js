@@ -373,16 +373,20 @@ const MessagesPanel = () => {
   useEffect(() => {
     if (!isOpen || !googleId) return;
     async function setup() {
-      const { privateKey, publicKeyJwk } = await getOrCreateKeyPair();
+      const { privateKey, publicKeyJwk, isNew } = await getOrCreateKeyPair();
       setMyPrivKey(privateKey);
-      const [, idRes] = await Promise.all([
-        fetch('/api/messages', {
+      // Only upload the public key the very first time it is generated.
+      // Uploading on every open would overwrite the server copy when localStorage
+      // is cleared, rotating the shared key and making all old messages unreadable.
+      const idResPromise = fetch(`/api/user?op=my-id&googleId=${encodeURIComponent(googleId)}`);
+      if (isNew) {
+        await fetch('/api/messages', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({ op: 'store-key', googleId, publicKeyJwk }),
-        }),
-        fetch(`/api/user?op=my-id&googleId=${encodeURIComponent(googleId)}`),
-      ]);
+        });
+      }
+      const idRes = await idResPromise;
       if (idRes.ok) {
         const { id } = await idRes.json();
         setMyId(id);
