@@ -53,7 +53,12 @@ const AISummary = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Scheduling failed');
-      setItems(prev => [...prev, { id: Date.now() + 1, role: 'plans', plans: data.plans ?? [] }]);
+      // clarification_needed means Sonnet needs more info before proposing times.
+      if (data.clarification_needed) {
+        setItems(prev => [...prev, { id: Date.now() + 1, role: 'ai', text: data.clarification_needed }]);
+      } else {
+        setItems(prev => [...prev, { id: Date.now() + 1, role: 'plans', plans: data.plans ?? [] }]);
+      }
     } catch (err) {
       setItems(prev => [...prev, { id: Date.now() + 1, role: 'error', text: `Sorry, something went wrong: ${err.message}` }]);
     } finally {
@@ -85,6 +90,13 @@ const AISummary = () => {
           if (item.role === 'user') {
             return (
               <div key={item.id} className="chat-bubble-row user">
+                <div className="chat-bubble">{item.text}</div>
+              </div>
+            );
+          }
+          if (item.role === 'ai') {
+            return (
+              <div key={item.id} className="chat-bubble-row ai">
                 <div className="chat-bubble">{item.text}</div>
               </div>
             );
