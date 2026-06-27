@@ -375,26 +375,12 @@ export default async function handler(req, res) {
 
       const CHAT_SYSTEM = `${context}\n\n${AUTHORED_PROMPT}`;
 
-      // Prefill the assistant turn with `{"reply":"` so Claude is forced to
-      // continue as a JSON object rather than starting with prose.
-      const prefill    = '{"reply":"';
-      const prefillMsg = { role: 'assistant', content: prefill };
-
-      const raw = await callModel({
-        model:     MODELS.SCHEDULER,
-        system:    CHAT_SYSTEM,
-        messages:  [...messages, prefillMsg],
-        maxTokens: 1500,
-      });
-
-      // Reconstruct the full JSON string (prefill + completion) and parse it.
-      const full   = prefill + raw;
-      const parsed = extractJson(full);
+      const raw    = await callModel({ model: MODELS.SCHEDULER, system: CHAT_SYSTEM, messages, maxTokens: 1500 });
+      const parsed = extractJson(raw);
       if (parsed && typeof parsed.reply === 'string') {
         return res.status(200).json({ reply: parsed.reply, plans: parsed.plans ?? [] });
       }
-      // Last-resort fallback: surface raw text so the chat never goes blank.
-      return res.status(200).json({ reply: raw.replace(/^["']|["']$/g, ''), plans: [] });
+      return res.status(200).json({ reply: raw, plans: [] });
     }
 
     return res.status(400).json({ error: `Unknown op: ${op}` });

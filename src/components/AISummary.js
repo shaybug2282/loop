@@ -99,7 +99,9 @@ const AISummary = () => {
       if (!res.ok) throw new Error(data.error || 'AI error');
 
       const { reply, plans = [] } = data;
-      const assistantMsg = { role: 'assistant', content: reply };
+      // Store the full JSON as the assistant history entry so Sonnet sees its
+      // own prior responses as JSON and consistently continues in that format.
+      const assistantMsg = { role: 'assistant', content: JSON.stringify({ reply, plans }) };
 
       setHistory(prev => [...prev, assistantMsg]);
       setItems(prev => [...prev, {
@@ -155,7 +157,7 @@ const AISummary = () => {
 
       // Add a brief confirmation into the chat thread.
       const confirmText = `${fmt(plan.start)} is set${plan.participantIds?.length ? ' — invites sent!' : '!'}`;
-      const confirmMsg  = { role: 'assistant', content: confirmText };
+      const confirmMsg  = { role: 'assistant', content: JSON.stringify({ reply: confirmText, plans: [] }) };
       setHistory(prev => [...prev, confirmMsg]);
       setItems(prev => [...prev, { id: Date.now(), role: 'ai', text: confirmText }]);
     } catch (err) {
