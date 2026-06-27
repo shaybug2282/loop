@@ -6,7 +6,7 @@ import './ScheduleWidget.css';
 // Module-level singletons — survive re-mounts and are shared across every
 // ScheduleWidget instance (dashboard + schedule page) without any sync.
 const _dismissed = (() => {
-  try { const s = sessionStorage.getItem('sw-dismissed'); return new Set(s ? JSON.parse(s) : []); }
+  try { const s = localStorage.getItem('sw-dismissed'); return new Set(s ? JSON.parse(s) : []); }
   catch { return new Set(); }
 })();
 const _scheduled = new Set(); // event IDs that already have a 60-s auto-dismiss timer
@@ -325,7 +325,7 @@ export default function ScheduleWidget() {
   const dismiss = useCallback(id => {
     if (_dismissed.has(id)) return;
     _dismissed.add(id);
-    try { sessionStorage.setItem('sw-dismissed', JSON.stringify([..._dismissed])); } catch {}
+    try { localStorage.setItem('sw-dismissed', JSON.stringify([..._dismissed])); } catch {}
     setDismissVersion(v => v + 1);
   }, []);
 

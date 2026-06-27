@@ -92,19 +92,31 @@ export default async function handler(req, res) {
       const me = await resolveUser(supabase, googleId);
       if (!me) return res.status(404).json({ error: 'user not found' });
 
+      // Avoid ambiguous FK join (group_members has two FKs to users).
+      // Fetch memberships + group info first, then resolve inviter names separately.
       const { data: memberships } = await supabase
         .from('group_members')
-        .select('group_id, invited_by, users!invited_by(name, display_name), groups(id, name, color, icon_url)')
+        .select('group_id, invited_by, groups(id, name, color, icon_url)')
         .eq('user_id', me.id)
         .eq('status', 'pending');
 
+      const inviterIds = [...new Set((memberships ?? []).map(m => m.invited_by).filter(Boolean))];
+      let inviters = {};
+      if (inviterIds.length) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, name, display_name')
+          .in('id', inviterIds);
+        (users ?? []).forEach(u => { inviters[u.id] = u.display_name || u.name || 'Someone'; });
+      }
+
       return res.status(200).json({
         invites: (memberships ?? []).map(m => ({
-          groupId:    m.group_id,
-          groupName:  m.groups?.name,
-          color:      m.groups?.color,
-          icon_url:   m.groups?.icon_url,
-          invitedBy:  m.users?.display_name || m.users?.name || 'Someone',
+          groupId:   m.group_id,
+          groupName: m.groups?.name,
+          color:     m.groups?.color,
+          icon_url:  m.groups?.icon_url,
+          invitedBy: inviters[m.invited_by] ?? 'Someone',
         })),
       });
     }
