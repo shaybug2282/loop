@@ -143,7 +143,12 @@ export default function GroupsWidget() {
     } catch {}
   }, [googleId]);
 
-  useEffect(() => { loadGroups(); }, [loadGroups]);
+  useEffect(() => {
+    loadGroups();
+    // Refresh every 30s so icon/name changes by other members appear without a manual reload
+    const t = setInterval(loadGroups, 30_000);
+    return () => clearInterval(t);
+  }, [loadGroups]);
 
   // Load friends when create form opens or edit modal opens
   useEffect(() => {

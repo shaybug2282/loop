@@ -1,177 +1,70 @@
+/*
+ * GroupChatPanel inherits all mp-* styles from MessagesPanel.css.
+ * This file only overrides position and adds group-specific elements.
+ */
+
+/* Position override — mp-panel anchors at right: 24px by default */
 .gcp-panel {
-  position: fixed;
-  bottom: 56px; /* above footer */
-  right: 320px; /* sit left of MessagesPanel */
-  width: 300px;
-  background: #fff;
-  border-radius: 16px 16px 0 0;
-  box-shadow: 0 -4px 24px rgba(0,0,0,0.13);
-  display: flex;
-  flex-direction: column;
-  z-index: 800;
+  right: 24px; /* overridden at runtime via inline style */
+  transition: right 0.2s ease;
+}
+
+/* ── Header group icon ──────────────────────────────────────────────────────── */
+
+.gcp-hd-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.22);
   overflow: hidden;
-  max-height: 420px;
-}
-
-.gcp-minimized {
-  max-height: 50px;
-}
-
-/* ── Header ── */
-
-.gcp-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: #fff;
   flex-shrink: 0;
-  cursor: default;
-}
-
-.gcp-header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.gcp-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.gcp-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #1F2937;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.gcp-header-actions {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.gcp-icon-btn {
-  background: none;
-  border: none;
-  color: #9CA3AF;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  transition: color 0.12s, background 0.12s;
-}
-
-.gcp-icon-btn:hover { color: #374151; background: #F9FAFB; }
-
-/* ── Messages ── */
-
-.gcp-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.gcp-messages::-webkit-scrollbar { width: 4px; }
-.gcp-messages::-webkit-scrollbar-thumb { background: #F3D8E4; border-radius: 4px; }
-
-.gcp-empty {
-  font-size: 12.5px;
-  color: #9CA3AF;
-  text-align: center;
-  padding: 20px 0;
-  margin: auto;
-}
-
-.gcp-msg {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  max-width: 85%;
-}
-
-.gcp-msg-me {
-  align-self: flex-end;
-  align-items: flex-end;
-}
-
-.gcp-sender {
-  font-size: 10.5px;
-  font-weight: 600;
-  color: #9CA3AF;
-  margin-bottom: 2px;
-}
-
-.gcp-bubble {
-  background: #F3F4F6;
-  color: #1F2937;
-  padding: 7px 11px;
-  border-radius: 12px 12px 12px 2px;
-  font-size: 13px;
-  line-height: 1.45;
-  word-break: break-word;
-}
-
-.gcp-msg-me .gcp-bubble {
-  background: #E8607A;
-  color: #fff;
-  border-radius: 12px 12px 2px 12px;
-}
-
-.gcp-time {
-  font-size: 10px;
-  color: #D1D5DB;
-  margin-top: 2px;
-}
-
-/* ── Compose ── */
-
-.gcp-compose {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid #F3D8E4;
-  flex-shrink: 0;
-}
-
-.gcp-input {
-  flex: 1;
-  border: 1px solid #E5E7EB;
-  border-radius: 20px;
-  padding: 7px 12px;
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.gcp-input:focus { border-color: #E8607A; }
-
-.gcp-send {
-  background: #E8607A;
-  border: none;
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s;
 }
 
-.gcp-send:hover:not(:disabled) { background: #d44f68; }
-.gcp-send:disabled { background: #F3D8E4; cursor: not-allowed; }
+.gcp-hd-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gcp-hd-icon-letter {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ── Header text block ──────────────────────────────────────────────────────── */
+
+.gcp-hd-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+/* Title lives inside gcp-hd-info — override flex:1 (which is row-only) */
+.gcp-hd-info .mp-header-title {
+  flex: none;
+  font-size: 13px;
+}
+
+.gcp-member-count {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+}
+
+/* ── Sender name above "theirs" bubbles ─────────────────────────────────────── */
+
+.gcp-sender-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #9CA3AF;
+  margin: 6px 0 1px 2px;
+  display: block;
+  align-self: flex-start;
+}

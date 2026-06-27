@@ -1,24 +1,50 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Send, ChevronDown } from 'lucide-react';
+import { X, Minus, Send } from 'lucide-react';
 import { useGroupChat } from '../contexts/GroupChatContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useMessages }  from '../contexts/MessagesContext';
+import { useAuth }      from '../contexts/AuthContext';
+import './MessagesPanel.css';
 import './GroupChatPanel.css';
 
 const POLL_MS = 8_000;
+const GAP_MS  = 30_000;
 
-// Fixed-position group chat overlay, similar in style to MessagesPanel.
+function formatMsgTime(iso) {
+  const d = new Date(iso);
+  const isToday = d.toDateString() === new Date().toDateString();
+  return isToday
+    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+      ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function hasGapBefore(msgs, i) {
+  if (i === 0) return true;
+  return new Date(msgs[i].created_at) - new Date(msgs[i - 1].created_at) >= GAP_MS;
+}
+
+// Same sender AND no time gap → visually grouped (no repeated name / tighter spacing)
+function isGroupedMsg(msgs, i) {
+  if (i === 0 || hasGapBefore(msgs, i)) return false;
+  return msgs[i].senderId === msgs[i - 1].senderId;
+}
+
 const GroupChatPanel = () => {
   const { chatGroup, closeGroupChat } = useGroupChat();
-  const { isAuthenticated } = useAuth();
-  const [messages,   setMessages]   = useState([]);
-  const [text,       setText]       = useState('');
-  const [sending,    setSending]    = useState(false);
-  const [minimized,  setMinimized]  = useState(false);
-  const [myId,       setMyId]       = useState(null);
-  const bottomRef  = useRef(null);
-  const googleId   = localStorage.getItem('googleUserId');
+  const { isOpen: dmOpen }            = useMessages();
+  const { isAuthenticated }           = useAuth();
 
-  // Close when user signs out
+  const [messages,  setMessages]  = useState([]);
+  const [text,      setText]      = useState('');
+  const [sending,   setSending]   = useState(false);
+  const [minimized, setMinimized] = useState(false);
+  const [myId,      setMyId]      = useState(null);
+
+  const bottomRef = useRef(null);
+  const inputRef  = useRef(null);
+  const googleId  = localStorage.getItem('googleUserId');
+
+  // Close when signed out
   useEffect(() => {
     if (!isAuthenticated && chatGroup) closeGroupChat();
   }, [isAuthenticated, chatGroup, closeGroupChat]);
@@ -40,11 +66,11 @@ const GroupChatPanel = () => {
       );
       if (!r.ok) return;
       const { messages: msgs } = await r.json();
-      setMessages((msgs ?? []).reverse()); // API returns newest first; reverse for display
+      // API returns newest-first; reverse for chronological display
+      setMessages((msgs ?? []).reverse());
     } catch {}
   }, [chatGroup, googleId]);
 
-  // Load messages on open; poll while open
   useEffect(() => {
     if (!chatGroup) { setMessages([]); return; }
     setText('');
@@ -53,7 +79,6 @@ const GroupChatPanel = () => {
     return () => clearInterval(t);
   }, [chatGroup, fetchMessages]);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     if (!minimized) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, minimized]);
@@ -71,71 +96,105 @@ const GroupChatPanel = () => {
       });
       await fetchMessages();
     } catch {
-      setText(msg); // restore on failure
-    } finally { setSending(false); }
+      setText(msg);
+    } finally {
+      setSending(false);
+      inputRef.current?.focus();
+    }
   };
 
   if (!chatGroup) return null;
 
-  const dot  = chatGroup.color ?? '#E8607A';
-  const name = chatGroup.name;
+  const acceptedCount = (chatGroup.members ?? []).filter(m => m.status === 'accepted').length;
+  // Sit left of DM panel when it's open; otherwise anchor at same right edge
+  const rightPx = dmOpen ? 372 : 24;
 
   return (
-    <div className={`gcp-panel${minimized ? ' gcp-minimized' : ''}`}>
-      {/* Header */}
-      <div className="gcp-header" style={{ borderTop: `3px solid ${dot}` }}>
-        <div className="gcp-header-left">
-          <span className="gcp-dot" style={{ background: dot }} />
-          <span className="gcp-title">{name}</span>
+    <div
+      className={`mp-panel gcp-panel${minimized ? ' minimized' : ''}`}
+      style={{ right: rightPx }}
+    >
+      {/* Header — same pink bar as DM panel, with group icon + member count */}
+      <div className="mp-header">
+        <div className="gcp-hd-icon">
+          {chatGroup.icon_url
+            ? <img src={chatGroup.icon_url} alt="" className="gcp-hd-icon-img" />
+            : <span className="gcp-hd-icon-letter">{chatGroup.name?.[0] ?? '?'}</span>}
         </div>
-        <div className="gcp-header-actions">
-          <button onClick={() => setMinimized(v => !v)} className="gcp-icon-btn" title="Minimize">
-            <ChevronDown size={16} style={{ transform: minimized ? 'rotate(180deg)' : 'none' }} />
+        <div className="gcp-hd-info">
+          <span className="mp-header-title">{chatGroup.name}</span>
+          <span className="gcp-member-count">
+            {acceptedCount} member{acceptedCount !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="mp-header-actions">
+          <button
+            className="mp-header-btn"
+            onClick={() => setMinimized(v => !v)}
+            title={minimized ? 'Expand' : 'Minimize'}
+          >
+            <Minus size={16} />
           </button>
-          <button onClick={closeGroupChat} className="gcp-icon-btn" title="Close">
+          <button className="mp-header-btn" onClick={closeGroupChat} title="Close">
             <X size={16} />
           </button>
         </div>
       </div>
 
       {!minimized && (
-        <>
-          {/* Messages */}
-          <div className="gcp-messages">
-            {messages.length === 0 && (
-              <p className="gcp-empty">No messages yet. Say hello!</p>
-            )}
-            {messages.map((m, i) => {
-              const isMe = m.senderId === myId;
-              return (
-                <div key={m.id ?? i} className={`gcp-msg${isMe ? ' gcp-msg-me' : ''}`}>
-                  {!isMe && (
-                    <span className="gcp-sender">{m.senderName || 'Member'}</span>
-                  )}
-                  <div className="gcp-bubble">{m.content}</div>
-                  <span className="gcp-time">
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                  </span>
-                </div>
-              );
-            })}
-            <div ref={bottomRef} />
-          </div>
+        <div className="mp-body">
+          <div className="mp-conv">
+            <div className="mp-conv-body">
+              {messages.length === 0 && (
+                <p className="mp-status">No messages yet. Say hello!</p>
+              )}
 
-          {/* Compose */}
-          <div className="gcp-compose">
-            <input
-              className="gcp-input"
-              placeholder={`Message ${name}…`}
-              value={text}
-              onChange={e => setText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-            />
-            <button className="gcp-send" onClick={send} disabled={!text.trim() || sending}>
-              <Send size={15} />
-            </button>
+              {messages.map((m, i) => {
+                const isMine  = m.senderId === myId;
+                const gap     = hasGapBefore(messages, i);
+                const grouped = isGroupedMsg(messages, i);
+                // Show sender name for the first bubble in each "theirs" group
+                const showSender = !isMine && !grouped;
+
+                return (
+                  <React.Fragment key={m.id ?? i}>
+                    {gap && (
+                      <div className="mp-time-label">{formatMsgTime(m.created_at)}</div>
+                    )}
+                    {showSender && (
+                      <span className="gcp-sender-name">{m.senderName || 'Member'}</span>
+                    )}
+                    <div className={`mp-bubble-row ${isMine ? 'mine' : 'theirs'} ${grouped ? 'grouped' : ''}`}>
+                      <div className="mp-bubble">{m.content}</div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+
+              <div ref={bottomRef} />
+            </div>
+
+            <div className="mp-input-row">
+              <input
+                ref={inputRef}
+                className="mp-input"
+                placeholder={`Message ${chatGroup.name}…`}
+                value={text}
+                onChange={e => setText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+                }}
+              />
+              <button
+                className="mp-send"
+                onClick={send}
+                disabled={!text.trim() || sending}
+              >
+                <Send size={15} />
+              </button>
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
