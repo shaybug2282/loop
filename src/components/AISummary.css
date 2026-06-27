@@ -78,6 +78,24 @@
 
 .chat-bubble.error { background: #fee2e2; color: #C0392B; }
 
+/* ── Plan cards (Sonnet scheduler output) ── */
+.sa-plan {
+  padding: 6px 0;
+}
+.sa-plan + .sa-plan { border-top: 1px solid #F3D8E4; margin-top: 6px; }
+
+.sa-plan-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #1A1A1A;
+}
+.sa-plan-head svg { color: #E8607A; flex-shrink: 0; }
+
+.sa-plan-time { font-size: 13px; color: #E8607A; font-weight: 600; margin-top: 2px; }
+.sa-plan-why  { font-size: 12.5px; color: #6B7280; margin-top: 2px; }
+.sa-plan-warn { font-size: 12px; color: #B45309; margin-top: 3px; }
+
 .chat-bubble.typing {
   display: flex;
   align-items: center;

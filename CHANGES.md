@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-27 — Two-model scheduling apparatus (replaces AI summary chat)
+
+Replaced the single Haiku chat in `api/ai.js` with a two-model framework. **Stage 1 (Haiku, `op:'build-profile'`)** distills a user's calendar history + stated notes into a structured, persisted scheduling profile (`{ tags, hard_constraints, soft_constraints, inferred_rhythm }`). **Stage 2 (Sonnet, `op:'schedule'`)** combines every participant's profile + real free/busy windows + the natural-language request into candidate event plans. Shared plumbing (model calls, JSON extraction, profile persistence, signal/availability gathering) lives in `api/_ai.js`. The actual prompts are left blank — search `INSERT PROMPT HERE`. `AISummary.js` is now the "Scheduling Assistant": invisible profile refresh on mount, requests render plan cards. Potential bugs: (1) requires a new `user_profiles` table — run the migration in the `api/ai.js` header before use; (2) until the two prompts are authored, `schedule` returns empty `plans`; (3) multi-participant scheduling needs a UI picker — API supports `participantGoogleIds` but the front end currently passes `[]` (self only).
+
 ## 2026-06-27 — Groups widget visibility fix + invite-in-widget
 
 **`api/groups.js` `list` op:** Groups were never appearing in the widget because the PostgREST embed `group_members(... users(...))` is ambiguous when `group_members` has two FKs to `users` (`user_id` + `invited_by`) — the same silent-null bug fixed earlier in `pending-invites`. Fixed by fetching `group_members(user_id, status)` without the users embed, then resolving all member names/pics in a separate batch query via `.in('id', allMemberIds)`. The `list` op now also includes pending-invite groups (not just accepted), so invited users see the group immediately.

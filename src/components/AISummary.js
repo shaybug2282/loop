@@ -1,99 +1,128 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, Loader } from 'lucide-react';
-import { fetchTodayEvents } from '../utils/googleCalendar';
+import { Sparkles, Send, Loader, CalendarPlus } from 'lucide-react';
 import './AISummary.css';
 
-// AI chat interface. User types any message; calendar events are injected as
-// system context so the AI can answer schedule-aware questions naturally.
+// Scheduling assistant — front end for the two-model apparatus in /api/ai.
+//   • On mount it invisibly refreshes the user's Haiku profile (op:'build-profile')
+//     so the scheduler always has fresh context. No UI for this step by design.
+//   • A natural-language request is sent to the Sonnet scheduler (op:'schedule'),
+//     which returns candidate event plans rendered as cards.
+//
+// Participant selection (scheduling WITH other people) is future UI work; for now
+// the request is profiled against the signed-in user only. The API already accepts
+// `participantGoogleIds`, so wiring a picker later needs no backend change.
 const AISummary = () => {
-  const [messages,  setMessages]  = useState([]);   // { role: 'user'|'ai', text, id }
-  const [input,     setInput]     = useState('');
-  const [loading,   setLoading]   = useState(false);
-  const [calCtx,    setCalCtx]    = useState(null); // cached calendar context string
+  const [items,   setItems]   = useState([]);   // { id, role:'user'|'plans'|'error', text?, plans? }
+  const [input,   setInput]   = useState('');
+  const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
 
-  // Auto-scroll on new messages
+  const googleId = localStorage.getItem('googleUserId');
+
+  // Auto-scroll on new content.
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [items]);
+
+  // Invisible profile refresh — fire-and-forget on mount so Haiku context is ready
+  // before the user ever asks to schedule. Failures are silent (assistant degrades
+  // gracefully to scheduling without a profile).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!googleId) return;
+    fetch('/api/ai', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ op: 'build-profile', googleId }),
+    }).catch(() => {});
+  }, [googleId]);
 
-  // Lazily load today's calendar events as context (once per session)
-  const getCalendarContext = async () => {
-    if (calCtx !== null) return calCtx;
-    try {
-      const events = await fetchTodayEvents();
-      if (!events.length) { setCalCtx(''); return ''; }
-      const date = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      const list = events.map(ev => {
-        const time = ev.start.dateTime
-          ? new Date(ev.start.dateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-          : 'All day';
-        const loc  = ev.location ? ` at ${ev.location}` : '';
-        const desc = ev.description ? ` — ${ev.description.slice(0, 100)}` : '';
-        return `- ${time}: ${ev.summary}${loc}${desc}`;
-      }).join('\n');
-      const ctx = `Today is ${date}.\n${list}`;
-      setCalCtx(ctx);
-      return ctx;
-    } catch {
-      setCalCtx('');
-      return '';
-    }
-  };
-
-  const sendMessage = async () => {
+  // requestSchedule — send the natural-language ask to the Sonnet scheduler and
+  // render the returned plans. Output: appends a 'plans' (or 'error') item.
+  const requestSchedule = async () => {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || loading || !googleId) return;
 
-    const userMsg = { id: Date.now(), role: 'user', text };
-    setMessages(prev => [...prev, userMsg]);
+    setItems(prev => [...prev, { id: Date.now(), role: 'user', text }]);
     setInput('');
     setLoading(true);
 
     try {
-      const calendarContext = await getCalendarContext();
       const res = await fetch('/api/ai', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ op: 'chat', message: text, calendarContext: calendarContext || undefined }),
+        body:    JSON.stringify({ op: 'schedule', googleId, participantGoogleIds: [], request: text }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'AI error');
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', text: data.reply }]);
+      if (!res.ok) throw new Error(data.error || 'Scheduling failed');
+      setItems(prev => [...prev, { id: Date.now() + 1, role: 'plans', plans: data.plans ?? [] }]);
     } catch (err) {
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', text: `Sorry, something went wrong: ${err.message}`, isError: true }]);
+      setItems(prev => [...prev, { id: Date.now() + 1, role: 'error', text: `Sorry, something went wrong: ${err.message}` }]);
     } finally {
       setLoading(false);
       inputRef.current?.focus();
     }
   };
 
+  // fmt — compact ISO → human time for plan cards.
+  const fmt = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return isNaN(d) ? iso : d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  };
+
   return (
     <div className="ai-summary-component">
       <div className="component-header">
         <Sparkles size={24} />
-        <h2>AI Assistant</h2>
+        <h2>Scheduling Assistant</h2>
       </div>
 
       <div className="chat-body">
-        {messages.length === 0 && (
-          <p className="chat-hint">Ask me anything — I have access to your calendar.</p>
+        {items.length === 0 && (
+          <p className="chat-hint">Tell me what to schedule — I'll find times that fit.</p>
         )}
 
-        {messages.map(msg => (
-          <div key={msg.id} className={`chat-bubble-row ${msg.role}`}>
-            <div className={`chat-bubble ${msg.isError ? 'error' : ''}`}>
-              {msg.text}
+        {items.map(item => {
+          if (item.role === 'user') {
+            return (
+              <div key={item.id} className="chat-bubble-row user">
+                <div className="chat-bubble">{item.text}</div>
+              </div>
+            );
+          }
+          if (item.role === 'error') {
+            return (
+              <div key={item.id} className="chat-bubble-row ai">
+                <div className="chat-bubble error">{item.text}</div>
+              </div>
+            );
+          }
+          // role === 'plans'
+          return (
+            <div key={item.id} className="chat-bubble-row ai">
+              <div className="chat-bubble">
+                {item.plans.length === 0
+                  ? "I couldn't find a good time for that yet."
+                  : item.plans.map((p, i) => (
+                      <div key={i} className="sa-plan">
+                        <div className="sa-plan-head">
+                          <CalendarPlus size={14} />
+                          <strong>{p.title || 'Event'}</strong>
+                        </div>
+                        <div className="sa-plan-time">{fmt(p.start)}{p.end ? ` – ${fmt(p.end)}` : ''}</div>
+                        {p.rationale && <div className="sa-plan-why">{p.rationale}</div>}
+                        {Array.isArray(p.warnings) && p.warnings.length > 0 && (
+                          <div className="sa-plan-warn">⚠ {p.warnings.join('; ')}</div>
+                        )}
+                      </div>
+                    ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {loading && (
           <div className="chat-bubble-row ai">
-            <div className="chat-bubble typing">
-              <Loader size={14} className="spinner" />
-            </div>
+            <div className="chat-bubble typing"><Loader size={14} className="spinner" /></div>
           </div>
         )}
 
@@ -105,13 +134,13 @@ const AISummary = () => {
           ref={inputRef}
           className="chat-input"
           type="text"
-          placeholder="Ask about your schedule, tasks, anything…"
+          placeholder="e.g. Coffee with Sam sometime next week…"
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendMessage()}
+          onKeyDown={e => e.key === 'Enter' && requestSchedule()}
           disabled={loading}
         />
-        <button className="chat-send" onClick={sendMessage} disabled={!input.trim() || loading}>
+        <button className="chat-send" onClick={requestSchedule} disabled={!input.trim() || loading}>
           <Send size={16} />
         </button>
       </div>
