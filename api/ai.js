@@ -96,6 +96,17 @@ async function resolveUsers(client, googleIds) {
   return data ?? [];
 }
 
+// resolveUsersByIds — Supabase UUIDs → user rows (used when participant list comes
+// from ScheduleWidget's `selected` Set, which stores internal UUIDs, not googleIds).
+async function resolveUsersByIds(client, ids) {
+  if (!ids.length) return [];
+  const { data } = await client
+    .from('users')
+    .select('id, google_id, name, display_name, timezone, access_token')
+    .in('id', ids);
+  return data ?? [];
+}
+
 // loadProfile — fetch stored scheduling profile for a user. out: row or null.
 async function loadProfile(client, userId) {
   const { data } = await client
@@ -248,12 +259,17 @@ export default async function handler(req, res) {
 
     // ── STAGE 2 · Sonnet scheduler ───────────────────────────────────────────
     if (op === 'schedule') {
-      const { googleId, participantGoogleIds = [], request, durationHours = 1 } = req.body;
+      // participantIds: Supabase UUIDs from ScheduleWidget's `selected` Set.
+      const { googleId, participantIds = [], request, durationHours = 1 } = req.body;
       if (!googleId || !request?.trim())
         return res.status(400).json({ error: 'googleId and request required' });
 
-      const allGoogleIds = [...new Set([googleId, ...participantGoogleIds])];
-      const users = await resolveUsers(client, allGoogleIds);
+      const [requester] = await resolveUsers(client, [googleId]);
+      if (!requester) return res.status(404).json({ error: 'User not found' });
+      const others = await resolveUsersByIds(client, participantIds);
+      // De-dupe in case the requester is also in participantIds.
+      const seen = new Set([requester.id]);
+      const users = [requester, ...others.filter(u => { if (seen.has(u.id)) return false; seen.add(u.id); return true; })];
       if (!users.length) return res.status(404).json({ error: 'No valid participants' });
 
       const participants = await Promise.all(users.map(async u => {

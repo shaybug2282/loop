@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, Calendar, Clock } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Calendar, Clock, Sparkles, Send } from 'lucide-react';
 import './ScheduleWidget.css';
 
 // Module-level singletons — survive re-mounts and are shared across every
@@ -74,12 +74,17 @@ const FriendSelectScreen = ({ friends, selected, onToggle, onNext }) => (
   </div>
 );
 
-const TimingScreen = ({ onPick, onFind }) => (
+// TimingScreen — 3 options: manual pick, calendar-based find, or AI suggestion.
+const TimingScreen = ({ onPick, onFind, onAsk }) => (
   <div className="sw-screen">
     <p className="sw-sublabel">How would you like to choose a time?</p>
     <div className="sw-choices">
       <button className="sw-choice primary" onClick={onPick}>Pick a time</button>
       <button className="sw-choice" onClick={onFind}>Find a time</button>
+      <button className="sw-choice sw-choice-ai" onClick={onAsk}>
+        <Sparkles size={13} />
+        Ask AI
+      </button>
     </div>
   </div>
 );
@@ -90,7 +95,6 @@ const PickTimeScreen = ({ onSchedule, loading }) => {
   const [timeError, setTimeError] = useState('');
   const now = new Date();
   const today = now.toISOString().split('T')[0];
-  // Enforce minimum time when the selected date is today.
   const minTime = date === today
     ? `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
     : undefined;
@@ -149,6 +153,53 @@ const FindTimeScreen = ({ onSearch, loading }) => {
     </div>
   );
 };
+
+// AiAskScreen — natural language input that triggers Sonnet scheduling.
+const AiAskScreen = ({ value, onChange, onSend, loading }) => (
+  <div className="sw-screen">
+    <p className="sw-sublabel">Describe the event and I'll suggest times:</p>
+    <div className="sw-ai-input-row">
+      <input
+        className="sw-input sw-ai-input"
+        type="text"
+        placeholder="e.g. Dinner next week, about 2 hours…"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && value.trim() && !loading) onSend(); }}
+        disabled={loading}
+        autoFocus
+      />
+      <button
+        className="sw-ai-send"
+        onClick={onSend}
+        disabled={!value.trim() || loading}
+        title="Get suggestions"
+      >
+        <Send size={14} />
+      </button>
+    </div>
+    {loading && <p className="sw-sublabel sw-ai-thinking">Finding the best times…</p>}
+  </div>
+);
+
+// AiProposedScreen — Sonnet's suggested times in the same clickable format as
+// ProposedScreen, with an optional location line beneath each time.
+const AiProposedScreen = ({ plans, onSelect }) => (
+  <div className="sw-screen">
+    <p className="sw-sublabel">Choose a time that works:</p>
+    <div className="sw-time-list">
+      {plans.map((p, i) => (
+        <button key={i} className="sw-time-opt" onClick={() => onSelect(p)}>
+          <Calendar size={14} style={{ flexShrink: 0 }} />
+          <div className="sw-time-opt-body">
+            <span>{formatTime(p.start)}</span>
+            {p.location && <span className="sw-time-opt-loc">{p.location}</span>}
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+);
 
 const SearchingScreen = () => (
   <div className="sw-screen sw-center">
@@ -239,12 +290,14 @@ const NotifCard = ({ event, myId, onRespond }) => {
 // ── Main widget ───────────────────────────────────────────────────────────────
 
 const BACK = {
-  friends:    'start',
-  timing:     'friends',
-  'pick-time':'timing',
-  'find-time':'timing',
-  proposed:   'find-time',
-  'no-time':  'find-time',
+  friends:       'start',
+  timing:        'friends',
+  'pick-time':   'timing',
+  'find-time':   'timing',
+  'ai-ask':      'timing',
+  proposed:      'find-time',
+  'no-time':     'find-time',
+  'ai-proposed': 'ai-ask',
 };
 
 export default function ScheduleWidget() {
@@ -257,6 +310,10 @@ export default function ScheduleWidget() {
   const [myId,          setMyId]          = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [scheduleError, setScheduleError] = useState(null);
+  // AI ask state
+  const [aiRequest,     setAiRequest]     = useState('');
+  const [aiLoading,     setAiLoading]     = useState(false);
+  const [aiPlans,       setAiPlans]       = useState([]);
   // Counter used only to force a re-render when _dismissed changes.
   const [, setDismissVersion] = useState(0);
 
@@ -272,8 +329,6 @@ export default function ScheduleWidget() {
       const r = await fetch(`/api/schedule?op=pending-events&googleId=${encodeURIComponent(googleId)}`);
       if (r.ok) {
         const all = (await r.json()).events ?? [];
-        // Strip dismissed events at the source so they never enter React state.
-        // _dismissed is the module-level Set, already loaded from localStorage.
         setNotifs(all.filter(e => !_dismissed.has(e.id)));
       } else {
         const body = await r.json().catch(() => ({}));
@@ -295,21 +350,18 @@ export default function ScheduleWidget() {
     })();
   }, [googleId, loadNotifs]);
 
-  // Poll so invited users see incoming invites without refreshing.
   useEffect(() => {
     if (!googleId) return;
     const t = setInterval(loadNotifs, 15_000);
     return () => clearInterval(t);
   }, [googleId, loadNotifs]);
 
-  // Fetch friends when entering friend-select screen
   useEffect(() => {
     if (screen !== 'friends' || !googleId) return;
     fetch(`/api/friends?op=data&googleId=${encodeURIComponent(googleId)}`)
       .then(r => r.json()).then(d => setFriends(d.friends ?? [])).catch(() => {});
   }, [screen, googleId]);
 
-  // If a group "Schedule" action pre-populated members, skip to timing screen.
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('sw-group-preset');
@@ -324,7 +376,6 @@ export default function ScheduleWidget() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Add id to the module singleton and re-render this instance.
   const dismiss = useCallback(id => {
     if (_dismissed.has(id)) return;
     _dismissed.add(id);
@@ -332,8 +383,6 @@ export default function ScheduleWidget() {
     setDismissVersion(v => v + 1);
   }, []);
 
-  // Auto-clear all notification types after 60 s. _scheduled is module-level so
-  // timers are never duplicated even across re-mounts.
   useEffect(() => {
     if (!myId) return;
     notifs.forEach(e => {
@@ -352,6 +401,8 @@ export default function ScheduleWidget() {
     setScreen('start');
     setSelected(new Set());
     setTimes([]);
+    setAiRequest('');
+    setAiPlans([]);
     setScheduleError(null);
     loadNotifs();
   };
@@ -381,6 +432,7 @@ export default function ScheduleWidget() {
     finally { setLoading(false); }
   };
 
+  // choose — create the event via /api/schedule and advance to pending screen.
   const choose = async (time, dur = hours) => {
     setScheduleError(null);
     setLoading(true);
@@ -406,6 +458,51 @@ export default function ScheduleWidget() {
     }
   };
 
+  // askAI — send the natural-language request to Sonnet with all selected friends
+  // as participants. On success, advance to ai-proposed to show clickable plan cards.
+  const askAI = async () => {
+    if (!aiRequest.trim() || !googleId) return;
+    setAiLoading(true);
+    setScreen('searching');
+    try {
+      const r = await fetch('/api/ai', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          op:             'schedule',
+          googleId,
+          participantIds: [...selected],  // Supabase UUIDs
+          request:        aiRequest,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'AI error');
+      if (data.clarification_needed) {
+        setScheduleError(data.clarification_needed);
+        setScreen('ai-ask');
+      } else if (!data.plans?.length) {
+        setScreen('no-time-final');
+      } else {
+        setAiPlans(data.plans);
+        setScreen('ai-proposed');
+      }
+    } catch (err) {
+      setScheduleError(err.message || 'Could not find times. Please try again.');
+      setScreen('ai-ask');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // chooseAiPlan — convert a Sonnet plan to the same choose() call as manual scheduling.
+  // Duration is derived from the plan's start/end; falls back to 1 hr.
+  const chooseAiPlan = (plan) => {
+    const dur = plan.end && plan.start
+      ? Math.max(0.5, +((new Date(plan.end) - new Date(plan.start)) / 3.6e6).toFixed(1))
+      : 1;
+    choose(plan.start, dur);
+  };
+
   const respond = async (eventId, action) => {
     await fetch('/api/schedule', {
       method: 'POST',
@@ -417,27 +514,29 @@ export default function ScheduleWidget() {
 
   const renderScreen = () => {
     switch (screen) {
-      case 'start':      return <StartScreen onSelect={setScreen} />;
-      case 'stub':       return <StubScreen onReset={reset} />;
-      case 'friends':    return <FriendSelectScreen friends={friends} selected={selected} onToggle={toggle} onNext={() => setScreen('timing')} />;
-      case 'timing':     return <TimingScreen onPick={() => setScreen('pick-time')} onFind={() => setScreen('find-time')} />;
-      case 'pick-time':  return <PickTimeScreen onSchedule={choose} loading={loading} />;
-      case 'find-time':  return <FindTimeScreen onSearch={search} loading={loading} />;
-      case 'searching':  return <SearchingScreen />;
-      case 'proposed':   return <ProposedScreen times={times} onSelect={choose} />;
-      case 'no-time':    return <NoTimeScreen onExtend={() => search(hours, 1)} onReset={reset} />;
+      case 'start':        return <StartScreen onSelect={setScreen} />;
+      case 'stub':         return <StubScreen onReset={reset} />;
+      case 'friends':      return <FriendSelectScreen friends={friends} selected={selected} onToggle={toggle} onNext={() => setScreen('timing')} />;
+      case 'timing':       return <TimingScreen onPick={() => setScreen('pick-time')} onFind={() => setScreen('find-time')} onAsk={() => setScreen('ai-ask')} />;
+      case 'pick-time':    return <PickTimeScreen onSchedule={choose} loading={loading} />;
+      case 'find-time':    return <FindTimeScreen onSearch={search} loading={loading} />;
+      case 'ai-ask':       return <AiAskScreen value={aiRequest} onChange={setAiRequest} onSend={askAI} loading={aiLoading} />;
+      case 'searching':    return <SearchingScreen />;
+      case 'proposed':     return <ProposedScreen times={times} onSelect={choose} />;
+      case 'ai-proposed':  return <AiProposedScreen plans={aiPlans} onSelect={chooseAiPlan} />;
+      case 'no-time':      return <NoTimeScreen onExtend={() => search(hours, 1)} onReset={reset} />;
       case 'no-time-final': return (
         <div className="sw-screen sw-center">
           <p className="sw-body-text">No available time found in the next 2 weeks.</p>
           <button className="sw-btn-ghost" onClick={reset}>Start Over</button>
         </div>
       );
-      case 'pending':    return <PendingScreen onReset={reset} />;
+      case 'pending':      return <PendingScreen onReset={reset} />;
       default: return null;
     }
   };
 
-  const canBack  = screen in BACK;
+  const canBack   = screen in BACK;
   const myInvites = notifs.filter(e => !e.isCreator && !(e.declines ?? []).includes(myId) && !_dismissed.has(e.id));
   const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted' && !_dismissed.has(e.id));
 
@@ -464,7 +563,6 @@ export default function ScheduleWidget() {
           </div>
         )}
 
-        {/* Accepted events the user created */}
         {myCreated.map(e => (
           <div key={e.id} className="sw-notif-wrap">
             <div className="sw-created-done">
@@ -475,7 +573,6 @@ export default function ScheduleWidget() {
           </div>
         ))}
 
-        {/* Decline notifications — shown to the event creator */}
         {notifs
           .filter(e => e.isCreator && (e.declines ?? []).length > 0 && !_dismissed.has(e.id))
           .flatMap(e =>
@@ -490,7 +587,6 @@ export default function ScheduleWidget() {
           )
         }
 
-        {/* Invites received */}
         {myInvites.length > 0 && (
           <div className="sw-invites">
             <p className="sw-invites-label">

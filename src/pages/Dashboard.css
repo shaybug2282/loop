@@ -47,10 +47,6 @@
 .dashboard-item {
   min-height: 400px;
 }
-.dashboard-col-stack {
-  display: flex;
-  flex-direction: column;
-}
 
 @media (max-width: 768px) {
   .dashboard {
