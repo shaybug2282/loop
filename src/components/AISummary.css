@@ -7,7 +7,7 @@
   margin-top: 24px;
   display: flex;
   flex-direction: column;
-  height: 420px;
+  height: 840px;
   overflow: hidden;
 }
 
@@ -223,5 +223,5 @@
 @keyframes ais-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 768px) {
-  .ais-wrap { height: 340px; margin-top: 16px; }
+  .ais-wrap { height: 580px; margin-top: 16px; }
 }

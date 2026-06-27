@@ -3,24 +3,6 @@
 //   STAGE 1 (Haiku, "profiler")   builds a durable scheduling profile per user.
 //   STAGE 2 (Sonnet, "scheduler") turns a request + every participant's profile
 //                                 + real availability into candidate event plans.
-//
-// Endpoints (all POST):
-//   { op:'build-profile', googleId, notes? }
-//        → runs Haiku over the user's signals, persists & returns their profile.
-//   { op:'get-profile', googleId }
-//        → returns the stored profile without re-running the model (cheap read).
-//   { op:'schedule', googleId, participantGoogleIds[], request, durationHours? }
-//        → runs Sonnet over all participants → { plans: [...] }.
-//
-// Prompts are intentionally left blank — search for INSERT PROMPT HERE.
-//
-// Required Supabase migration (run once):
-//   CREATE TABLE IF NOT EXISTS user_profiles (
-//     user_id     UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-//     profile     JSONB NOT NULL DEFAULT '{}',
-//     raw_signals JSONB,
-//     updated_at  TIMESTAMPTZ DEFAULT now()
-//   );
 
 import { createClient } from '@supabase/supabase-js';
 import { decrypt } from './_crypto.js';
@@ -385,24 +367,34 @@ export default async function handler(req, res) {
       // If you need more information before suggesting times, set plans to [] and
       // ask via reply. After the user selects a time, confirm naturally in reply.
       // =======================================================================
-      const AUTHORED_PROMPT = 'You are a concise, friendly personal scheduling assistant. Use the context above (profile, friends, busy windows) to suggest event times that fit the user\'s habits and schedule. When the user describes an event, suggest up to 3 specific times as plans. If they mention a friend by name, look them up in the Friends list and include their id in participantIds. Keep replies short and natural — no bullet-point explanations, no rationale for time choices. If the user gives feedback on a suggestion (too early, different day, etc.), revise accordingly. After an event is booked, acknowledge it briefly and offer to help with anything else.';
+      // OUTPUT FORMAT IS MANDATORY — every single response must be a raw JSON
+      // object with no surrounding prose, no markdown fences, no explanation outside
+      // the JSON. The UI parses this directly; plain text breaks the interface.
+      const AUTHORED_PROMPT = 'CRITICAL: You must ALWAYS respond with ONLY a raw JSON object. Never write plain text. Never use markdown. Every response must be exactly: {"reply":"...","plans":[...]} — nothing before or after the JSON. The reply field contains your conversational message to the user. The plans array contains time suggestions (or [] if not suggesting times). Each plan: {"title":"...","start":"ISO8601","end":"ISO8601","location":"optional","participantIds":["uuid1"]}. You are a concise, friendly personal scheduling assistant. Use the context above — scheduling profile, friends list, busy windows — to suggest times that fit. When the user names a friend, look them up in the Friends list and put their id in participantIds. Keep reply text short and natural — no bullet points, no explanations of why times were chosen. Up to 3 plans per response. If you need more info before suggesting times set plans to [] and ask in reply. If the user gives feedback on suggestions, revise them. After a booking is confirmed, acknowledge briefly in reply and set plans to [].';
+
 
       const CHAT_SYSTEM = `${context}\n\n${AUTHORED_PROMPT}`;
+
+      // Prefill the assistant turn with `{"reply":"` so Claude is forced to
+      // continue as a JSON object rather than starting with prose.
+      const prefill    = '{"reply":"';
+      const prefillMsg = { role: 'assistant', content: prefill };
 
       const raw = await callModel({
         model:     MODELS.SCHEDULER,
         system:    CHAT_SYSTEM,
-        messages,
+        messages:  [...messages, prefillMsg],
         maxTokens: 1500,
       });
 
-      // Try to parse as structured { reply, plans } — fall back to plain text reply
-      // so the chat never breaks even if the model responds conversationally.
-      const parsed = extractJson(raw);
+      // Reconstruct the full JSON string (prefill + completion) and parse it.
+      const full   = prefill + raw;
+      const parsed = extractJson(full);
       if (parsed && typeof parsed.reply === 'string') {
         return res.status(200).json({ reply: parsed.reply, plans: parsed.plans ?? [] });
       }
-      return res.status(200).json({ reply: raw, plans: [] });
+      // Last-resort fallback: surface raw text so the chat never goes blank.
+      return res.status(200).json({ reply: raw.replace(/^["']|["']$/g, ''), plans: [] });
     }
 
     return res.status(400).json({ error: `Unknown op: ${op}` });
