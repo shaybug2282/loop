@@ -271,7 +271,10 @@ export default function ScheduleWidget() {
     try {
       const r = await fetch(`/api/schedule?op=pending-events&googleId=${encodeURIComponent(googleId)}`);
       if (r.ok) {
-        setNotifs((await r.json()).events ?? []);
+        const all = (await r.json()).events ?? [];
+        // Strip dismissed events at the source so they never enter React state.
+        // _dismissed is the module-level Set, already loaded from localStorage.
+        setNotifs(all.filter(e => !_dismissed.has(e.id)));
       } else {
         const body = await r.json().catch(() => ({}));
         console.error('[ScheduleWidget] pending-events failed:', r.status, body);
