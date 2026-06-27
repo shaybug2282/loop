@@ -314,6 +314,97 @@ export default async function handler(req, res) {
       return res.status(200).json(extractJson(reply) ?? { plans: [] });
     }
 
+    // ── Conversational chat — multi-turn scheduling assistant ────────────────
+    // Maintains conversation history across turns. System context includes the
+    // user's scheduling profile, their full friend list (name → UUID mapping so
+    // Sonnet can resolve "Sam" to a participant ID), and the user's own busy
+    // windows for the next 14 days. Returns { reply, plans? } where plans carry
+    // participantIds so the frontend can create the event without a second trip.
+    if (op === 'chat') {
+      const { googleId, messages = [] } = req.body;
+      if (!googleId || !Array.isArray(messages))
+        return res.status(400).json({ error: 'googleId and messages array required' });
+
+      const [user] = await resolveUsers(client, [googleId]);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      // User's scheduling profile (built by Haiku on login).
+      const stored = await loadProfile(client, user.id);
+
+      // Friend list — names + UUIDs so Sonnet can identify participants by name
+      // and embed the correct IDs in the plans it returns.
+      const { data: friendships } = await client
+        .from('friendships')
+        .select('friend:friend_id(id, name, display_name)')
+        .eq('user_id', user.id);
+      const friends = (friendships ?? []).map(f => ({
+        id:   f.friend.id,
+        name: f.friend.display_name || f.friend.name,
+      }));
+
+      // User's own busy windows — gives Sonnet real availability context.
+      const availability = await gatherBusy([user]);
+
+      // Dynamic context prepended to the authored system prompt so the model
+      // always has up-to-date scheduling signals without changing the cached prompt.
+      const context = [
+        `Today: ${new Date().toISOString()}`,
+        `User: ${user.display_name || user.name}`,
+        stored?.profile ? `Scheduling profile: ${JSON.stringify(stored.profile)}` : null,
+        friends.length
+          ? `Friends (name → id): ${JSON.stringify(friends)}`
+          : 'Friends: none yet.',
+        `User busy windows (next 14 days): ${JSON.stringify(availability)}`,
+      ].filter(Boolean).join('\n');
+
+      // =======================================================================
+      // INSERT PROMPT HERE — SONNET CHAT SYSTEM PROMPT
+      // -----------------------------------------------------------------------
+      // The model receives the above `context` block prepended automatically,
+      // then this authored prompt as its persona + output contract.
+      //
+      // The conversation history (user ↔ assistant turns) is passed as the
+      // `messages` array; the model should maintain continuity across turns.
+      //
+      // Return ONLY a raw JSON object — no prose, no fences:
+      //   {
+      //     "reply": string,          // conversational response shown to user
+      //     "plans": [                // omit or use [] when no times to suggest
+      //       {
+      //         "title": string,
+      //         "start": ISO 8601 datetime,
+      //         "end":   ISO 8601 datetime,
+      //         "location": string,   // optional — specific venue or area
+      //         "participantIds": string[]  // Supabase UUIDs from the friends list
+      //                                     // above; [] if scheduling for self only
+      //       }
+      //     ]
+      //   }
+      // Up to 3 plans per response. Never propose a time inside a busy window.
+      // When suggesting plans always include them in the same response as reply.
+      // If you need more information before suggesting times, set plans to [] and
+      // ask via reply. After the user selects a time, confirm naturally in reply.
+      // =======================================================================
+      const AUTHORED_PROMPT = 'You are a concise, friendly personal scheduling assistant. Use the context above (profile, friends, busy windows) to suggest event times that fit the user\'s habits and schedule. When the user describes an event, suggest up to 3 specific times as plans. If they mention a friend by name, look them up in the Friends list and include their id in participantIds. Keep replies short and natural — no bullet-point explanations, no rationale for time choices. If the user gives feedback on a suggestion (too early, different day, etc.), revise accordingly. After an event is booked, acknowledge it briefly and offer to help with anything else.';
+
+      const CHAT_SYSTEM = `${context}\n\n${AUTHORED_PROMPT}`;
+
+      const raw = await callModel({
+        model:     MODELS.SCHEDULER,
+        system:    CHAT_SYSTEM,
+        messages,
+        maxTokens: 1500,
+      });
+
+      // Try to parse as structured { reply, plans } — fall back to plain text reply
+      // so the chat never breaks even if the model responds conversationally.
+      const parsed = extractJson(raw);
+      if (parsed && typeof parsed.reply === 'string') {
+        return res.status(200).json({ reply: parsed.reply, plans: parsed.plans ?? [] });
+      }
+      return res.status(200).json({ reply: raw, plans: [] });
+    }
+
     return res.status(400).json({ error: `Unknown op: ${op}` });
   } catch (err) {
     return res.status(500).json({ error: err.message ?? 'Internal error' });
