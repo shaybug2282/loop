@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-06-27 — Groups widget visibility fix + invite-in-widget
+
+**`api/groups.js` `list` op:** Groups were never appearing in the widget because the PostgREST embed `group_members(... users(...))` is ambiguous when `group_members` has two FKs to `users` (`user_id` + `invited_by`) — the same silent-null bug fixed earlier in `pending-invites`. Fixed by fetching `group_members(user_id, status)` without the users embed, then resolving all member names/pics in a separate batch query via `.in('id', allMemberIds)`. The `list` op now also includes pending-invite groups (not just accepted), so invited users see the group immediately.
+
+**`GroupsWidget.js`:** Pending invites render inline with an amber "Invited" badge and Join/Decline buttons. Accepting/declining via `respondToInvite()` calls `/api/groups?op=respond` and reloads. Potential bug: `loadGroups` catches errors silently — if the API returns a non-OK status, no error is surfaced to the user.
+
+
 ## 2026-06-25 — Global notification bell, Groups feature, WeekView pending events
 
 **Notification center removed from SchedulePage, moved to global bell:** `NotificationCenter` component (fixed top-right, `z-index: 900`) polls every 60 s for schedule activity AND pending group invites. Badge shows total actionable count. Group invites show Join/Decline buttons inline. CSS: `NotificationCenter.css`.

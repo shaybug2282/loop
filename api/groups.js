@@ -95,17 +95,42 @@ export default async function handler(req, res) {
         (users ?? []).forEach(u => { inviters[u.id] = u.display_name || u.name || 'Someone'; });
       }
 
+      // Avoid the ambiguous FK problem: group_members has two FKs to users
+      // (user_id + invited_by), so any users embed silently returns null.
+      // Fetch members without the users join, then resolve names in one batch.
       const { data: groups } = await supabase
         .from('groups')
-        .select('*, group_members(user_id, status, users(name, display_name, picture_url))')
+        .select('*, group_members(user_id, status)')
         .in('id', groupIds)
         .order('last_accessed', { ascending: false });
+
+      const allMemberIds = [...new Set(
+        (groups ?? []).flatMap(g => (g.group_members ?? []).map(m => m.user_id))
+      )];
+      let userMap = {};
+      if (allMemberIds.length) {
+        const { data: users } = await supabase
+          .from('users').select('id, name, display_name, picture_url').in('id', allMemberIds);
+        (users ?? []).forEach(u => { userMap[u.id] = u; });
+      }
 
       return res.status(200).json({
         groups: (groups ?? []).map(g => {
           const mem = myMembership[g.id] ?? {};
           return {
-            ...shapeGroup(g),
+            id:           g.id,
+            name:         g.name,
+            description:  g.description,
+            color:        g.color ?? '#E8607A',
+            icon_url:     g.icon_url,
+            last_accessed: g.last_accessed,
+            members: (g.group_members ?? []).map(m => ({
+              id:           m.user_id,
+              status:       m.status,
+              name:         userMap[m.user_id]?.name,
+              display_name: userMap[m.user_id]?.display_name,
+              picture_url:  userMap[m.user_id]?.picture_url,
+            })),
             myStatus:  mem.status  ?? 'pending',
             isCreator: g.created_by === me.id,
             invitedBy: mem.invitedBy ? (inviters[mem.invitedBy] ?? 'Someone') : null,
