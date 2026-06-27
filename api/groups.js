@@ -68,15 +68,32 @@ export default async function handler(req, res) {
       const me = await resolveUser(supabase, googleId);
       if (!me) return res.status(404).json({ error: 'user not found' });
 
-      // Groups where user is an accepted member
+      // Show groups where the user is accepted OR has a pending invite.
+      // Creators always have an 'accepted' row added at creation time.
       const { data: memberships } = await supabase
         .from('group_members')
-        .select('group_id')
+        .select('group_id, status, invited_by')
         .eq('user_id', me.id)
-        .eq('status', 'accepted');
+        .in('status', ['accepted', 'pending']);
 
       const groupIds = (memberships ?? []).map(m => m.group_id);
       if (!groupIds.length) return res.status(200).json({ groups: [] });
+
+      // Build a per-group membership map for the requesting user.
+      const myMembership = Object.fromEntries(
+        (memberships ?? []).map(m => [m.group_id, { status: m.status, invitedBy: m.invited_by }])
+      );
+
+      // Resolve names for whoever invited this user (for pending invites).
+      const inviterIds = [...new Set(
+        (memberships ?? []).filter(m => m.status === 'pending' && m.invited_by).map(m => m.invited_by)
+      )];
+      let inviters = {};
+      if (inviterIds.length) {
+        const { data: users } = await supabase
+          .from('users').select('id, name, display_name').in('id', inviterIds);
+        (users ?? []).forEach(u => { inviters[u.id] = u.display_name || u.name || 'Someone'; });
+      }
 
       const { data: groups } = await supabase
         .from('groups')
@@ -84,7 +101,17 @@ export default async function handler(req, res) {
         .in('id', groupIds)
         .order('last_accessed', { ascending: false });
 
-      return res.status(200).json({ groups: (groups ?? []).map(shapeGroup) });
+      return res.status(200).json({
+        groups: (groups ?? []).map(g => {
+          const mem = myMembership[g.id] ?? {};
+          return {
+            ...shapeGroup(g),
+            myStatus:  mem.status  ?? 'pending',
+            isCreator: g.created_by === me.id,
+            invitedBy: mem.invitedBy ? (inviters[mem.invitedBy] ?? 'Someone') : null,
+          };
+        }),
+      });
     }
 
     if (op === 'pending-invites') {

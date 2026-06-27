@@ -218,6 +218,15 @@ export default function GroupsWidget() {
     setExpandedId(null);
   };
 
+  const respondToInvite = async (groupId, accept) => {
+    await fetch('/api/groups', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ op: 'respond', googleId, groupId, accept }),
+    });
+    await loadGroups();
+  };
+
   // ── Edit modal ──────────────────────────────────────────────────────────────
 
   const openEdit = group => {
@@ -383,54 +392,80 @@ export default function GroupsWidget() {
         <p className="gw-empty">No groups yet.<br />Create one to get started!</p>
       ) : (
         <ul className="gw-list">
-          {groups.map(g => (
-            <li key={g.id} className="gw-item-wrap">
-              {/* Group row */}
-              <div
-                className={`gw-item${expandedId === g.id ? ' expanded' : ''}`}
-                onClick={() => setExpandedId(expandedId === g.id ? null : g.id)}
-              >
-                {/* Color bar */}
-                <span className="gw-color-bar" style={{ background: g.color ?? '#E8607A' }} />
+          {groups.map(g => {
+            const isPending = g.myStatus === 'pending';
 
-                {/* Icon or initials */}
-                <div className="gw-group-icon">
-                  {g.icon_url
-                    ? <img src={g.icon_url} alt="" className="gw-group-icon-img" />
-                    : <span className="gw-group-icon-letter">{g.name?.[0] ?? '?'}</span>}
-                </div>
+            if (isPending) {
+              return (
+                <li key={g.id} className="gw-item-wrap">
+                  <div className="gw-item gw-item-invite">
+                    <span className="gw-color-bar gw-color-bar-muted" style={{ background: g.color ?? '#E8607A' }} />
+                    <div className="gw-group-icon">
+                      {g.icon_url
+                        ? <img src={g.icon_url} alt="" className="gw-group-icon-img" />
+                        : <span className="gw-group-icon-letter">{g.name?.[0] ?? '?'}</span>}
+                    </div>
+                    <div className="gw-item-body">
+                      <div className="gw-invite-row">
+                        <span className="gw-item-name">{g.name}</span>
+                        <span className="gw-invited-badge">Invited</span>
+                      </div>
+                      {g.invitedBy && (
+                        <span className="gw-invited-by">from {g.invitedBy}</span>
+                      )}
+                      <AvatarCluster members={g.members} />
+                      <div className="gw-invite-btns">
+                        <button className="gw-btn-join" onClick={() => respondToInvite(g.id, true)}>Join</button>
+                        <button className="gw-btn-decline-sm" onClick={() => respondToInvite(g.id, false)}>Decline</button>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            }
 
-                <div className="gw-item-body">
-                  <span className="gw-item-name">{g.name}</span>
-                  <AvatarCluster members={g.members} />
-                </div>
-
-                {/* Edit on hover */}
-                <button
-                  className="gw-edit-hover"
-                  title="Edit group"
-                  onClick={e => { e.stopPropagation(); openEdit(g); }}
+            return (
+              <li key={g.id} className="gw-item-wrap">
+                {/* Group row */}
+                <div
+                  className={`gw-item${expandedId === g.id ? ' expanded' : ''}`}
+                  onClick={() => setExpandedId(expandedId === g.id ? null : g.id)}
                 >
-                  <Pencil size={13} />
-                </button>
-              </div>
-
-              {/* Expanded action buttons */}
-              {expandedId === g.id && (
-                <div className="gw-actions">
-                  <button className="gw-action-btn" onClick={() => handleSchedule(g)}>
-                    <Calendar size={14} /> Schedule
-                  </button>
-                  <button className="gw-action-btn" onClick={() => handleMessage(g)}>
-                    <MessageSquare size={14} /> Message
-                  </button>
-                  <button className="gw-action-btn" onClick={() => openEdit(g)}>
-                    <Pencil size={14} /> Edit
+                  <span className="gw-color-bar" style={{ background: g.color ?? '#E8607A' }} />
+                  <div className="gw-group-icon">
+                    {g.icon_url
+                      ? <img src={g.icon_url} alt="" className="gw-group-icon-img" />
+                      : <span className="gw-group-icon-letter">{g.name?.[0] ?? '?'}</span>}
+                  </div>
+                  <div className="gw-item-body">
+                    <span className="gw-item-name">{g.name}</span>
+                    <AvatarCluster members={g.members} />
+                  </div>
+                  <button
+                    className="gw-edit-hover"
+                    title="Edit group"
+                    onClick={e => { e.stopPropagation(); openEdit(g); }}
+                  >
+                    <Pencil size={13} />
                   </button>
                 </div>
-              )}
-            </li>
-          ))}
+
+                {expandedId === g.id && (
+                  <div className="gw-actions">
+                    <button className="gw-action-btn" onClick={() => handleSchedule(g)}>
+                      <Calendar size={14} /> Schedule
+                    </button>
+                    <button className="gw-action-btn" onClick={() => handleMessage(g)}>
+                      <MessageSquare size={14} /> Message
+                    </button>
+                    <button className="gw-action-btn" onClick={() => openEdit(g)}>
+                      <Pencil size={14} /> Edit
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
