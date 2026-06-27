@@ -47,7 +47,7 @@
 .dashboard-item {
   min-height: 400px;
 }
-.calendar-with-summary {
+.dashboard-col-stack {
   display: flex;
   flex-direction: column;
 }

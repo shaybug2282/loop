@@ -121,10 +121,7 @@ const AISummary = () => {
                           <strong>{p.title || 'Event'}</strong>
                         </div>
                         <div className="sa-plan-time">{fmt(p.start)}{p.end ? ` – ${fmt(p.end)}` : ''}</div>
-                        {p.rationale && <div className="sa-plan-why">{p.rationale}</div>}
-                        {Array.isArray(p.warnings) && p.warnings.length > 0 && (
-                          <div className="sa-plan-warn">⚠ {p.warnings.join('; ')}</div>
-                        )}
+                        {p.location && <div className="sa-plan-loc">{p.location}</div>}
                       </div>
                     ))}
               </div>

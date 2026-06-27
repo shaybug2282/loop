@@ -5,7 +5,7 @@
   margin-top: 24px;
   display: flex;
   flex-direction: column;
-  height: 340px;
+  height: 680px;
   overflow: hidden;
 }
 
@@ -93,8 +93,7 @@
 .sa-plan-head svg { color: #E8607A; flex-shrink: 0; }
 
 .sa-plan-time { font-size: 13px; color: #E8607A; font-weight: 600; margin-top: 2px; }
-.sa-plan-why  { font-size: 12.5px; color: #6B7280; margin-top: 2px; }
-.sa-plan-warn { font-size: 12px; color: #B45309; margin-top: 3px; }
+.sa-plan-loc  { font-size: 12.5px; color: #6B7280; margin-top: 2px; }
 
 .chat-bubble.typing {
   display: flex;
@@ -144,5 +143,5 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 768px) {
-  .ai-summary-component { height: 300px; margin-top: 16px; }
+  .ai-summary-component { height: 480px; margin-top: 16px; }
 }

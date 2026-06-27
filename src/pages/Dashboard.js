@@ -68,12 +68,12 @@ const Dashboard = () => {
       </div>
 
       <div className="dashboard-grid">
-        <div className="dashboard-item calendar-with-summary">
-          <CalendarComponent />
-          <AISummary />
-        </div>
         <div className="dashboard-item">
+          <CalendarComponent />
+        </div>
+        <div className="dashboard-item dashboard-col-stack">
           <ScheduleWidget />
+          <AISummary />
         </div>
         <div className="dashboard-item">
           <FriendsWidget />
