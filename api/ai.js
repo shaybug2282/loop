@@ -1,11 +1,17 @@
-// Two-model scheduling apparatus — the brain behind the invisible scheduling assistant.
+// AI router — two-model scheduling apparatus (all ops POST).
 //
 //   STAGE 1 (Haiku, "profiler")   builds a durable scheduling profile per user.
 //   STAGE 2 (Sonnet, "scheduler") turns a request + every participant's profile
 //                                 + real availability into candidate event plans.
+//
+// POST { op:'build-profile', googleId, notes? }              → { profile }
+// POST { op:'schedule', googleId, participantIds[], request } → { plans }
+// POST { op:'chat', googleId, messages[] }                   → { reply, plans }
+//
+// Requires the user_profiles table: db/migrations/003_user_profiles.sql
 
-import { createClient } from '@supabase/supabase-js';
 import { decrypt } from './_crypto.js';
+import { db } from './_lib.js';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -13,11 +19,6 @@ const MODELS = {
   PROFILER:  'claude-haiku-4-5',
   SCHEDULER: 'claude-sonnet-4-6',
 };
-
-const db = () => createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 // callModel — single entry point to the Anthropic Messages API.
 // in:  { model, system, messages, maxTokens? }. out: assistant reply string.
@@ -50,18 +51,27 @@ async function callModel({ model, system, messages, maxTokens = 1024 }) {
 }
 
 // extractJson — tolerant JSON extraction from model replies (handles fences and prose).
-// out: parsed value or null.
-function extractJson(text) {
+// Tracks string/escape state so braces inside string values don't end the match.
+// out: parsed value or null. Exported for unit tests.
+export function extractJson(text) {
   if (!text) return null;
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const body   = fenced ? fenced[1] : text;
   const start  = body.search(/[[{]/);
   if (start === -1) return null;
   const open = body[start], close = open === '{' ? '}' : ']';
-  let depth = 0;
+  let depth = 0, inString = false, escaped = false;
   for (let i = start; i < body.length; i++) {
-    if (body[i] === open)  depth++;
-    if (body[i] === close) depth--;
+    const ch = body[i];
+    if (inString) {
+      if (escaped)           escaped = false;
+      else if (ch === '\\')  escaped = true;
+      else if (ch === '"')   inString = false;
+      continue;
+    }
+    if (ch === '"')   { inString = true; continue; }
+    if (ch === open)  depth++;
+    if (ch === close) depth--;
     if (depth === 0) {
       try { return JSON.parse(body.slice(start, i + 1)); } catch { return null; }
     }
@@ -225,18 +235,6 @@ export default async function handler(req, res) {
 
       await saveProfile(client, user.id, profile, signals);
       return res.status(200).json({ profile });
-    }
-
-    // ── Stored profile read — no model call ──────────────────────────────────
-    if (op === 'get-profile') {
-      const { googleId } = req.body;
-      if (!googleId) return res.status(400).json({ error: 'googleId required' });
-
-      const [user] = await resolveUsers(client, [googleId]);
-      if (!user) return res.status(404).json({ error: 'User not found' });
-
-      const stored = await loadProfile(client, user.id);
-      return res.status(200).json({ profile: stored?.profile ?? null, updatedAt: stored?.updated_at ?? null });
     }
 
     // ── STAGE 2 · Sonnet scheduler ───────────────────────────────────────────

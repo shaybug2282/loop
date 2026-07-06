@@ -123,6 +123,7 @@
 /* ── Notification item ──────────────────────────────────────────────────────── */
 
 .nc-item {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -140,12 +141,37 @@
   flex-shrink: 0;
 }
 
-.nc-dot-orange { background: #F59E0B; }
+/* Color semantics: yellow = pending invite, red = declined, green = confirmed */
+.nc-dot-yellow { background: #EAB308; }
 .nc-dot-red    { background: #EF4444; }
 .nc-dot-green  { background: #10B981; }
-.nc-dot-pink   { background: #E8607A; }
 
-.nc-item-body { min-width: 0; }
+.nc-item-body { min-width: 0; flex: 1; }
+
+/* Delete button — appears on hover, matches the widget dismiss pattern */
+.nc-item-x {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 17px;
+  height: 17px;
+  border: none;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.12s;
+}
+
+.nc-item:hover .nc-item-x { opacity: 1; }
+.nc-item-x:hover { background: rgba(0, 0, 0, 0.28); }
 
 .nc-item-title {
   font-size: 13px;

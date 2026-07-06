@@ -1,73 +1,29 @@
 import React, { useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { initGoogleCalendar, setTokenClient } from '../utils/googleCalendar';
+import { initGisClient, completeGoogleSignIn } from '../utils/googleAuth';
 import './SignInModal.css';
 
-// Prompt shown to unauthenticated users — handles its own GIS script load.
+// Prompt shown to unauthenticated users — shares the GIS flow with Login.
 const SignInModal = ({ onClose }) => {
   const { login } = useAuth();
 
   const handleTokenResponse = useCallback(async (response) => {
-    if (!response.access_token) return;
     try {
-      const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: { Authorization: `Bearer ${response.access_token}` },
-      });
-      const userInfo = await res.json();
-      localStorage.setItem('googleUserId', userInfo.id);
-      initGoogleCalendar(response.access_token, response.expires_in || 3600);
-      await fetch('/api/user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          op: 'sync',
-          googleId: userInfo.id,
-          email: userInfo.email,
-          name: userInfo.name,
-          pictureUrl: userInfo.picture,
-          accessToken: response.access_token,
-          expiresIn: response.expires_in || 3600,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
-      });
-      login({ name: userInfo.name, email: userInfo.email, picture: userInfo.picture, accessToken: response.access_token });
-      // isAuthenticated becomes true → Dashboard re-renders with full content; no navigate needed.
+      const userData = await completeGoogleSignIn(response);
+      // isAuthenticated becomes true → Dashboard re-renders with full content;
+      // no navigate needed.
+      login(userData);
     } catch (err) {
       console.error('[SignInModal] sign-in error:', err);
     }
   }, [login]);
 
   useEffect(() => {
-    let addedScript = null;
-
-    const initClient = () => {
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-        scope: 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks',
-        callback: handleTokenResponse,
-      });
-      setTokenClient(client);
+    const cleanup = initGisClient(handleTokenResponse, (client) => {
       const btn = document.getElementById('sim-google-btn');
       if (btn) btn.onclick = () => client.requestAccessToken();
-    };
-
-    if (window.google?.accounts?.oauth2) {
-      initClient();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = initClient;
-      document.body.appendChild(script);
-      addedScript = script;
-    }
-
-    return () => {
-      if (addedScript && document.body.contains(addedScript)) {
-        document.body.removeChild(addedScript);
-      }
-    };
+    });
+    return cleanup;
   }, [handleTokenResponse]);
 
   return (

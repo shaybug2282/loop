@@ -70,18 +70,27 @@ export async function decryptMessage(sharedKey, ciphertext, iv) {
 
 // Send an E2E-encrypted DM from the logged-in user to a recipient (by DB userId).
 // toUserId: recipient's DB UUID. googleId: sender's Google ID. text: plaintext.
+// Throws if the recipient has never opened Messages (no public key uploaded yet).
 export async function sendDm(googleId, toUserId, text) {
-  const { privateKey } = await getOrCreateKeyPair();
-  const keyRes = await fetch(`/api/messages?op=get-key&userId=${encodeURIComponent(toUserId)}`);
+  const { privateKey, publicKeyJwk: myPublicKeyJwk } = await getOrCreateKeyPair();
+  // Ensure our public key is on the server so the recipient can decrypt —
+  // without this, DMs sent before ever opening the Messages panel are unreadable.
+  await fetch('/api/messages', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ op: 'store-key', googleId, publicKeyJwk: myPublicKeyJwk }),
+  });
+  const keyRes = await fetch(`/api/messages?op=public-key&userId=${encodeURIComponent(toUserId)}`);
   if (!keyRes.ok) throw new Error('Could not fetch recipient public key');
   const { publicKeyJwk } = await keyRes.json();
   if (!publicKeyJwk) throw new Error('Recipient has no public key');
   const theirPubKey  = await importPublicKey(publicKeyJwk);
   const sharedKey    = await deriveSharedKey(privateKey, theirPubKey);
   const { ciphertext, iv } = await encryptMessage(sharedKey, text);
-  await fetch('/api/messages', {
+  const sendRes = await fetch('/api/messages', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ op: 'send', googleId, toUserId, ciphertext, iv }),
+    body:    JSON.stringify({ op: 'send', senderGoogleId: googleId, receiverId: toUserId, ciphertext, iv }),
   });
+  if (!sendRes.ok) throw new Error('Failed to send message');
 }

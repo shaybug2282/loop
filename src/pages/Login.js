@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { initGoogleCalendar, setTokenClient } from '../utils/googleCalendar';
+import { initGisClient, completeGoogleSignIn } from '../utils/googleAuth';
 import './Login.css';
 
 const Login = () => {
@@ -9,91 +9,24 @@ const Login = () => {
   const { login } = useAuth();
 
   const handleTokenResponse = useCallback(async (response) => {
-    if (response.access_token) {
-      try {
-        // Get user info using the access token
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: {
-            Authorization: `Bearer ${response.access_token}`,
-          },
-        });
-
-        const userInfo = await userInfoResponse.json();
-
-        const userData = {
-          name: userInfo.name,
-          email: userInfo.email,
-          picture: userInfo.picture,
-          accessToken: response.access_token,
-        };
-
-        // Store google_id so googleCalendar.js can sync refreshed tokens to Supabase
-        localStorage.setItem('googleUserId', userInfo.id);
-
-        // Initialize Google Calendar with the access token and its lifetime
-        initGoogleCalendar(response.access_token, response.expires_in || 3600);
-
-        // Upsert user into Supabase via serverless function — token is encrypted server-side
-        await fetch('/api/user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            op: 'sync',
-            googleId: userInfo.id,
-            email: userInfo.email,
-            name: userInfo.name,
-            pictureUrl: userInfo.picture,
-            accessToken: response.access_token,
-            expiresIn: response.expires_in || 3600,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          }),
-        });
-
-        // Log the user in
-        login(userData);
-
-        // Navigate to dashboard
-        navigate('/dashboard');
-      } catch (error) {
-        console.error('Error fetching user info:', error);
-        alert('Failed to get user information. Please try again.');
-      }
-    } else {
-      console.error('No access token received');
+    try {
+      const userData = await completeGoogleSignIn(response);
+      login(userData);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Sign-in error:', error);
       alert('Failed to log in. Please try again.');
     }
   }, [login, navigate]);
 
   useEffect(() => {
-    // Load Google Identity Services
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-
-    script.onload = () => {
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-        scope: 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks',
-        callback: handleTokenResponse,
-      });
-
-      // Register client for silent token refresh
-      setTokenClient(client);
-
-      // Attach click handler to button
+    const cleanup = initGisClient(handleTokenResponse, (client) => {
       const signInButton = document.getElementById('google-sign-in-button');
       if (signInButton) {
-        signInButton.onclick = () => {
-          client.requestAccessToken();
-        };
+        signInButton.onclick = () => client.requestAccessToken();
       }
-    };
-
-    return () => {
-      document.body.removeChild(script);
-    };
+    });
+    return cleanup;
   }, [handleTokenResponse]);
 
   return (
@@ -103,7 +36,7 @@ const Login = () => {
           <h1>Welcome</h1>
           <p>Sign in with your Google account to continue</p>
         </div>
-        
+
         <div className="login-content">
           <button id="google-sign-in-button" className="google-sign-in-btn">
             <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
@@ -120,8 +53,8 @@ const Login = () => {
         <div className="login-footer">
           <p>This app will access your:</p>
           <ul>
-            <li>Google Calendar (read & write)</li>
-            <li>Google Tasks (read & write)</li>
+            <li>Google Calendar (read &amp; write)</li>
+            <li>Google Tasks (read &amp; write)</li>
           </ul>
         </div>
       </div>

@@ -1,11 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { fetchWeekEvents } from '../utils/googleCalendar';
+import { fetchCalendarEvents } from '../utils/googleCalendar';
 import './WeekView.css';
+
+const SEEN_CONFIRMED_KEY = 'wv-confirmed-seen';
+
+// readSeenConfirmed — returns the set of confirmed event ids the user has
+// already seen highlighted (persisted so the highlight only fires once).
+const readSeenConfirmed = () => {
+  try { return new Set(JSON.parse(localStorage.getItem(SEEN_CONFIRMED_KEY) || '[]')); }
+  catch { return new Set(); }
+};
 
 const WeekView = () => {
   const [events,        setEvents]        = useState([]);
   const [pendingEvents, setPendingEvents] = useState([]);
+  // Ids of app events confirmed since the user last looked — highlighted this session.
+  const [newlyConfirmed, setNewlyConfirmed] = useState(new Set());
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState(null);
   const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
@@ -24,8 +35,11 @@ const WeekView = () => {
       setLoading(true);
       setError(null);
 
+      const weekEnd = new Date(currentWeekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+
       const [weekEvents, pendingRes] = await Promise.all([
-        fetchWeekEvents(),
+        fetchCalendarEvents(currentWeekStart.toISOString(), weekEnd.toISOString()),
         googleId
           ? fetch(`/api/schedule?op=pending-events&googleId=${encodeURIComponent(googleId)}`)
               .then(r => r.ok ? r.json() : { events: [] })
@@ -33,17 +47,26 @@ const WeekView = () => {
           : { events: [] },
       ]);
 
+      const appEvents = pendingRes.events ?? [];
+
+      // Confirmed events the user hasn't seen confirmed yet get highlighted;
+      // mark them seen immediately so the highlight lasts one session only.
+      const seen  = readSeenConfirmed();
+      const fresh = appEvents.filter(e => e.status === 'accepted' && !seen.has(e.id)).map(e => e.id);
+      if (fresh.length) {
+        fresh.forEach(id => seen.add(id));
+        try { localStorage.setItem(SEEN_CONFIRMED_KEY, JSON.stringify([...seen])); } catch {}
+        setNewlyConfirmed(prev => new Set([...prev, ...fresh]));
+      }
+
       setEvents(weekEvents);
-      setPendingEvents(pendingRes.events ?? []);
+      setPendingEvents(appEvents);
     } catch (error) {
       console.error('Error loading events:', error);
       setError(error.message);
     } finally {
       setLoading(false);
     }
-  // currentWeekStart is intentionally in deps: changing it triggers a re-fetch
-  // even though fetchWeekEvents() resolves the window internally.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWeekStart, googleId]);
 
   useEffect(() => {
@@ -76,38 +99,69 @@ const WeekView = () => {
     return days;
   };
 
+  // App events that belong on the calendar: declined plans are removed entirely.
+  const visibleAppEvents = pendingEvents.filter(
+    e => e.status !== 'declined' && !(e.declines ?? []).length
+  );
+
+  // isAppCopy — true when a Google Calendar event is the synced copy of one of
+  // our own confirmed events, matched by stored google_event_id or (for rows
+  // created before migration 006) by identical start time + "Hangout!" summary.
+  const appGoogleIds = new Set(pendingEvents.map(e => e.google_event_id).filter(Boolean));
+  const legacyConfirmedTimes = new Set(
+    pendingEvents
+      .filter(e => e.status === 'accepted' && !e.google_event_id)
+      .map(e => new Date(e.event_time).getTime())
+  );
+  const isAppCopy = (gEvent) => {
+    if (appGoogleIds.has(gEvent.id)) return true;
+    if (!gEvent.start?.dateTime || !/Hangout!$/.test(gEvent.summary ?? '')) return false;
+    return legacyConfirmedTimes.has(new Date(gEvent.start.dateTime).getTime());
+  };
+
+  // getEventsForDay — merge Google + app events for one day into a single
+  // chronologically sorted list of uniform display items, with app copies
+  // deduped out of the Google feed.
   const getEventsForDay = (date) => {
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(date);
     dayEnd.setHours(23, 59, 59, 999);
+    const inDay = (d) => d >= dayStart && d <= dayEnd;
 
-    const gcal = events.filter(event => {
-      const eventStart = new Date(event.start.dateTime || event.start.date);
-      return eventStart >= dayStart && eventStart <= dayEnd;
-    });
+    const gcal = events
+      .filter(ev => !isAppCopy(ev) && inDay(new Date(ev.start.dateTime || ev.start.date)))
+      .map(ev => ({
+        key:      `g-${ev.id}`,
+        start:    ev.start.dateTime || ev.start.date,
+        allDay:   !ev.start.dateTime,
+        title:    ev.summary,
+        location: ev.location,
+      }));
 
-    const pending = pendingEvents
-      .filter(e => {
-        const t = new Date(e.event_time);
-        return t >= dayStart && t <= dayEnd;
-      })
-      .map(e => {
-        const with_ = e.isCreator
+    const app = visibleAppEvents
+      .filter(e => inDay(new Date(e.event_time)))
+      .map(e => ({
+        key:       `p-${e.id}`,
+        start:     e.event_time,
+        title:     'Hangout',
+        with:      e.isCreator
           ? (e.invitedUsers ?? []).map(u => u.display_name || u.name).filter(Boolean).join(', ')
-          : e.creator?.display_name || e.creator?.name || '';
-        return { ...e, _isPending: true, _with: with_ };
-      });
+          : e.creator?.display_name || e.creator?.name || '',
+        pending:   e.status !== 'accepted',
+        confirmed: e.status === 'accepted',
+        isNew:     newlyConfirmed.has(e.id),
+      }));
 
-    return { gcal, pending };
+    return [...gcal, ...app].sort((a, b) => new Date(a.start) - new Date(b.start));
   };
 
   const formatTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true
     });
   };
 
@@ -117,9 +171,9 @@ const WeekView = () => {
   };
 
   const weekDays = getWeekDays();
-  const monthYear = currentWeekStart.toLocaleDateString('en-US', { 
-    month: 'long', 
-    year: 'numeric' 
+  const monthYear = currentWeekStart.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric'
   });
 
   if (loading) {
@@ -172,8 +226,7 @@ const WeekView = () => {
 
       <div className="week-grid">
         {weekDays.map((day, index) => {
-          const { gcal, pending } = getEventsForDay(day);
-          const hasAny    = gcal.length > 0 || pending.length > 0;
+          const dayEvents  = getEventsForDay(day);
           const todayClass = isToday(day) ? 'today' : '';
 
           return (
@@ -187,48 +240,41 @@ const WeekView = () => {
                 </div>
               </div>
               <div className="day-events">
-                {!hasAny ? (
+                {dayEvents.length === 0 ? (
                   <div className="no-events">No events</div>
                 ) : (
-                  <>
-                    {gcal.map(event => (
-                      <div key={event.id} className="week-event">
-                        {event.start.dateTime ? (
-                          <div className="event-time">
-                            <Clock size={12} />
-                            {formatTime(event.start.dateTime)}
-                          </div>
-                        ) : (
-                          <div className="event-time all-day">All Day</div>
-                        )}
-                        <div className="event-title">{event.summary}</div>
-                        {event.location && (
-                          <div className="event-location">📍 {event.location}</div>
-                        )}
-                      </div>
-                    ))}
-                    {pending.map(e => (
-                      <div
-                        key={e.id}
-                        className={`week-event week-event-pending${e.status === 'accepted' ? ' week-event-confirmed' : ''}`}
-                      >
+                  dayEvents.map(item => (
+                    <div
+                      key={item.key}
+                      className={
+                        'week-event' +
+                        (item.pending ? ' week-event-pending' : '') +
+                        (item.confirmed ? ' week-event-confirmed' : '') +
+                        (item.isNew ? ' week-event-new' : '')
+                      }
+                    >
+                      {item.allDay ? (
+                        <div className="event-time all-day">All Day</div>
+                      ) : (
                         <div className="event-time">
                           <Clock size={12} />
-                          {formatTime(e.event_time)}
+                          {formatTime(item.start)}
                         </div>
-                        <div className="event-title">
-                          {e.status === 'accepted' ? '✓ ' : '⏳ '}
-                          Planned event
+                      )}
+                      <div className="event-title">{item.title}</div>
+                      {item.location && (
+                        <div className="event-location">📍 {item.location}</div>
+                      )}
+                      {item.with && (
+                        <div className="event-location">with {item.with}</div>
+                      )}
+                      {(item.pending || item.confirmed) && (
+                        <div className={`event-badge ${item.pending ? 'pending' : 'confirmed'}`}>
+                          {item.pending ? 'Pending' : item.isNew ? 'Just confirmed' : 'Confirmed'}
                         </div>
-                        {e._with && (
-                          <div className="event-location">with {e._with}</div>
-                        )}
-                        <div className="event-pending-label">
-                          {e.status === 'accepted' ? 'Confirmed' : 'Awaiting response'}
-                        </div>
-                      </div>
-                    ))}
-                  </>
+                      )}
+                    </div>
+                  ))
                 )}
               </div>
             </div>

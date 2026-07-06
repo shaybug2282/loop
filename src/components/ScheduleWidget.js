@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, Calendar, Clock, Sparkles, Send } from 'lucide-react';
+import { formatEventTime as formatTime, formatDuration } from '../utils/format';
 import './ScheduleWidget.css';
 
 // Module-level singletons — survive re-mounts and are shared across every
@@ -10,19 +11,6 @@ const _dismissed = (() => {
   catch { return new Set(); }
 })();
 const _scheduled = new Set(); // event IDs that already have a 60-s auto-dismiss timer
-
-function formatTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) +
-    ' at ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-function formatDuration(hours) {
-  if (!hours) return '';
-  if (hours < 1) return `${Math.round(hours * 60)} min`;
-  if (hours === 1) return '1 hr';
-  return `${Number.isInteger(hours) ? hours : hours} hrs`;
-}
 
 // ── Sub-screens ───────────────────────────────────────────────────────────────
 
@@ -387,7 +375,7 @@ export default function ScheduleWidget() {
     if (!myId) return;
     notifs.forEach(e => {
       if (_dismissed.has(e.id)) return;
-      const isInvite    = !e.isCreator && !(e.declines ?? []).includes(myId);
+      const isInvite    = !e.isCreator && e.status !== 'declined' && !(e.declines ?? []).includes(myId);
       const isDecline   = e.isCreator  && (e.declines ?? []).length > 0;
       const isConfirmed = e.isCreator  && e.status === 'accepted';
       if (!isInvite && !isDecline && !isConfirmed) return;
@@ -537,7 +525,8 @@ export default function ScheduleWidget() {
   };
 
   const canBack   = screen in BACK;
-  const myInvites = notifs.filter(e => !e.isCreator && !(e.declines ?? []).includes(myId) && !_dismissed.has(e.id));
+  // A declined event is cancelled for everyone — never shown as an open invite.
+  const myInvites = notifs.filter(e => !e.isCreator && e.status !== 'declined' && !(e.declines ?? []).includes(myId) && !_dismissed.has(e.id));
   const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted' && !_dismissed.has(e.id));
 
   return (

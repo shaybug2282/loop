@@ -1,5 +1,44 @@
 # Changes
 
+## 2026-07-06 — Calendar dedupe, uniform event cards, decline/confirm lifecycle
+
+`api/schedule.js` now saves the Google Calendar event id on confirmation (run `db/migrations/006_pending_events_google_event_id.sql`) so `WeekView` can hide the Google copy of a confirmed event instead of showing it twice (legacy rows without an id fall back to matching start time + "Hangout!" summary), and a decline now sets the whole event to `status: 'declined'`, removing it from every participant's calendar, upcoming list, and invites while keeping the creator's decline notification. WeekView renders all sources as one uniform brand-styled card sorted chronologically — pending events are marked with a dashed edge and yellow "Pending" badge, and newly confirmed events get a one-session accent-ring highlight plus "Just confirmed" badge (seen ids in localStorage `wv-confirmed-seen`); week navigation also now fetches the viewed week instead of always the current one. Potential bugs: the legacy time+summary dedupe could hide a genuinely different Google event titled "… Hangout!" at the exact same start time, `wv-confirmed-seen` is never pruned so it grows slowly, and the "newly confirmed" highlight is per-browser.
+
+## 2026-07-06 — Cross-device sync for notification seen/deleted state
+
+New `notification_state` table (run `db/migrations/005_notification_state.sql`) stores each user's seen and dismissed notification ids. `api/user.js` gains `GET op=notification-state` (returns `{ seen[], dismissed[] }`, empty arrays if unmigrated — graceful degrade) and `POST op=notification-state` (full-state upsert, last write wins). `NotificationCenter` pulls server state on mount and union-merges with localStorage, then pushes the full merged state on every change (debounced 800 ms, fire-and-forget), gated so a pre-merge subset can never overwrite another device's state. Pruning still converges both sides to live notification ids. Potential bug: two devices open simultaneously use last-write-wins on the whole array — a delete on device A within the same debounce window as activity on device B can be resurrected until the next poll re-converges.
+
+## 2026-07-06 — Notification center: delete, unseen-count badge, color semantics
+
+`NotificationCenter.js/css` reworked. Every notification now has a stable id and a hover ✕ to delete it (persisted in localStorage `nc-dismissed`, so deletions survive reloads and re-polls). The bell badge now counts **unseen** notifications — opening the panel marks visible items as seen (localStorage `nc-seen`) — instead of only counting invites. Colors corrected: green = confirmed ("X confirmed" / "All confirmed", was pink for the latter), yellow (`#EAB308`) = pending event and group invites (was orange), red = declined (unchanged). Seen/dismissed sets are pruned to live notification ids after each successful fetch, gated by a first-fetch flag so an empty pre-fetch state can't wipe them. Potential bug: seen/dismissed state is per-browser (localStorage), so the badge count and deletions don't sync across a user's devices.
+
+## 2026-07-06 — Codebase refactor: consistency, dedupe, tests, docs, bug fixes
+
+**Bug fixes found during review:**
+- `sendDm()` (`messageCrypto.js`) was calling `op=get-key` with `{googleId, toUserId}` but `api/messages.js` implements `op=public-key` and expects `{senderGoogleId, receiverId}` — every group-invite DM silently failed. Fixed both, added sender public-key upload (recipients couldn't decrypt if the sender had never opened Messages), and made send failures throw.
+- `extractJson()` (`api/ai.js`) terminated brace-matching on `}`/`]` inside JSON string values, returning null for AI replies containing braces in text. Now string/escape-aware; caught by the new unit tests.
+- `api/groups.js` `update`/`remove-member`/`touch`/`invite` never verified the requester belonged to the group — any known groupId could be mutated. All four now require accepted membership (`isAcceptedMember`).
+
+**Deduplication:**
+- New `api/_lib.js`: shared `db()` (was copied in 6 routers), `safeDecrypt` (2 copies), `resolveUser`.
+- New `src/utils/googleAuth.js`: single GIS sign-in flow (`initGisClient` + `completeGoogleSignIn`) replacing near-identical code in `Login.js`, `SignInModal.js`, and `AuthContext.js`; the OAuth scope string now exists once.
+- New `src/utils/format.js`: shared `formatEventTime`/`formatDuration` (were duplicated in ScheduleWidget + SchedulePage) and `formatMsgTime`/`hasGapBefore`/`isGroupedMsg` (were duplicated in MessagesPanel + GroupChatPanel).
+
+**Consistency:**
+- `ProfilePage` now reads via new `GET /api/user?op=profile` instead of querying Supabase directly with the anon key; `src/utils/supabaseClient.js` deleted — all data access goes through `/api/`, and `REACT_APP_SUPABASE_ANON_KEY` is no longer needed.
+- Removed unused `op=get-profile` from `api/ai.js` (no caller).
+
+**Project management:**
+- Added `.gitignore` (repo previously had none — `.env` was committable) and removed `.DS_Store` files.
+- New `db/migrations/` with numbered idempotent SQL (`001_groups`, `002_pending_events`, `003_user_profiles`, `004_messages_edited_at`) + `db/README.md` documenting the full schema; root `supabase_groups_migration.sql` moved to `001`.
+- `src/components/CHANGES_NOTES.md` and `src/pages/CHANGES_NOTES.md` merged into this file and deleted.
+- `package.json`: renamed `react-hello-world` → `loop`, added description and `test:ci` script.
+- README rewritten to match reality (Supabase/AI/messaging/groups, full env-var table, testing, accurate limitations); CLAUDE.md expanded with commands, repo map, conventions, and gotchas for onboarding.
+
+**Testing:** new `src/__tests__/` — 35 tests covering `_crypto` round-trip/tamper-detection, `extractJson`, `findFreeSlots` (overlap/spacing/daytime/window invariants), and the shared formatters. `findFreeSlots` and `extractJson` are now exported for tests. Verified: `CI=true npm run build` clean, `npm run test:ci` 35/35 green, `node --check` on all api files.
+
+Potential bugs to watch: groups ops now 403 for non-members — if any future UI lets a *pending* member edit a group, the membership check must be relaxed; `sendDm` now throws on failure, so callers relying on silent failure (both wrapped in `Promise.allSettled`, so safe today) would need try/catch if called directly.
+
 ## 2026-06-27 — AI chatbox restored as standalone multi-turn scheduling assistant
 
 `AISummary.js` and `AISummary.css` recreated as a proper conversational interface, now living under the calendar in Dashboard column 1. New `op:'chat'` added to `api/ai.js`: loads the user's Haiku profile, full friend list (name → UUID mapping), and user's own busy windows into the system context, then calls Sonnet with the full conversation history on every turn for multi-turn continuity. Sonnet returns `{ reply, plans? }` where each plan carries `participantIds` (Supabase UUIDs resolved from the friend list). Plan cards inside chat bubbles are clickable and call `POST /api/schedule op:create-event` directly — same path as the Schedule! widget — then confirm inline in the chat thread. The conversation remains live after booking for follow-up feedback. Potential bug: if a friend list is large (50+ friends), the system context may push token usage high; consider lazy-loading availability per friend if this becomes an issue.
@@ -25,7 +64,7 @@ Replaced the single Haiku chat in `api/ai.js` with a two-model framework. **Stag
 
 **Groups feature:** Full CRUD for social groups. Run `supabase_groups_migration.sql` in the Supabase SQL editor to create `groups`, `group_members`, `group_messages` tables. API: `api/groups.js` with ops: list, create, respond, invite, remove-member, update, delete, touch, send-message, messages, pending-invites. Widget on SchedulePage col 2: create form with color picker + icon upload, member avatar cluster, click to expand Schedule/Message/Edit actions, edit modal with rename/description/add-remove members/delete. Inviting members auto-sends an encrypted DM via `sendDm()` utility in `messageCrypto.js`.
 
-**Group chat:** `GroupChatPanel` (fixed bottom-right, offset from MessagesPanel), `GroupChatContext` tracks open chat. Messages server-side AES-256-GCM encrypted. Wired into App.js via `GroupChatProvider`.
+**Group chat:** `GroupChatPanel` (fixed bottom-right, offset from MessagesPanel), `GroupChatContext` tracks open chat. Messages server-side AES-256-GCM encrypted (not E2E — group key distribution is unsupported). Wired into App.js via `GroupChatProvider`. Caveat: group icons are stored as base64 data URLs in `groups.icon_url` — large images will exceed Supabase row size limits; migrate to Supabase Storage before production.
 
 **ScheduleWidget group preset:** Clicking "Schedule" in GroupsWidget stores member IDs in `sessionStorage['sw-group-preset']`, navigates to `/schedule`. ScheduleWidget reads and clears it on mount, skipping to the timing screen with group members pre-selected.
 

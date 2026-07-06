@@ -148,21 +148,6 @@ export const fetchTodayEvents = async () => {
   return await fetchCalendarEvents(today.toISOString(), tomorrow.toISOString());
 };
 
-// Fetch this week's events
-export const fetchWeekEvents = async () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const startOfWeek = new Date(today);
-  const dayOfWeek = today.getDay();
-  startOfWeek.setDate(today.getDate() - dayOfWeek);
-
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 7);
-
-  return await fetchCalendarEvents(startOfWeek.toISOString(), endOfWeek.toISOString());
-};
-
 // Fetch Google Tasks
 export const fetchGoogleTasks = async () => {
   const accessToken = await getValidToken();

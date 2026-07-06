@@ -13,33 +13,13 @@ import {
   encryptMessage,
   decryptMessage,
 } from '../utils/messageCrypto';
+import { formatMsgTime, hasGapBefore, isGroupedMsg } from '../utils/format';
 import './MessagesPanel.css';
 
 const POLL_MS = 3000;
-const GAP_MS  = 30_000; // 30-second gap threshold for time labels
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatMsgTime(iso) {
-  const d = new Date(iso);
-  const isToday = d.toDateString() === new Date().toDateString();
-  return isToday
-    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
-      ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-// Show a time label only when there is a 30s+ gap (or before the first message).
-function hasGapBefore(msgs, i) {
-  if (i === 0) return true;
-  return new Date(msgs[i].created_at) - new Date(msgs[i - 1].created_at) >= GAP_MS;
-}
 
 // Same sender, no gap → tighter visual grouping.
-function isGrouped(msgs, i) {
-  if (i === 0 || hasGapBefore(msgs, i)) return false;
-  return msgs[i].sender_id === msgs[i - 1].sender_id;
-}
+const isGrouped = (msgs, i) => isGroupedMsg(msgs, i, m => m.sender_id);
 
 // ── Context Menu ─────────────────────────────────────────────────────────────
 

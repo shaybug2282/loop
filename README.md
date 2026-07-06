@@ -1,90 +1,122 @@
 # Loop
 
+AI social calendar. Loop connects friends' Google Calendars so groups can find
+times, send invites, and book shared events — with a two-model AI assistant
+that learns each user's scheduling habits and proposes times that fit everyone.
 
-## What it does
+## Features
 
-- Google OAuth login
-- Today's schedule and a full week view pulled from Google Calendar
-- To-do list that imports from Google Tasks, plus local tasks you add yourself
-- Contact management (stored locally in the browser)
+- **Google Calendar sync** — today view, week view, and free/busy-aware
+  scheduling via Google OAuth (silent token refresh, encrypted at rest)
+- **Schedule! widget** — pick a time manually, let the server search everyone's
+  calendars for open slots, or ask the AI; invitees accept/decline and the
+  confirmed event lands on Google Calendar with all attendees
+- **AI scheduling assistant** — chat box that turns "dinner with Sam next week"
+  into bookable time suggestions; a background Haiku pass profiles each user's
+  rhythm and constraints, and Sonnet plans around every participant
+- **Friends** — friend codes, requests, profiles with privacy controls
+- **Messaging** — end-to-end encrypted DMs (ECDH + AES-GCM), plus group chat
+  (server-side encrypted)
+- **Groups** — create groups with colors/icons, invite members, group scheduling
+  and chat
+- **Tasks** — to-do list synced with Google Tasks plus local tasks
 
----
+## Architecture
+
+```
+src/                     React 18 SPA (Create React App)
+├── pages/               Route-level views (Dashboard, Schedule, Friends, …)
+├── components/          Widgets and panels
+├── contexts/            Auth, Messages, GroupChat providers
+└── utils/               googleAuth, googleCalendar, messageCrypto, format
+
+api/                     Vercel serverless functions (one router per domain)
+├── user.js  friends.js  messages.js  schedule.js  groups.js  ai.js
+└── _crypto.js  _lib.js  ← shared modules ("_" prefix = not a route)
+
+db/migrations/           Supabase SQL, applied manually in order (see db/README.md)
+```
+
+Each API router dispatches on an `op` parameter (`?op=` for GET,
+`{ op: ... }` in the body for POST) — this keeps the Vercel function count low
+(6 functions, Hobby-plan cap is 12). Google access tokens and emails are
+AES-256-GCM encrypted before they touch the database; DM content is encrypted
+client-side and the server only ever stores ciphertext.
+
+The AI apparatus is two-stage: `op:build-profile` (Haiku) distills calendar
+history into a stored scheduling profile per user; `op:schedule` / `op:chat`
+(Sonnet) combine every participant's profile with live free/busy data to
+propose event plans. See `api/ai.js`.
 
 ## Setup
 
-### 1. Google Cloud project
+### 1. Google Cloud
 
-Go to [console.cloud.google.com](https://console.cloud.google.com), create a new project, then enable two APIs under **APIs & Services → Library**:
+Create a project at [console.cloud.google.com](https://console.cloud.google.com), enable
+**Google Calendar API** and **Google Tasks API**, configure the OAuth consent
+screen (External) with scopes `calendar`, `calendar.events`, `tasks`, and add
+yourself as a test user. Create an OAuth 2.0 Client ID (Web application) with
+`http://localhost:3000` and your production URL in both authorized origins and
+redirect URIs.
 
-- Google Calendar API
-- Google Tasks API
+### 2. Supabase
 
-### 2. OAuth consent screen
+Create a project at [supabase.com](https://supabase.com). Apply the SQL in
+`db/migrations/` in order via the SQL editor — see `db/README.md` for the
+full schema including the base tables.
 
-Under **APIs & Services → OAuth consent screen**, choose External and fill in your app name and email. On the scopes step, add:
-
-- `https://www.googleapis.com/auth/calendar`
-- `https://www.googleapis.com/auth/calendar.events`
-- `https://www.googleapis.com/auth/tasks`
-
-Add your Google account as a test user. The app will only be usable by test users until you publish it.
-
-### 3. OAuth credentials
-
-Under **APIs & Services → Credentials**, create an OAuth 2.0 Client ID (Web application). Add the following to both Authorized JavaScript origins and Authorized redirect URIs:
-
-- `http://localhost:3000` for local dev
-- Your production URL once deployed (e.g. `https://your-app.vercel.app`)
-
-Copy the client ID — it looks like `123456789-abcdefg.apps.googleusercontent.com`.
-
-### 4. Local install
+### 3. Environment
 
 ```bash
 npm install
-cp .env.example .env
+cp .env.example .env   # then fill in every value
 ```
 
-Edit `.env`:
+| Variable | Where used | Notes |
+|----------|-----------|-------|
+| `REACT_APP_GOOGLE_CLIENT_ID` | client | OAuth client ID from step 1 |
+| `REACT_APP_SUPABASE_URL` | client + server | project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | server only | bypasses RLS — never expose |
+| `ANTHROPIC_API_KEY` | server only | powers `api/ai.js` |
+| `TOKEN_ENCRYPTION_KEY` | server only | 64 hex chars; generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 
-```
-REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here.apps.googleusercontent.com
-```
+### 4. Run
 
 ```bash
-npm start
+npm start        # CRA dev server at localhost:3000
+npm test         # jest in watch mode
+npm run test:ci  # single test run (CI)
+npm run build    # production build
 ```
 
-App runs at `http://localhost:3000`.
-
----
+Note: `npm start` alone serves only the React app. The `api/` functions run on
+Vercel — for a full local stack use `vercel dev`, which serves both.
 
 ## Deployment (Vercel)
 
-Push to GitHub, import the repo on [vercel.com](https://vercel.com), and add `REACT_APP_GOOGLE_CLIENT_ID` as an environment variable in project settings. After deploy, go back to Google Cloud Console and add your Vercel URL to the OAuth client's authorized origins and redirect URIs. Changes can take a few minutes to propagate.
+Import the repo on [vercel.com](https://vercel.com) and add **all** environment
+variables from the table above in project settings. After the first deploy, add
+the Vercel URL to your Google OAuth client's authorized origins/redirect URIs.
 
----
+## Testing
+
+Unit tests live in `src/__tests__/` and cover the pure logic: token encryption
+round-trips (`api/_crypto.js`), AI-reply JSON extraction (`api/ai.js`),
+free-slot search (`api/schedule.js`), and shared formatters (`src/utils/format.js`).
+Run `npm run test:ci`.
 
 ## Troubleshooting
 
-**`redirect_uri_mismatch`** — Your app URL isn't in the OAuth client's authorized URIs. Add it and wait a few minutes.
+- **`redirect_uri_mismatch`** — app URL missing from the OAuth client's
+  authorized URIs; add it and wait a few minutes.
+- **`403 Access Denied`** — Calendar or Tasks API not enabled in Google Cloud.
+- **`Access blocked: request is invalid`** — consent screen incomplete, or your
+  account isn't a test user.
+- **Groups/AI/events not working** — a `db/migrations/` file hasn't been applied.
+- **"[encrypted]" messages** — a participant's ECDH keypair was regenerated
+  (cleared browser data); prior messages are unrecoverable by design.
 
-**`403 Access Denied`** — One or both APIs (Calendar, Tasks) aren't enabled in Google Cloud Console.
+## Changelog
 
-**Tasks not showing** — Verify the Tasks API is enabled, check that you actually have tasks at [tasks.google.com](https://tasks.google.com), and try the refresh button.
-
-**`Access blocked: request is invalid`** — OAuth consent screen isn't fully configured, or your account isn't added as a test user.
-
----
-
-## Known limitations
-
-- Access tokens expire after one hour and will require re-login. A backend with refresh token handling would fix this properly.
-- Creating new Google Tasks or Calendar events from the app isn't implemented yet.
-- While the OAuth consent screen is in Testing mode, only explicitly added test users can sign in.
-
----
-
-## Stack
-
-React 18, React Router, `@react-oauth/google`, Google Calendar API, Google Tasks API, Lucide React, localStorage for contacts and local tasks.
+See `CHANGES.md` — every change lands there with its date, affected files, and
+known caveats.

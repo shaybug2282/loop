@@ -12,12 +12,7 @@
 // Edit feature requires one additional column (run once in Supabase SQL editor):
 //   ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
 
-import { createClient } from '@supabase/supabase-js';
-
-const db = () => createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { db } from './_lib.js';
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }

@@ -3,31 +3,14 @@ import { X, Minus, Send } from 'lucide-react';
 import { useGroupChat } from '../contexts/GroupChatContext';
 import { useMessages }  from '../contexts/MessagesContext';
 import { useAuth }      from '../contexts/AuthContext';
+import { formatMsgTime, hasGapBefore, isGroupedMsg as isGroupedBy } from '../utils/format';
 import './MessagesPanel.css';
 import './GroupChatPanel.css';
 
 const POLL_MS = 8_000;
-const GAP_MS  = 30_000;
-
-function formatMsgTime(iso) {
-  const d = new Date(iso);
-  const isToday = d.toDateString() === new Date().toDateString();
-  return isToday
-    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
-      ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-function hasGapBefore(msgs, i) {
-  if (i === 0) return true;
-  return new Date(msgs[i].created_at) - new Date(msgs[i - 1].created_at) >= GAP_MS;
-}
 
 // Same sender AND no time gap → visually grouped (no repeated name / tighter spacing)
-function isGroupedMsg(msgs, i) {
-  if (i === 0 || hasGapBefore(msgs, i)) return false;
-  return msgs[i].senderId === msgs[i - 1].senderId;
-}
+const isGroupedMsg = (msgs, i) => isGroupedBy(msgs, i, m => m.senderId);
 
 const GroupChatPanel = () => {
   const { chatGroup, closeGroupChat } = useGroupChat();

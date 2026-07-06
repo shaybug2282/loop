@@ -5,30 +5,15 @@
 // POST { op:'respond', googleId, eventId, action }  → accept / decline
 // POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
 //
-// Required Supabase migration (run once):
-//   CREATE TABLE pending_events (
-//     id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-//     creator_id      UUID REFERENCES users(id),
-//     invited_user_ids UUID[] NOT NULL DEFAULT '{}',
-//     event_time      TIMESTAMPTZ NOT NULL,
-//     duration_hours  FLOAT NOT NULL DEFAULT 1,
-//     status          TEXT NOT NULL DEFAULT 'pending',
-//     acceptances     UUID[] NOT NULL DEFAULT '{}',
-//     created_at      TIMESTAMPTZ DEFAULT now(),
-//     google_event_created BOOLEAN DEFAULT false
-//   );
+// Requires the pending_events table: db/migrations/002_pending_events.sql
 
-import { createClient } from '@supabase/supabase-js';
 import { decrypt } from './_crypto.js';
-
-const db = () => createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { db } from './_lib.js';
 
 // Merge overlapping busy intervals, then find durationMs-length free slots.
 // Prefers daytime (9 AM – 6 PM) on first pass; any hour on second pass.
-function findFreeSlots(busySlots, windowStart, windowEnd, durationMs) {
+// Exported for unit tests.
+export function findFreeSlots(busySlots, windowStart, windowEnd, durationMs) {
   const we = windowEnd.getTime();
 
   const sorted = busySlots
@@ -92,10 +77,12 @@ function findFreeSlots(busySlots, windowStart, windowEnd, durationMs) {
 
 // Creates a shared event on the organizer's calendar with all participants as attendees.
 // Google Calendar handles delivering invitations to each attendee automatically.
+// Returns the created Google event id (shared across all attendees' calendars),
+// or null on failure — the id lets clients dedupe the Google copy of the event.
 async function createGCalEvent(token, summary, startIso, durationHours, attendeeEmails = []) {
   const start = new Date(startIso);
   const end   = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
-  await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+  const r = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
     method:  'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify({
@@ -105,6 +92,9 @@ async function createGCalEvent(token, summary, startIso, durationHours, attendee
       attendees: attendeeEmails.map(email => ({ email })),
     }),
   });
+  if (!r.ok) return null;
+  const data = await r.json().catch(() => null);
+  return data?.id ?? null;
 }
 
 export default async function handler(req, res) {
@@ -122,15 +112,17 @@ export default async function handler(req, res) {
       const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
       if (!me) return res.status(404).json({ error: 'User not found' });
 
+      // select('*') keeps this working on deployments that haven't run
+      // 006_pending_events_google_event_id.sql yet (google_event_id just absent).
       const [{ data: created }, { data: invited }] = await Promise.all([
         client.from('pending_events')
-          .select('id,creator_id,invited_user_ids,event_time,duration_hours,status,acceptances,declines,created_at')
+          .select('*')
           .eq('creator_id', me.id)
-          .in('status', ['pending', 'accepted']),
+          .in('status', ['pending', 'accepted', 'declined']),
         client.from('pending_events')
-          .select('id,creator_id,invited_user_ids,event_time,duration_hours,status,acceptances,declines,created_at')
+          .select('*')
           .contains('invited_user_ids', [me.id])
-          .in('status', ['pending', 'accepted']),
+          .in('status', ['pending', 'accepted', 'declined']),
       ]);
 
       const seen   = new Set();
@@ -196,9 +188,12 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Not invited to this event' });
 
       if (action === 'decline') {
+        // Any decline cancels the plan: mark the whole event declined so it is
+        // removed from every participant's schedule (the creator still sees a
+        // decline notification via the declines array).
         const declines = [...new Set([...(ev.declines ?? []), me.id])];
-        await client.from('pending_events').update({ declines }).eq('id', eventId);
-        return res.status(200).json({ ok: true, status: 'pending', declined: true });
+        await client.from('pending_events').update({ declines, status: 'declined' }).eq('id', eventId);
+        return res.status(200).json({ ok: true, status: 'declined', declined: true });
       }
 
       // Accept
@@ -219,16 +214,23 @@ export default async function handler(req, res) {
 
         // Create one shared event on the creator's calendar; Google delivers
         // invitations to every attendee automatically.
+        let googleEventId = null;
         if (creatorUser?.access_token) {
           try {
             const token = decrypt(creatorUser.access_token);
-            await createGCalEvent(token, summary, ev.event_time, ev.duration_hours, attendeeEmails);
+            googleEventId = await createGCalEvent(token, summary, ev.event_time, ev.duration_hours, attendeeEmails);
           } catch {}
         }
 
         await client.from('pending_events')
           .update({ acceptances, status: 'accepted', google_event_created: true })
           .eq('id', eventId);
+
+        // Stored separately so an unmigrated DB (missing google_event_id, see
+        // 006_pending_events_google_event_id.sql) can't fail the accept above.
+        if (googleEventId) {
+          await client.from('pending_events').update({ google_event_id: googleEventId }).eq('id', eventId);
+        }
 
         return res.status(200).json({ ok: true, status: 'accepted', allAccepted: true });
       }

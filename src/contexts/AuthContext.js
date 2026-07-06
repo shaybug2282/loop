@@ -1,5 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import { setTokenClient, clearTokenRefresh } from '../utils/googleCalendar';
+import { clearTokenRefresh } from '../utils/googleCalendar';
+import { initGisClient } from '../utils/googleAuth';
 
 const AuthContext = createContext();
 
@@ -13,26 +14,7 @@ export const useAuth = () => {
 
 // Re-initialize the GIS token client after a page reload so silent refresh still works.
 // The callback is intentionally empty here — it gets overwritten per-refresh in getValidToken.
-const rehydrateTokenClient = () => {
-  const init = () => {
-    const client = window.google.accounts.oauth2.initTokenClient({
-      client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-      scope: 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks',
-      callback: () => {},
-    });
-    setTokenClient(client);
-  };
-
-  if (window.google?.accounts?.oauth2) {
-    init();
-  } else {
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    document.body.appendChild(script);
-    script.onload = init;
-  }
-};
+const rehydrateTokenClient = () => initGisClient(() => {});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

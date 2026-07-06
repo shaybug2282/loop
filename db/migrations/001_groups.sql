@@ -1,4 +1,5 @@
--- Run this in the Supabase SQL editor to enable the Groups feature.
+-- Groups feature: groups, memberships, and group chat messages.
+-- Safe to re-run — all statements use IF NOT EXISTS.
 
 CREATE TABLE IF NOT EXISTS groups (
   id            UUID        DEFAULT gen_random_uuid() PRIMARY KEY,

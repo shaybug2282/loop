@@ -12,27 +12,23 @@
 // POST { op:'touch',         ... }    → update last_accessed
 // POST { op:'send-message',  ... }    → send a group message
 
-import { createClient } from '@supabase/supabase-js';
-import { encrypt, decrypt } from './_crypto.js';
-
-function safeDecrypt(val) {
-  if (!val) return val;
-  try { return decrypt(val); } catch { return val; }
-}
-
-const db = () => createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { encrypt } from './_crypto.js';
+import { db, safeDecrypt, resolveUser as resolveUserBase } from './_lib.js';
 
 // Resolve a googleId to a DB user row (id, name, display_name, picture_url).
-async function resolveUser(supabase, googleId) {
+const resolveUser = (supabase, googleId) =>
+  resolveUserBase(supabase, googleId, 'id, name, display_name, picture_url');
+
+// True when the user is an accepted member of the group. Used to guard
+// mutating ops so a leaked groupId alone can't modify a group.
+async function isAcceptedMember(supabase, groupId, userId) {
   const { data } = await supabase
-    .from('users')
-    .select('id, name, display_name, picture_url')
-    .eq('google_id', googleId)
+    .from('group_members')
+    .select('status')
+    .eq('group_id', groupId)
+    .eq('user_id', userId)
     .single();
-  return data;
+  return data?.status === 'accepted';
 }
 
 // Shape a group row into the client payload.
@@ -275,6 +271,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'googleId, groupId, memberUserIds required' });
     const me = await resolveUser(supabase, googleId);
     if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!(await isAcceptedMember(supabase, groupId, me.id)))
+      return res.status(403).json({ error: 'not a member' });
 
     const rows = memberUserIds
       .filter(uid => uid !== me.id)
@@ -290,6 +288,12 @@ export default async function handler(req, res) {
   if (op === 'remove-member') {
     if (!googleId || !groupId || !userId)
       return res.status(400).json({ error: 'googleId, groupId, userId required' });
+    const me = await resolveUser(supabase, googleId);
+    if (!me) return res.status(404).json({ error: 'user not found' });
+    // Members may remove others (matches the edit-modal UX) or leave themselves.
+    if (!(await isAcceptedMember(supabase, groupId, me.id)))
+      return res.status(403).json({ error: 'not a member' });
+
     await supabase.from('group_members')
       .delete()
       .eq('group_id', groupId)
@@ -299,6 +303,12 @@ export default async function handler(req, res) {
 
   if (op === 'update') {
     if (!googleId || !groupId) return res.status(400).json({ error: 'googleId and groupId required' });
+    const me = await resolveUser(supabase, googleId);
+    if (!me) return res.status(404).json({ error: 'user not found' });
+    // Any accepted member may edit (icon/name changes are a shared feature).
+    if (!(await isAcceptedMember(supabase, groupId, me.id)))
+      return res.status(403).json({ error: 'not a member' });
+
     const patch = {};
     if (name        !== undefined) patch.name        = name;
     if (description !== undefined) patch.description = description;
@@ -335,7 +345,12 @@ export default async function handler(req, res) {
   }
 
   if (op === 'touch') {
-    if (!groupId) return res.status(400).json({ error: 'groupId required' });
+    if (!googleId || !groupId) return res.status(400).json({ error: 'googleId and groupId required' });
+    const me = await resolveUser(supabase, googleId);
+    if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!(await isAcceptedMember(supabase, groupId, me.id)))
+      return res.status(403).json({ error: 'not a member' });
+
     await supabase
       .from('groups')
       .update({ last_accessed: new Date().toISOString() })

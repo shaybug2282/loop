@@ -4,20 +4,8 @@ import { Menu, Clock, Calendar, Home } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ScheduleWidget from '../components/ScheduleWidget';
 import GroupsWidget from '../components/GroupsWidget';
+import { formatEventTime as formatTime, formatDuration } from '../utils/format';
 import './SchedulePage.css';
-
-function formatTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) +
-    ' at ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-function formatDuration(hours) {
-  if (!hours) return '';
-  if (hours < 1) return `${Math.round(hours * 60)} min`;
-  if (hours === 1) return '1 hr';
-  return `${hours} hrs`;
-}
 
 // ── Upcoming Events panel ─────────────────────────────────────────────────────
 
@@ -25,7 +13,7 @@ const UpcomingEvents = ({ events }) => {
   const [expanded, setExpanded] = useState(false);
 
   const upcoming = events
-    .filter(e => new Date(e.event_time) > new Date())
+    .filter(e => e.status !== 'declined' && new Date(e.event_time) > new Date())
     .sort((a, b) => new Date(a.event_time) - new Date(b.event_time));
 
   const visible = expanded ? upcoming : upcoming.slice(0, 2);

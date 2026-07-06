@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Menu, Save, Loader, Home } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../contexts/AuthContext';
-import supabase from '../utils/supabaseClient';
 import './ProfilePage.css';
 
 // Formats a raw digit string into (XXX)XXX-XXXX as the user types
@@ -30,22 +29,20 @@ const ProfilePage = () => {
 
   const googleId = localStorage.getItem('googleUserId');
 
-  // Load current profile values from Supabase on mount
+  // Load current profile values via the API on mount
   useEffect(() => {
-    if (!supabase || !googleId) { setLoading(false); return; }
-    supabase
-      .from('users')
-      .select('display_name, show_email, phone_number')
-      .eq('google_id', googleId)
-      .single()
-      .then(({ data, error }) => {
-        if (!error && data) {
+    if (!googleId) { setLoading(false); return; }
+    fetch(`/api/user?op=profile&googleId=${encodeURIComponent(googleId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
           setDisplayName(data.display_name ?? '');
           setShowEmail(data.show_email ?? true);
           setPhoneNumber(data.phone_number ?? '');
         }
-        setLoading(false);
-      });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [googleId]);
 
   const handleSave = async () => {

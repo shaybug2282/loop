@@ -5,19 +5,7 @@
 // POST { op:'respond', ... }    → accept or reject an incoming request
 // POST { op:'unfriend', ... }   → remove friendship (both directions)
 
-import { createClient } from '@supabase/supabase-js';
-import { decrypt } from './_crypto.js';
-
-// Handles rows written before encryption was added — falls back to plaintext.
-function safeDecrypt(val) {
-  if (!val) return val;
-  try { return decrypt(val); } catch { return val; }
-}
-
-const db = () => createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { db, safeDecrypt } from './_lib.js';
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }

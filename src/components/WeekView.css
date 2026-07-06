@@ -143,6 +143,7 @@
   font-size: 13px;
 }
 
+/* Uniform event card — every source (Google or Loop) uses this same look */
 .week-event {
   background: #F9EAF0;
   border-left: 3px solid #E8607A;
@@ -153,37 +154,48 @@
 }
 
 .week-event:hover {
-  background: #e8ecff;
+  background: #F3D8E4;
   transform: translateX(2px);
 }
 
-/* Pending (unconfirmed) Loop events */
+/* Pending Loop events keep the uniform card, marked by a dashed edge + badge */
 .week-event-pending {
-  background: #FFFBEB;
-  border-left: 3px dashed #F59E0B;
+  border-left-style: dashed;
 }
 
-.week-event-pending:hover { background: #FEF3C7; }
-
-/* Fully confirmed Loop events */
-.week-event-confirmed {
-  background: #F0FDF4;
-  border-left: 3px solid #10B981;
+/* Newly confirmed events are highlighted until the next visit */
+.week-event-new {
+  background: #FDF5F7;
+  box-shadow: 0 0 0 2px #E8607A;
+  animation: wv-confirm-pop 0.9s ease-out 2;
 }
 
-.week-event-confirmed:hover { background: #DCFCE7; }
+@keyframes wv-confirm-pop {
+  0%   { box-shadow: 0 0 0 2px rgba(232, 96, 122, 0.9); }
+  50%  { box-shadow: 0 0 0 5px rgba(232, 96, 122, 0.25); }
+  100% { box-shadow: 0 0 0 2px rgba(232, 96, 122, 0.9); }
+}
 
-.event-pending-label {
+/* Status badges (green = confirmed, yellow = pending, per notification colors) */
+.event-badge {
+  display: inline-block;
   font-size: 10px;
   font-weight: 600;
-  color: #D97706;
-  margin-top: 3px;
+  margin-top: 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.week-event-confirmed .event-pending-label {
+.event-badge.pending {
+  color: #D97706;
+  background: #FEF3C7;
+}
+
+.event-badge.confirmed {
   color: #059669;
+  background: #DCFCE7;
 }
 
 .event-time {
