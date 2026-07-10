@@ -38,17 +38,30 @@
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  /* Three equal columns — each widget owns exactly 1/3 of the row. */
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
   max-width: 1400px;
   margin: 0 auto;
-  /* Top-align columns: a tall column (the Schedule + Assistant stack) must not
-     stretch the shorter ones (Today's Schedule, Friends) to match its height. */
-  align-items: start;
+  /* Stretch columns so all three end at the same point; the middle column
+     (Schedule + Assistant stack) sets the row height, the others fill it. */
+  align-items: stretch;
 }
 
 .dashboard-item {
   min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Calendar and Friends fill their whole column. height: 0 + flex keeps their
+   long lists from driving the row height — the lists scroll internally and the
+   middle column stays the height reference. */
+.dashboard-grid .calendar-component,
+.dashboard-grid .friends-widget {
+  flex: 1;
+  height: 0;
+  max-height: none;
 }
 
 .dashboard-col-stack {
@@ -73,11 +86,13 @@
   .dashboard-item {
     min-height: 350px;
   }
-}
 
-@media (min-width: 1200px) {
-  .dashboard-grid {
-    grid-template-columns: repeat(3, 1fr);
+  /* Single column: widgets return to their own bounded heights. */
+  .dashboard-grid .calendar-component,
+  .dashboard-grid .friends-widget {
+    flex: none;
+    height: auto;
+    max-height: calc(100vh - 140px);
   }
 }
 
