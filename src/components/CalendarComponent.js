@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar as CalendarIcon, Clock, RefreshCw } from 'lucide-react';
 import { fetchTodayEvents } from '../utils/googleCalendar';
 import './CalendarComponent.css';
@@ -6,6 +7,7 @@ const CalendarComponent = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
   useEffect(() => {
     loadEvents();
   }, []);
@@ -69,10 +71,21 @@ const CalendarComponent = () => {
   }
   return (
     <div className="calendar-component">
-      <div className="component-header">
+      <div
+        className="component-header component-header-link"
+        onClick={() => navigate('/calendar')}
+        role="button"
+        tabIndex={0}
+        title="Open calendar"
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') navigate('/calendar'); }}
+      >
         <CalendarIcon size={24} />
         <h2>Today's Schedule</h2>
-        <button onClick={loadEvents} className="refresh-btn" title="Refresh">
+        <button
+          onClick={e => { e.stopPropagation(); loadEvents(); }}
+          className="refresh-btn"
+          title="Refresh"
+        >
           <RefreshCw size={18} />
         </button>
       </div>

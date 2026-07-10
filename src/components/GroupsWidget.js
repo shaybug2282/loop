@@ -195,12 +195,21 @@ export default function GroupsWidget() {
 
   // ── Group actions ───────────────────────────────────────────────────────────
 
+  // Scheduling a group now hands off to the Scheduling Assistant: seed a fresh
+  // chat with the members pre-loaded and an event-name field to fill in.
   const handleSchedule = group => {
-    const memberIds = (group.members ?? [])
+    const memberNames = (group.members ?? [])
       .filter(m => m.status === 'accepted' && m.id !== myIdRef.current)
-      .map(m => m.id);
-    try { sessionStorage.setItem('sw-group-preset', JSON.stringify(memberIds)); } catch {}
-    navigate('/schedule');
+      .map(m => m.display_name || m.name)
+      .filter(Boolean);
+    try {
+      sessionStorage.setItem('ais-group-seed', JSON.stringify({ group: group.name, members: memberNames }));
+    } catch {}
+    setExpandedId(null);
+    // The assistant lives on the dashboard; navigate there (no-op if already
+    // there) and fire an event so an already-mounted assistant picks it up.
+    navigate('/dashboard');
+    window.dispatchEvent(new Event('ais-seed'));
   };
 
   const handleMessage = group => {

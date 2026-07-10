@@ -29,6 +29,17 @@
   color: #E8607A;
 }
 
+/* Clickable header → opens the full calendar page. */
+.component-header-link {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.component-header-link:hover {
+  background: #F9EAF0;
+}
+
 .refresh-btn {
   background: none;
   border: none;
@@ -146,6 +157,12 @@
   color: #6B7280;
   margin: 8px 0 0 0;
   line-height: 1.5;
+  /* Wrap to at most 2 lines, then truncate — keeps event cards a fixed size
+     so a long description can't stretch the widget. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .event-time {

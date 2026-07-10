@@ -179,6 +179,12 @@
   font-weight: 700;
 }
 
+.sw-group-count {
+  font-size: 0.78rem;
+  color: #A3A8B0;
+  flex-shrink: 0;
+}
+
 .sw-arrow {
   position: absolute;
   bottom: 0;

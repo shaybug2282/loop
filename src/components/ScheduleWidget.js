@@ -20,6 +20,7 @@ const StartScreen = ({ onSelect }) => (
     <div className="sw-choices">
       <button className="sw-choice" onClick={() => onSelect('stub')}>Event</button>
       <button className="sw-choice primary" onClick={() => onSelect('friends')}>With a friend</button>
+      <button className="sw-choice primary" onClick={() => onSelect('group-select')}>With a group</button>
       <button className="sw-choice" onClick={() => onSelect('stub')}>Other</button>
     </div>
   </div>
@@ -62,16 +63,41 @@ const FriendSelectScreen = ({ friends, selected, onToggle, onNext }) => (
   </div>
 );
 
-// TimingScreen — 3 options: manual pick, calendar-based find, or AI suggestion.
-const TimingScreen = ({ onPick, onFind, onAsk }) => (
+// GroupSelectScreen — "With a group" entry point: pick a group and all its
+// accepted members land preselected on the friend screen (same flow as
+// "With a friend", just pre-filled).
+const GroupSelectScreen = ({ groups, onPick }) => (
+  <div className="sw-screen sw-friends">
+    <p className="sw-sublabel">Which group?</p>
+    <ul className="sw-friend-list">
+      {groups.length === 0 && <li className="sw-empty">No groups yet.</li>}
+      {groups.map(g => {
+        const count = (g.members ?? []).filter(m => m.status === 'accepted').length;
+        return (
+          <li key={g.id} className="sw-friend-item" onClick={() => onPick(g)}>
+            {g.icon_url
+              ? <img src={g.icon_url} alt="" className="sw-av" />
+              : <div className="sw-av placeholder" style={{ background: g.color || '#E8607A' }}>{g.name?.[0]}</div>}
+            <span className="sw-fname">{g.name}</span>
+            <span className="sw-group-count">{count} {count === 1 ? 'member' : 'members'}</span>
+          </li>
+        );
+      })}
+    </ul>
+  </div>
+);
+
+// TimingScreen — 2 options: pick a time manually, or let the AI find one.
+// "Find a time" opens the AI scheduling chat (was two buttons — a calendar
+// free/busy search and a separate "Ask AI" — now merged into this one).
+const TimingScreen = ({ onPick, onFind }) => (
   <div className="sw-screen">
     <p className="sw-sublabel">How would you like to choose a time?</p>
     <div className="sw-choices">
-      <button className="sw-choice primary" onClick={onPick}>Pick a time</button>
-      <button className="sw-choice" onClick={onFind}>Find a time</button>
-      <button className="sw-choice sw-choice-ai" onClick={onAsk}>
+      <button className="sw-choice" onClick={onPick}>Pick a time</button>
+      <button className="sw-choice primary sw-choice-ai" onClick={onFind}>
         <Sparkles size={13} />
-        Ask AI
+        Find a time
       </button>
     </div>
   </div>
@@ -121,27 +147,6 @@ const PickTimeScreen = ({ onSchedule, loading }) => {
   );
 };
 
-const FindTimeScreen = ({ onSearch, loading }) => {
-  const [val, setVal] = useState('');
-  const n = Number(val);
-  return (
-    <div className="sw-screen">
-      <p className="sw-sublabel">How many hours should the event be?</p>
-      <div className="sw-field">
-        <input
-          type="number" className="sw-input" placeholder="e.g. 2"
-          min="0.5" max="12" step="0.5" value={val}
-          onChange={e => setVal(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && val && n > 0 && !loading) onSearch(n, 0); }}
-        />
-      </div>
-      <button className="sw-btn-primary" disabled={!val || n <= 0 || loading} onClick={() => onSearch(n, 0)}>
-        {loading ? 'Searching…' : 'Find times'}
-      </button>
-    </div>
-  );
-};
-
 // AiAskScreen — natural language input that triggers Sonnet scheduling.
 const AiAskScreen = ({ value, onChange, onSend, loading }) => (
   <div className="sw-screen">
@@ -170,8 +175,8 @@ const AiAskScreen = ({ value, onChange, onSend, loading }) => (
   </div>
 );
 
-// AiProposedScreen — Sonnet's suggested times in the same clickable format as
-// ProposedScreen, with an optional location line beneath each time.
+// AiProposedScreen — Sonnet's suggested times as clickable cards, each with an
+// optional location line beneath the time.
 const AiProposedScreen = ({ plans, onSelect }) => (
   <div className="sw-screen">
     <p className="sw-sublabel">Choose a time that works:</p>
@@ -193,30 +198,6 @@ const SearchingScreen = () => (
   <div className="sw-screen sw-center">
     <div className="sw-spinner" />
     <p className="sw-sublabel">Searching schedules…</p>
-  </div>
-);
-
-const ProposedScreen = ({ times, onSelect }) => (
-  <div className="sw-screen">
-    <p className="sw-sublabel">Choose a time that works:</p>
-    <div className="sw-time-list">
-      {times.map((t, i) => (
-        <button key={i} className="sw-time-opt" onClick={() => onSelect(t)}>
-          <Calendar size={14} />
-          {formatTime(t)}
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-const NoTimeScreen = ({ onExtend, onReset }) => (
-  <div className="sw-screen sw-center">
-    <p className="sw-body-text">No time found. Extend search window to 2 weeks?</p>
-    <div className="sw-choices">
-      <button className="sw-choice primary" onClick={onExtend}>Yes</button>
-      <button className="sw-choice" onClick={onReset}>No</button>
-    </div>
   </div>
 );
 
@@ -279,22 +260,19 @@ const NotifCard = ({ event, myId, onRespond }) => {
 // ── Main widget ───────────────────────────────────────────────────────────────
 
 const BACK = {
-  friends:       'start',
-  timing:        'friends',
-  'pick-time':   'timing',
-  'find-time':   'timing',
-  'ai-ask':      'timing',
-  proposed:      'find-time',
-  'no-time':     'find-time',
-  'ai-proposed': 'ai-ask',
+  friends:        'start',
+  'group-select': 'start',
+  timing:         'friends',
+  'pick-time':    'timing',
+  'ai-ask':       'timing',
+  'ai-proposed':  'ai-ask',
 };
 
 export default function ScheduleWidget() {
   const [screen,        setScreen]        = useState('start');
   const [friends,       setFriends]       = useState([]);
+  const [groups,        setGroups]        = useState([]);
   const [selected,      setSelected]      = useState(new Set());
-  const [hours,         setHours]         = useState(1);
-  const [times,         setTimes]         = useState([]);
   const [notifs,        setNotifs]        = useState([]);
   const [myId,          setMyId]          = useState(null);
   const [loading,       setLoading]       = useState(false);
@@ -352,18 +330,10 @@ export default function ScheduleWidget() {
   }, [screen, googleId]);
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('sw-group-preset');
-      if (!raw) return;
-      sessionStorage.removeItem('sw-group-preset');
-      const ids = JSON.parse(raw);
-      if (Array.isArray(ids) && ids.length > 0) {
-        setSelected(new Set(ids));
-        setScreen('timing');
-      }
-    } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (screen !== 'group-select' || !googleId) return;
+    fetch(`/api/groups?op=list&googleId=${encodeURIComponent(googleId)}`)
+      .then(r => r.json()).then(d => setGroups(d.groups ?? [])).catch(() => {});
+  }, [screen, googleId]);
 
   const dismiss = useCallback(id => {
     if (_dismissed.has(id)) return;
@@ -390,7 +360,6 @@ export default function ScheduleWidget() {
   const reset = () => {
     setScreen('start');
     setSelected(new Set());
-    setTimes([]);
     setAiRequest('');
     setAiPlans([]);
     setScheduleError(null);
@@ -400,30 +369,18 @@ export default function ScheduleWidget() {
   const toggle = id =>
     setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const search = async (durationHours, weekOffset) => {
-    setHours(durationHours);
-    setLoading(true);
-    setScreen('searching');
-    try {
-      const r = await fetch('/api/schedule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ op: 'find-times', googleId, invitedUserIds: [...selected], durationHours, weekOffset }),
-      });
-      if (!r.ok) throw new Error();
-      const { proposedTimes } = await r.json();
-      if (!proposedTimes?.length) {
-        setScreen(weekOffset === 0 ? 'no-time' : 'no-time-final');
-      } else {
-        setTimes(proposedTimes);
-        setScreen('proposed');
-      }
-    } catch { setScreen('start'); }
-    finally { setLoading(false); }
+  // pickGroup — preselect a group's accepted members (minus self) and hand off
+  // to the friend screen, where they show checked and can be adjusted.
+  const pickGroup = (g) => {
+    const ids = (g.members ?? [])
+      .filter(m => m.status === 'accepted' && m.id !== myId)
+      .map(m => m.id);
+    setSelected(new Set(ids));
+    setScreen('friends');
   };
 
   // choose — create the event via /api/schedule and advance to pending screen.
-  const choose = async (time, dur = hours) => {
+  const choose = async (time, dur = 1) => {
     setScheduleError(null);
     setLoading(true);
     try {
@@ -506,15 +463,13 @@ export default function ScheduleWidget() {
     switch (screen) {
       case 'start':        return <StartScreen onSelect={setScreen} />;
       case 'stub':         return <StubScreen onReset={reset} />;
+      case 'group-select': return <GroupSelectScreen groups={groups} onPick={pickGroup} />;
       case 'friends':      return <FriendSelectScreen friends={friends} selected={selected} onToggle={toggle} onNext={() => setScreen('timing')} />;
-      case 'timing':       return <TimingScreen onPick={() => setScreen('pick-time')} onFind={() => setScreen('find-time')} onAsk={() => setScreen('ai-ask')} />;
+      case 'timing':       return <TimingScreen onPick={() => setScreen('pick-time')} onFind={() => setScreen('ai-ask')} />;
       case 'pick-time':    return <PickTimeScreen onSchedule={choose} loading={loading} />;
-      case 'find-time':    return <FindTimeScreen onSearch={search} loading={loading} />;
       case 'ai-ask':       return <AiAskScreen value={aiRequest} onChange={setAiRequest} onSend={askAI} loading={aiLoading} />;
       case 'searching':    return <SearchingScreen />;
-      case 'proposed':     return <ProposedScreen times={times} onSelect={choose} />;
       case 'ai-proposed':  return <AiProposedScreen plans={aiPlans} onSelect={chooseAiPlan} />;
-      case 'no-time':      return <NoTimeScreen onExtend={() => search(hours, 1)} onReset={reset} />;
       case 'no-time-final': return (
         <div className="sw-screen sw-center">
           <p className="sw-body-text">No available time found in the next 2 weeks.</p>
