@@ -116,7 +116,11 @@ const CalendarComponent = () => {
                   <p className="event-location">📍 {event.location}</p>
                 )}
                 {event.description && (
-                  <p className="event-description">{event.description}</p>
+                  <p className="event-description">
+                    {event.description.length > 100
+                      ? `${event.description.slice(0, 100)}…`
+                      : event.description}
+                  </p>
                 )}
               </div>
             </div>
