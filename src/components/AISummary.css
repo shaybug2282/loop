@@ -27,6 +27,35 @@
   color: #1A1A1A;
 }
 
+.ais-title-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.ais-back,
+.ais-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #E8607A;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.14s;
+}
+
+.ais-back:hover,
+.ais-new-btn:hover { background: #FDE8EF; }
+
+.ais-new-btn { margin-left: auto; }
+
 /* ── Chat body ── */
 
 .ais-body {
@@ -155,6 +184,12 @@
   min-width: 0;
 }
 
+.ais-plan-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: inherit;
+}
+
 .ais-plan-time {
   font-size: 12.5px;
   font-weight: 600;
@@ -216,6 +251,110 @@
 
 .ais-send:hover:not(:disabled) { background: #C94D65; }
 .ais-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Conversation list ── */
+
+.ais-convo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ais-convo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #F3D8E4;
+  border-radius: 10px;
+  background: #FDF5F7;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.ais-convo-item:hover {
+  background: #FDE8EF;
+  border-color: #E8607A;
+}
+
+.ais-convo-ic {
+  color: #E8607A;
+  flex-shrink: 0;
+}
+
+.ais-convo-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ais-convo-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1A1A1A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ais-convo-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+.ais-convo-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #B45309;
+  background: #FEF3C7;
+  border-radius: 8px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+
+.ais-convo-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #9CA3AF;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.14s, color 0.14s;
+}
+
+.ais-convo-x:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.ais-start-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 0;
+  border: none;
+  border-radius: 20px;
+  background: #E8607A;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ais-start-btn:hover { background: #C94D65; }
 
 /* ── Spinner ── */
 

@@ -13,9 +13,10 @@ file **in numeric order** by pasting it into the Supabase SQL editor
 | `004_messages_edited_at.sql` | `messages.edited_at` column | `api/messages.js` (edit within 60 s) |
 | `005_notification_state.sql` | `notification_state` | `api/user.js` (cross-device notification seen/deleted sync) |
 | `006_pending_events_google_event_id.sql` | `pending_events.google_event_id` column | `api/schedule.js` (calendar dedupe of the confirmed Google copy) |
+| `007_ai_conversations.sql` | `ai_conversations` + `pending_events.title`/`location` columns | `api/ai.js` (persistent Scheduling Assistant chats), `api/schedule.js` (event title/location) |
 
 ## Base tables
-
+s
 The `users`, `friend_requests`, `friendships`, and `messages` tables predate
 this folder and were created ad hoc (see `CHANGES.md` entries from 2026-05-01).
 Their working schema, as the API code expects it:

@@ -1,7 +1,7 @@
 // Schedule router — shared event scheduling with Google Calendar integration.
 //
 // GET  ?op=pending-events&googleId=              → events/invites for this user
-// POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours }
+// POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location? }
 // POST { op:'respond', googleId, eventId, action }  → accept / decline
 // POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
 //
@@ -79,7 +79,7 @@ export function findFreeSlots(busySlots, windowStart, windowEnd, durationMs) {
 // Google Calendar handles delivering invitations to each attendee automatically.
 // Returns the created Google event id (shared across all attendees' calendars),
 // or null on failure — the id lets clients dedupe the Google copy of the event.
-async function createGCalEvent(token, summary, startIso, durationHours, attendeeEmails = []) {
+async function createGCalEvent(token, summary, startIso, durationHours, attendeeEmails = [], location = null) {
   const start = new Date(startIso);
   const end   = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
   const r = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
@@ -87,6 +87,7 @@ async function createGCalEvent(token, summary, startIso, durationHours, attendee
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify({
       summary,
+      ...(location ? { location } : {}),
       start:     { dateTime: start.toISOString(), timeZone: 'UTC' },
       end:       { dateTime: end.toISOString(),   timeZone: 'UTC' },
       attendees: attendeeEmails.map(email => ({ email })),
@@ -95,6 +96,13 @@ async function createGCalEvent(token, summary, startIso, durationHours, attendee
   if (!r.ok) return null;
   const data = await r.json().catch(() => null);
   return data?.id ?? null;
+}
+
+// Scheduling-assistant chats are memory for a pending decision; once the event
+// is confirmed or declined that memory is deliberately discarded. Errors are
+// swallowed — an unmigrated DB (no ai_conversations, migration 007) is fine.
+async function deleteLinkedConversations(client, eventId) {
+  try { await client.from('ai_conversations').delete().eq('pending_event_id', eventId); } catch {}
 }
 
 export default async function handler(req, res) {
@@ -158,7 +166,7 @@ export default async function handler(req, res) {
     const { op } = req.body ?? {};
 
     if (op === 'create-event') {
-      const { creatorGoogleId, invitedUserIds, eventTime, durationHours = 1 } = req.body;
+      const { creatorGoogleId, invitedUserIds, eventTime, durationHours = 1, title, location } = req.body;
       if (!creatorGoogleId || !invitedUserIds?.length || !eventTime)
         return res.status(400).json({ error: 'creatorGoogleId, invitedUserIds, eventTime required' });
 
@@ -170,6 +178,15 @@ export default async function handler(req, res) {
         .select('id,created_at').single();
 
       if (error) return res.status(500).json({ error: error.message });
+
+      // Stored separately so an unmigrated DB (missing title/location, see
+      // 007_ai_conversations.sql) can't fail the create above.
+      if (title || location) {
+        await client.from('pending_events')
+          .update({ ...(title ? { title } : {}), ...(location ? { location } : {}) })
+          .eq('id', data.id);
+      }
+
       return res.status(200).json(data);
     }
 
@@ -193,6 +210,8 @@ export default async function handler(req, res) {
         // decline notification via the declines array).
         const declines = [...new Set([...(ev.declines ?? []), me.id])];
         await client.from('pending_events').update({ declines, status: 'declined' }).eq('id', eventId);
+        // Event denied → the scheduling chat that produced it is done.
+        await deleteLinkedConversations(client, eventId);
         return res.status(200).json({ ok: true, status: 'declined', declined: true });
       }
 
@@ -203,7 +222,8 @@ export default async function handler(req, res) {
       if (allAccepted && !ev.google_event_created) {
         const { data: creatorUser } = await client.from('users')
           .select('name,display_name,access_token').eq('id', ev.creator_id).single();
-        const summary = `${creatorUser?.display_name || creatorUser?.name || 'Someone'} Hangout!`;
+        // AI-scheduled events carry their own title; manual ones keep the default.
+        const summary = ev.title || `${creatorUser?.display_name || creatorUser?.name || 'Someone'} Hangout!`;
 
         // Fetch all participants' emails for the shared attendee list.
         const { data: participants } = await client.from('users')
@@ -218,13 +238,16 @@ export default async function handler(req, res) {
         if (creatorUser?.access_token) {
           try {
             const token = decrypt(creatorUser.access_token);
-            googleEventId = await createGCalEvent(token, summary, ev.event_time, ev.duration_hours, attendeeEmails);
+            googleEventId = await createGCalEvent(token, summary, ev.event_time, ev.duration_hours, attendeeEmails, ev.location ?? null);
           } catch {}
         }
 
         await client.from('pending_events')
           .update({ acceptances, status: 'accepted', google_event_created: true })
           .eq('id', eventId);
+
+        // Event confirmed → the scheduling chat that produced it is done.
+        await deleteLinkedConversations(client, eventId);
 
         // Stored separately so an unmigrated DB (missing google_event_id, see
         // 006_pending_events_google_event_id.sql) can't fail the accept above.
