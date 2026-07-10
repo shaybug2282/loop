@@ -3,7 +3,10 @@
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  height: 100%;
+  /* Bounded height: fills a comfortable column but never expands past the
+     viewport — the event list scrolls internally instead of growing the widget. */
+  min-height: 400px;
+  max-height: calc(100vh - 140px);
   display: flex;
   flex-direction: column;
 }
@@ -104,6 +107,7 @@
 .events-list {
   flex: 1;
   overflow-y: auto;
+  min-height: 0; /* let the list shrink and scroll inside the bounded widget */
 }
 
 .event-item {

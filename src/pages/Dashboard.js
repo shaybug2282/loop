@@ -14,6 +14,14 @@ const Dashboard = () => {
   const [showSignIn,  setShowSignIn]  = useState(false);
   const { isAuthenticated, isLoading } = useAuth();
 
+  // Land at the top of the page on entry, and stop the browser from restoring a
+  // previous scroll position (which could jump the tall dashboard to the bottom
+  // on login). There should never be an automatic downward scroll here.
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+  }, []);
+
   // Show sign-in prompt after 30 s if the user is still unauthenticated.
   useEffect(() => {
     if (isAuthenticated || isLoading) return;

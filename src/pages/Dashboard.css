@@ -42,6 +42,9 @@
   gap: 24px;
   max-width: 1400px;
   margin: 0 auto;
+  /* Top-align columns: a tall column (the Schedule + Assistant stack) must not
+     stretch the shorter ones (Today's Schedule, Friends) to match its height. */
+  align-items: start;
 }
 
 .dashboard-item {

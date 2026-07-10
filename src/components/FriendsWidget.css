@@ -3,7 +3,9 @@
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  height: 100%;
+  /* Bounded height: the friend list scrolls internally rather than expanding. */
+  min-height: 400px;
+  max-height: calc(100vh - 140px);
   display: flex;
   flex-direction: column;
 }
@@ -99,6 +101,7 @@
   gap: 4px;
   flex: 1;
   overflow-y: auto;
+  min-height: 0; /* let the list scroll inside the bounded widget */
 }
 
 .fw-item {

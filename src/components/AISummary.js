@@ -113,12 +113,16 @@ const AISummary = () => {
   const [seedMembers, setSeedMembers] = useState(null);
   const [eventName,   setEventName]   = useState('');
 
-  const bottomRef = useRef(null);
+  const bodyRef   = useRef(null);
   const inputRef  = useRef(null);
   const googleId  = localStorage.getItem('googleUserId');
 
+  // Keep the chat pinned to the latest message by scrolling the message list
+  // itself — never scrollIntoView, which would also scroll the whole page down.
   useEffect(() => {
-    if (view === 'chat') bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (view === 'chat' && bodyRef.current) {
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    }
   }, [items, view]);
 
   // Refresh the Haiku profile on mount (server skips the call if it's <24h old).
@@ -384,7 +388,7 @@ const AISummary = () => {
         {locked && <span className="ais-convo-badge">event pending</span>}
       </div>
 
-      <div className="ais-body">
+      <div className="ais-body" ref={bodyRef}>
         {items.length === 0 && !loading && (
           seedMembers ? (
             <div className="ais-seed-banner">
@@ -445,8 +449,6 @@ const AISummary = () => {
             </div>
           </div>
         )}
-
-        <div ref={bottomRef} />
       </div>
 
       {seedMembers && (
