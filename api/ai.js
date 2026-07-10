@@ -6,12 +6,16 @@
 //
 // GET  ?op=conversations&googleId=      → { conversations } (open scheduling chats)
 // GET  ?op=conversation&googleId=&id=   → { conversation } (full message history)
-// GET  ?op=refresh-profiles             → cron: rebuild stalest profiles (CRON_SECRET auth)
 // POST { op:'build-profile', googleId, notes?, force? }        → { profile }
 // POST { op:'schedule', googleId, participantIds[], request }  → { plans }
 // POST { op:'chat', googleId, conversationId?, message }       → { conversationId, reply, plans }
 // POST { op:'record-booking', googleId, conversationId, eventId, plan } → { ok }
 // POST { op:'delete-conversation', googleId, conversationId }  → { ok }
+//
+// The Haiku profile is created on first login here (op:'build-profile') and
+// refreshed at most weekly when a user is invited to an event (that refresh
+// lives in api/schedule.js create-event → refreshProfileIfStale). The pipeline
+// itself is in api/_profiles.js.
 //
 // Conversations persist in ai_conversations (db/migrations/007_ai_conversations.sql)
 // so pending-event chats survive reloads and can be resumed; api/schedule.js
@@ -19,77 +23,15 @@
 // Requires the user_profiles table: db/migrations/003_user_profiles.sql
 
 import { decrypt } from './_crypto.js';
-import { db } from './_lib.js';
+import { db, callModel, extractJson } from './_lib.js';
+import { buildProfileForUser, loadProfile } from './_profiles.js';
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+// Re-exported so the existing unit tests (import from api/ai) keep resolving.
+export { extractJson };
 
 const MODELS = {
-  PROFILER:  'claude-haiku-4-5',
   SCHEDULER: 'claude-sonnet-4-6',
 };
-
-// Rebuilding a profile more often than this is wasted Haiku spend — calendars
-// don't change shape that fast. `force: true` or fresh notes bypass it.
-const PROFILE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-
-// callModel — single entry point to the Anthropic Messages API.
-// in:  { model, system, messages, maxTokens? }. out: assistant reply string.
-async function callModel({ model, system, messages, maxTokens = 1024 }) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
-
-  const r = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type':      'application/json',
-      'x-api-key':         apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta':    'prompt-caching-2024-07-31',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      system:   [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-      messages,
-    }),
-  });
-
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error(`AI error (${r.status}): ${err.error?.message ?? 'unknown'}`);
-  }
-  const data = await r.json();
-  return data.content?.[0]?.text ?? '';
-}
-
-// extractJson — tolerant JSON extraction from model replies (handles fences and prose).
-// Tracks string/escape state so braces inside string values don't end the match.
-// out: parsed value or null. Exported for unit tests.
-export function extractJson(text) {
-  if (!text) return null;
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const body   = fenced ? fenced[1] : text;
-  const start  = body.search(/[[{]/);
-  if (start === -1) return null;
-  const open = body[start], close = open === '{' ? '}' : ']';
-  let depth = 0, inString = false, escaped = false;
-  for (let i = start; i < body.length; i++) {
-    const ch = body[i];
-    if (inString) {
-      if (escaped)           escaped = false;
-      else if (ch === '\\')  escaped = true;
-      else if (ch === '"')   inString = false;
-      continue;
-    }
-    if (ch === '"')   { inString = true; continue; }
-    if (ch === open)  depth++;
-    if (ch === close) depth--;
-    if (depth === 0) {
-      try { return JSON.parse(body.slice(start, i + 1)); } catch { return null; }
-    }
-  }
-  return null;
-}
 
 // resolveUsers — google IDs → user rows (includes encrypted token for calendar reads).
 async function resolveUsers(client, googleIds) {
@@ -111,16 +53,6 @@ async function resolveUsersByIds(client, ids) {
   return data ?? [];
 }
 
-// loadProfile — fetch stored scheduling profile for a user. out: row or null.
-async function loadProfile(client, userId) {
-  const { data } = await client
-    .from('user_profiles')
-    .select('profile, raw_signals, updated_at')
-    .eq('user_id', userId)
-    .single();
-  return data ?? null;
-}
-
 // loadProfiles — batch: user UUIDs → { [userId]: profile }. One query, not N.
 async function loadProfiles(client, userIds) {
   if (!userIds.length) return {};
@@ -129,58 +61,6 @@ async function loadProfiles(client, userIds) {
     .select('user_id, profile')
     .in('user_id', userIds);
   return Object.fromEntries((data ?? []).map(r => [r.user_id, r.profile]));
-}
-
-// saveProfile — upsert the Haiku-built profile + the raw signals it came from.
-async function saveProfile(client, userId, profile, rawSignals) {
-  const { error } = await client
-    .from('user_profiles')
-    .upsert(
-      { user_id: userId, profile, raw_signals: rawSignals, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id' }
-    );
-  if (error) throw new Error(error.message);
-}
-
-// fetchRecentEvents — last `days` days of calendar events compressed for Haiku.
-async function fetchRecentEvents(token, days = 30) {
-  const now     = new Date();
-  const timeMin = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
-  const url =
-    'https://www.googleapis.com/calendar/v3/calendars/primary/events' +
-    `?timeMin=${timeMin}&timeMax=${now.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=100`;
-
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!r.ok) return [];
-  const { items = [] } = await r.json();
-  return items
-    .filter(ev => ev.start?.dateTime)
-    .map(ev => {
-      const start = new Date(ev.start.dateTime);
-      const end   = ev.end?.dateTime ? new Date(ev.end.dateTime) : null;
-      return {
-        title:         ev.summary ?? '(untitled)',
-        weekday:       start.toLocaleDateString('en-US', { weekday: 'short' }),
-        hour:          start.getHours(),
-        durationHours: end ? +((end - start) / 3.6e6).toFixed(1) : null,
-        recurring:     Boolean(ev.recurringEventId),
-        location:      ev.location ?? null,
-      };
-    });
-}
-
-// gatherUserSignals — builds the payload Haiku reasons over: identity + calendar behavior.
-async function gatherUserSignals(user, notes = '') {
-  let recentEvents = [];
-  if (user.access_token) {
-    try { recentEvents = await fetchRecentEvents(decrypt(user.access_token)); } catch {}
-  }
-  return {
-    user:        user.display_name || user.name || 'User',
-    timezone:    user.timezone || 'UTC',
-    statedNotes: notes || null,
-    recentEvents,
-  };
 }
 
 // fetchUserBusy — one user's free/busy intervals for the next `days` days.
@@ -246,43 +126,6 @@ const SCHEDULING_RULES =
   '(5) Offer genuinely DISTINCT options as time/location pairs — vary the day and time-of-day across options (e.g. a weekday evening, a weekend afternoon), not three near-identical slots; suggest a location suited to the event type and participants\' frequented areas when you can, otherwise omit it. ' +
   '(6) All proposed times must be in the future, inside the availability window provided.';
 
-// Haiku profiler system prompt — consumed by buildProfileForUser below.
-// Output schema: { user, tags[], hard_constraints[], soft_constraints[],
-//                  inferred_rhythm, awake_hours, weekday_pattern }
-const PROFILER_SYSTEM =
-  'Read through the user\'s calendar history and stated notes. Compile a scheduling profile: occupation, when they are typically busy, what hours of the day they are most active, how often they have social events, who they see most often, frequented locations. ' +
-  'Infer the invisible structure too: from event start/end times estimate when this person sleeps and wakes, and whether their weekdays show a work/school pattern (regular daytime commitments) or a flexible daytime. Sparse weekday daytime events do NOT prove availability — say so in weekday_pattern when the calendar is inconclusive. ' +
-  'You MUST respond with ONLY a raw JSON object — no prose, no markdown, no explanation. The object must have exactly these keys: ' +
-  '"user" (string), ' +
-  '"tags" (array of short descriptive strings, e.g. "student", "early riser", "gym regular", "often at Cafe Luna"), ' +
-  '"hard_constraints" (array of inviolable rules, e.g. "no meetings before 9am"), ' +
-  '"soft_constraints" (array of preferences, e.g. "prefers evenings for social events"), ' +
-  '"inferred_rhythm" (single string summarizing their daily pattern), ' +
-  '"awake_hours" (string like "07:30-23:00" — your best estimate of when they are awake; use "unknown" only if there is truly no signal), ' +
-  '"weekday_pattern" (string: does this person appear to have work/school on weekdays? e.g. "9-5 office pattern Mon-Fri", "student, classes Mon/Wed/Fri mornings", "flexible daytime", or "inconclusive — assume daytime commitments"). ' +
-  'If you cannot infer something, use an empty array or empty string.';
-
-// buildProfileForUser — run the Haiku profiler for one user and persist the
-// result. Shared by op:'build-profile' and the cron refresh. out: profile.
-async function buildProfileForUser(client, user, notes = '') {
-  const signals = await gatherUserSignals(user, notes);
-
-  const reply = await callModel({
-    model:     MODELS.PROFILER,
-    system:    PROFILER_SYSTEM,
-    messages:  [{ role: 'user', content: JSON.stringify(signals) }],
-    maxTokens: 800,
-  });
-
-  const profile = extractJson(reply) ?? {
-    user: signals.user, tags: [], hard_constraints: [], soft_constraints: [],
-    inferred_rhythm: '', awake_hours: 'unknown', weekday_pattern: 'inconclusive',
-  };
-
-  await saveProfile(client, user.id, profile, signals);
-  return profile;
-}
-
 // loadConversation — fetch one conversation, enforcing ownership. out: row or null.
 async function loadConversation(client, userId, conversationId) {
   const { data } = await client
@@ -315,44 +158,9 @@ export default async function handler(req, res) {
 
   const client = db();
 
-  // ── GET · conversation memory reads + cron ──────────────────────────────
+  // ── GET · conversation memory reads ─────────────────────────────────────
   if (req.method === 'GET') {
     const { op, googleId, id } = req.query;
-
-    // Vercel cron (vercel.json crons → GET /api/ai?op=refresh-profiles):
-    // rebuild the stalest scheduling profiles so participants who rarely open
-    // Loop still contribute up-to-date inference. Authenticated by CRON_SECRET
-    // when configured (Vercel sends it as a Bearer token automatically).
-    if (op === 'refresh-profiles') {
-      const secret = process.env.CRON_SECRET;
-      if (secret && req.headers.authorization !== `Bearer ${secret}`)
-        return res.status(401).json({ error: 'Unauthorized' });
-
-      try {
-        const { data: users } = await client
-          .from('users')
-          .select('id, name, display_name, timezone, access_token')
-          .not('access_token', 'is', null);
-        const { data: profs } = await client
-          .from('user_profiles')
-          .select('user_id, updated_at');
-        const updatedAt = Object.fromEntries((profs ?? []).map(p => [p.user_id, new Date(p.updated_at).getTime()]));
-
-        // Stalest first (users with no profile at all lead); cap the batch so
-        // the run fits a serverless window and Haiku spend stays bounded.
-        const cutoff = Date.now() - PROFILE_MAX_AGE_MS;
-        const stale  = (users ?? [])
-          .filter(u => (updatedAt[u.id] ?? 0) < cutoff)
-          .sort((a, b) => (updatedAt[a.id] ?? 0) - (updatedAt[b.id] ?? 0))
-          .slice(0, 10);
-
-        const results = await Promise.allSettled(stale.map(u => buildProfileForUser(client, u)));
-        const refreshed = results.filter(r => r.status === 'fulfilled').length;
-        return res.status(200).json({ ok: true, refreshed, failed: results.length - refreshed });
-      } catch (err) {
-        return res.status(500).json({ error: err.message ?? 'Internal error' });
-      }
-    }
 
     if (!googleId) return res.status(400).json({ error: 'googleId required' });
 
@@ -389,7 +197,12 @@ export default async function handler(req, res) {
   const { op } = req.body ?? {};
 
   try {
-    // ── STAGE 1 · Haiku profiler ─────────────────────────────────────────────
+    // ── STAGE 1 · Haiku profiler — first-login creation ──────────────────────
+    // Called on app mount. Builds the profile only when the user has none yet;
+    // after that, logging in never rewrites it. The profile is refreshed at
+    // most once per week, and only when the user is invited to an event
+    // (api/schedule.js create-event → refreshProfileIfStale). `force`/`notes`
+    // are explicit overrides (e.g. a manual rebuild with new stated notes).
     if (op === 'build-profile') {
       const { googleId, notes, force } = req.body;
       if (!googleId) return res.status(400).json({ error: 'googleId required' });
@@ -397,12 +210,9 @@ export default async function handler(req, res) {
       const [user] = await resolveUsers(client, [googleId]);
       if (!user) return res.status(404).json({ error: 'User not found' });
 
-      // Skip the Haiku call when a recent profile exists and nothing new came in.
       if (!force && !notes) {
         const existing = await loadProfile(client, user.id);
-        if (existing?.profile && Date.now() - new Date(existing.updated_at).getTime() < PROFILE_MAX_AGE_MS) {
-          return res.status(200).json({ profile: existing.profile, cached: true });
-        }
+        if (existing?.profile) return res.status(200).json({ profile: existing.profile, cached: true });
       }
 
       const profile = await buildProfileForUser(client, user, notes);

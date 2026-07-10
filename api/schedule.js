@@ -9,6 +9,7 @@
 
 import { decrypt } from './_crypto.js';
 import { db } from './_lib.js';
+import { refreshProfileIfStale } from './_profiles.js';
 
 // Merge overlapping busy intervals, then find durationMs-length free slots.
 // Prefers daytime (9 AM – 6 PM) on first pass; any hour on second pass.
@@ -273,6 +274,15 @@ export default async function handler(req, res) {
           .update({ ...(title ? { title } : {}), ...(location ? { location } : {}) })
           .eq('id', data.id);
       }
+
+      // Being invited to an event is the weekly trigger to refresh each
+      // participant's Haiku scheduling profile. refreshProfileIfStale is a
+      // no-op when a profile is <1 week old, so most events rebuild nothing;
+      // failures are swallowed so profile work never blocks event creation.
+      const participantIds = [...new Set([creator.id, ...invitedUserIds])];
+      const { data: participants } = await client.from('users')
+        .select('id, name, display_name, timezone, access_token').in('id', participantIds);
+      await Promise.allSettled((participants ?? []).map(u => refreshProfileIfStale(client, u)));
 
       return res.status(200).json(data);
     }

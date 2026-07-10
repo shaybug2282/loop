@@ -3,12 +3,6 @@
   "outputDirectory": "build",
   "devCommand": "npm start",
   "trailingSlash": false,
-  "crons": [
-    {
-      "path": "/api/ai?op=refresh-profiles",
-      "schedule": "0 9 * * *"
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
