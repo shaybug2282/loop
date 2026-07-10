@@ -2,7 +2,7 @@
 //
 // GET  ?op=pending-events&googleId=              → events/invites for this user
 // POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location? }
-// POST { op:'respond', googleId, eventId, action }  → accept / decline
+// POST { op:'respond', googleId, eventId, action }  → accept / decline / reschedule
 // POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
 //
 // Requires the pending_events table: db/migrations/002_pending_events.sql
@@ -105,6 +105,91 @@ async function deleteLinkedConversations(client, eventId) {
   try { await client.from('ai_conversations').delete().eq('pending_event_id', eventId); } catch {}
 }
 
+// confirmEvent — every remaining invitee accepted: create the shared Google
+// Calendar event and flip the row to accepted. patch carries the final
+// acceptances (plus invited_user_ids/declines when a decliner was removed).
+async function confirmEvent(client, ev, eventId, patch) {
+  const invitedIds = patch.invited_user_ids ?? ev.invited_user_ids;
+
+  const { data: creatorUser } = await client.from('users')
+    .select('name,display_name,access_token').eq('id', ev.creator_id).single();
+  // AI-scheduled events carry their own title; manual ones keep the default.
+  const summary = ev.title || `${creatorUser?.display_name || creatorUser?.name || 'Someone'} Hangout!`;
+
+  // Fetch all participants' emails for the shared attendee list.
+  const { data: participants } = await client.from('users')
+    .select('email').in('id', [ev.creator_id, ...invitedIds]);
+  const attendeeEmails = (participants ?? []).map(u => {
+    try { return decrypt(u.email); } catch { return u.email; }
+  }).filter(Boolean);
+
+  // Create one shared event on the creator's calendar; Google delivers
+  // invitations to every attendee automatically.
+  let googleEventId = null;
+  if (creatorUser?.access_token) {
+    try {
+      const token = decrypt(creatorUser.access_token);
+      googleEventId = await createGCalEvent(token, summary, ev.event_time, ev.duration_hours, attendeeEmails, ev.location ?? null);
+    } catch {}
+  }
+
+  await client.from('pending_events')
+    .update({ ...patch, status: 'accepted', google_event_created: true })
+    .eq('id', eventId);
+
+  // Stored separately so an unmigrated DB (missing google_event_id, see
+  // 006_pending_events_google_event_id.sql) can't fail the accept above.
+  if (googleEventId) {
+    await client.from('pending_events').update({ google_event_id: googleEventId }).eq('id', eventId);
+  }
+
+  // Event confirmed → the scheduling chat that produced it is done.
+  await deleteLinkedConversations(client, eventId);
+}
+
+// seedRescheduleConversation — reopen (or start) the creator's Scheduling
+// Assistant chat with a note about who asked to move the event, and unlink the
+// old event so replacement plans can be booked from the same thread. Errors
+// are swallowed — an unmigrated DB (no ai_conversations) skips the AI handoff.
+async function seedRescheduleConversation(client, ev, requesterId) {
+  try {
+    const ids = [...new Set([ev.creator_id, ...ev.invited_user_ids])];
+    const { data: users } = await client.from('users')
+      .select('id, name, display_name, timezone').in('id', ids);
+    const nameOf = id => {
+      const u = (users ?? []).find(x => x.id === id);
+      return u?.display_name || u?.name || 'Someone';
+    };
+    const tz   = (users ?? []).find(u => u.id === ev.creator_id)?.timezone || 'UTC';
+    const when = new Date(ev.event_time).toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz,
+    });
+    const others = ev.invited_user_ids.map(nameOf).join(', ');
+    const reply =
+      `${nameOf(requesterId)} asked to reschedule ${ev.title ? `"${ev.title}"` : 'your event'} ` +
+      `on ${when} (with ${others}). Tell me any new constraints, or say "find new times" and I'll suggest alternatives.`;
+    const note = { role: 'assistant', content: JSON.stringify({ reply, plans: [] }) };
+
+    const { data: convo } = await client.from('ai_conversations')
+      .select('id, messages').eq('pending_event_id', ev.id).maybeSingle();
+
+    if (convo) {
+      await client.from('ai_conversations').update({
+        messages:         [...(convo.messages ?? []), note],
+        pending_event_id: null, // unlock booking for the replacement event
+        updated_at:       new Date().toISOString(),
+      }).eq('id', convo.id);
+    } else {
+      // Manually created event — start a fresh chat for the creator.
+      await client.from('ai_conversations').insert({
+        user_id:  ev.creator_id,
+        title:    `Reschedule: ${ev.title || when}`,
+        messages: [note],
+      });
+    }
+  } catch {}
+}
+
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
@@ -126,11 +211,11 @@ export default async function handler(req, res) {
         client.from('pending_events')
           .select('*')
           .eq('creator_id', me.id)
-          .in('status', ['pending', 'accepted', 'declined']),
+          .in('status', ['pending', 'accepted', 'declined', 'rescheduled']),
         client.from('pending_events')
           .select('*')
           .contains('invited_user_ids', [me.id])
-          .in('status', ['pending', 'accepted', 'declined']),
+          .in('status', ['pending', 'accepted', 'declined', 'rescheduled']),
       ]);
 
       const seen   = new Set();
@@ -141,16 +226,18 @@ export default async function handler(req, res) {
 
       if (!events.length) return res.status(200).json({ events: [] });
 
-      const allIds = [...new Set(events.flatMap(e => [e.creator_id, ...e.invited_user_ids, ...(e.declines ?? [])]))];
+      const allIds = [...new Set(events.flatMap(e =>
+        [e.creator_id, ...e.invited_user_ids, ...(e.declines ?? []), ...(e.reschedule_requests ?? [])]))];
       const { data: users } = await client
         .from('users').select('id,name,display_name,picture_url').in('id', allIds);
       const uMap = Object.fromEntries((users ?? []).map(u => [u.id, u]));
 
       const enriched = events.map(e => ({
         ...e,
-        creator:       uMap[e.creator_id] ?? null,
-        invitedUsers:  e.invited_user_ids.map(id => uMap[id] ?? { id }),
-        declinedUsers: (e.declines ?? []).map(id => uMap[id] ?? { id }),
+        creator:         uMap[e.creator_id] ?? null,
+        invitedUsers:    e.invited_user_ids.map(id => uMap[id] ?? { id }),
+        declinedUsers:   (e.declines ?? []).map(id => uMap[id] ?? { id }),
+        rescheduleUsers: (e.reschedule_requests ?? []).map(id => uMap[id] ?? { id }),
         isCreator:     e.creator_id === me.id,
         myId:          me.id,
       }));
@@ -192,8 +279,8 @@ export default async function handler(req, res) {
 
     if (op === 'respond') {
       const { googleId, eventId, action } = req.body;
-      if (!googleId || !eventId || !['accept','decline'].includes(action))
-        return res.status(400).json({ error: 'googleId, eventId, and action (accept|decline) required' });
+      if (!googleId || !eventId || !['accept', 'decline', 'reschedule'].includes(action))
+        return res.status(400).json({ error: 'googleId, eventId, and action (accept|decline|reschedule) required' });
 
       const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
       if (!me) return res.status(404).json({ error: 'User not found' });
@@ -205,14 +292,47 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Not invited to this event' });
 
       if (action === 'decline') {
-        // Any decline cancels the plan: mark the whole event declined so it is
-        // removed from every participant's schedule (the creator still sees a
-        // decline notification via the declines array).
+        // The creator is notified either way via the declines array.
         const declines = [...new Set([...(ev.declines ?? []), me.id])];
-        await client.from('pending_events').update({ declines, status: 'declined' }).eq('id', eventId);
-        // Event denied → the scheduling chat that produced it is done.
-        await deleteLinkedConversations(client, eventId);
-        return res.status(200).json({ ok: true, status: 'declined', declined: true });
+        const remaining = ev.invited_user_ids.filter(id => id !== me.id);
+
+        if (!remaining.length) {
+          // Sole invitee declined — the plan is dead for everyone.
+          await client.from('pending_events').update({ declines, status: 'declined' }).eq('id', eventId);
+          // Event denied → the scheduling chat that produced it is done.
+          await deleteLinkedConversations(client, eventId);
+          return res.status(200).json({ ok: true, status: 'declined', declined: true });
+        }
+
+        // Others can still attend: remove the decliner from the event and
+        // carry on. If everyone left has already accepted, that confirms it.
+        const acceptances = (ev.acceptances ?? []).filter(id => id !== me.id);
+        const allAccepted = remaining.every(id => acceptances.includes(id));
+
+        if (allAccepted && !ev.google_event_created) {
+          await confirmEvent(client, ev, eventId, { acceptances, invited_user_ids: remaining, declines });
+          return res.status(200).json({ ok: true, status: 'accepted', removed: true });
+        }
+
+        await client.from('pending_events')
+          .update({ invited_user_ids: remaining, acceptances, declines })
+          .eq('id', eventId);
+        return res.status(200).json({ ok: true, status: 'pending', removed: true });
+      }
+
+      if (action === 'reschedule') {
+        // Requester can't make this time: park the event as 'rescheduled'
+        // (off everyone's calendars/invites, creator keeps a notification) and
+        // hand the creator's Scheduling Assistant chat the context to find new
+        // times. A replacement event is booked from that chat as usual.
+        await client.from('pending_events').update({ status: 'rescheduled' }).eq('id', eventId);
+        // Stored separately so an unmigrated DB (missing reschedule_requests,
+        // see 008_reschedule_requests.sql) can't fail the status change above.
+        const requests = [...new Set([...(ev.reschedule_requests ?? []), me.id])];
+        await client.from('pending_events').update({ reschedule_requests: requests }).eq('id', eventId);
+
+        await seedRescheduleConversation(client, ev, me.id);
+        return res.status(200).json({ ok: true, status: 'rescheduled' });
       }
 
       // Accept
@@ -220,41 +340,7 @@ export default async function handler(req, res) {
       const allAccepted = ev.invited_user_ids.every(id => acceptances.includes(id));
 
       if (allAccepted && !ev.google_event_created) {
-        const { data: creatorUser } = await client.from('users')
-          .select('name,display_name,access_token').eq('id', ev.creator_id).single();
-        // AI-scheduled events carry their own title; manual ones keep the default.
-        const summary = ev.title || `${creatorUser?.display_name || creatorUser?.name || 'Someone'} Hangout!`;
-
-        // Fetch all participants' emails for the shared attendee list.
-        const { data: participants } = await client.from('users')
-          .select('email').in('id', [ev.creator_id, ...ev.invited_user_ids]);
-        const attendeeEmails = (participants ?? []).map(u => {
-          try { return decrypt(u.email); } catch { return u.email; }
-        }).filter(Boolean);
-
-        // Create one shared event on the creator's calendar; Google delivers
-        // invitations to every attendee automatically.
-        let googleEventId = null;
-        if (creatorUser?.access_token) {
-          try {
-            const token = decrypt(creatorUser.access_token);
-            googleEventId = await createGCalEvent(token, summary, ev.event_time, ev.duration_hours, attendeeEmails, ev.location ?? null);
-          } catch {}
-        }
-
-        await client.from('pending_events')
-          .update({ acceptances, status: 'accepted', google_event_created: true })
-          .eq('id', eventId);
-
-        // Event confirmed → the scheduling chat that produced it is done.
-        await deleteLinkedConversations(client, eventId);
-
-        // Stored separately so an unmigrated DB (missing google_event_id, see
-        // 006_pending_events_google_event_id.sql) can't fail the accept above.
-        if (googleEventId) {
-          await client.from('pending_events').update({ google_event_id: googleEventId }).eq('id', eventId);
-        }
-
+        await confirmEvent(client, ev, eventId, { acceptances });
         return res.status(200).json({ ok: true, status: 'accepted', allAccepted: true });
       }
 

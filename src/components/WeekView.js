@@ -99,9 +99,11 @@ const WeekView = () => {
     return days;
   };
 
-  // App events that belong on the calendar: declined plans are removed entirely.
+  // App events that belong on the calendar: declined/rescheduled plans are
+  // removed entirely. A partial decline (someone dropped out but others are
+  // still in) keeps the event live, so declines alone no longer hide it.
   const visibleAppEvents = pendingEvents.filter(
-    e => e.status !== 'declined' && !(e.declines ?? []).length
+    e => !['declined', 'rescheduled'].includes(e.status)
   );
 
   // isAppCopy — true when a Google Calendar event is the synced copy of one of

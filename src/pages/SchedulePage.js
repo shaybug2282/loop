@@ -13,7 +13,7 @@ const UpcomingEvents = ({ events }) => {
   const [expanded, setExpanded] = useState(false);
 
   const upcoming = events
-    .filter(e => e.status !== 'declined' && new Date(e.event_time) > new Date())
+    .filter(e => !['declined', 'rescheduled'].includes(e.status) && new Date(e.event_time) > new Date())
     .sort((a, b) => new Date(a.event_time) - new Date(b.event_time));
 
   const visible = expanded ? upcoming : upcoming.slice(0, 2);

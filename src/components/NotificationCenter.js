@@ -30,14 +30,16 @@ function buildActivities(events) {
     if (e.isCreator) {
       (e.declinedUsers ?? []).forEach(u =>
         activities.push({ type: 'decline', user: u, event: e }));
+      (e.rescheduleUsers ?? []).forEach(u =>
+        activities.push({ type: 'reschedule', user: u, event: e }));
       (e.invitedUsers ?? []).forEach(u => {
         if ((e.acceptances ?? []).includes(u.id))
           activities.push({ type: 'accept', user: u, event: e });
       });
       if (e.status === 'accepted')
         activities.push({ type: 'confirmed', event: e });
-    } else if (e.status !== 'declined') {
-      // Declined events are cancelled — never surface them as open invites.
+    } else if (!['declined', 'rescheduled'].includes(e.status)) {
+      // Declined/rescheduled events are closed — never surface as open invites.
       activities.push({ type: 'invited', event: e });
     }
   });
@@ -219,10 +221,11 @@ const NotificationCenter = () => {
     const dur = a.event.duration_hours ? ` (${formatDuration(a.event.duration_hours)})` : '';
     const t = fmtTime(a.event.event_time) + dur;
     switch (a.type) {
-      case 'invited':   return { color: 'yellow', title: `Invited by ${n(a.event.creator)}`, sub: t };
-      case 'decline':   return { color: 'red',    title: `${n(a.user)} declined`, sub: t };
-      case 'accept':    return { color: 'green',  title: `${n(a.user)} confirmed`, sub: t };
-      case 'confirmed': return { color: 'green',  title: 'All confirmed', sub: t };
+      case 'invited':    return { color: 'yellow', title: `Invited by ${n(a.event.creator)}`, sub: t };
+      case 'decline':    return { color: 'red',    title: `${n(a.user)} declined`, sub: t };
+      case 'reschedule': return { color: 'yellow', title: `${n(a.user)} asked to reschedule`, sub: `${t} — see Scheduling Assistant` };
+      case 'accept':     return { color: 'green',  title: `${n(a.user)} confirmed`, sub: t };
+      case 'confirmed':  return { color: 'green',  title: 'All confirmed', sub: t };
       default:          return null;
     }
   };

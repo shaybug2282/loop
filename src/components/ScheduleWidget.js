@@ -269,6 +269,7 @@ const NotifCard = ({ event, myId, onRespond }) => {
         <div className="sw-notif-actions">
           <button className="sw-notif-btn accept" disabled={busy} onClick={() => handle('accept')}>Accept</button>
           <button className="sw-notif-btn decline" disabled={busy} onClick={() => handle('decline')}>Decline</button>
+          <button className="sw-notif-btn reschedule" disabled={busy} onClick={() => handle('reschedule')}>Reschedule</button>
         </div>
       )}
     </div>
@@ -375,10 +376,11 @@ export default function ScheduleWidget() {
     if (!myId) return;
     notifs.forEach(e => {
       if (_dismissed.has(e.id)) return;
-      const isInvite    = !e.isCreator && e.status !== 'declined' && !(e.declines ?? []).includes(myId);
-      const isDecline   = e.isCreator  && (e.declines ?? []).length > 0;
-      const isConfirmed = e.isCreator  && e.status === 'accepted';
-      if (!isInvite && !isDecline && !isConfirmed) return;
+      const isInvite     = !e.isCreator && !['declined', 'rescheduled'].includes(e.status) && !(e.declines ?? []).includes(myId);
+      const isDecline    = e.isCreator  && (e.declines ?? []).length > 0;
+      const isReschedule = e.isCreator  && e.status === 'rescheduled';
+      const isConfirmed  = e.isCreator  && e.status === 'accepted';
+      if (!isInvite && !isDecline && !isReschedule && !isConfirmed) return;
       if (_scheduled.has(e.id)) return;
       _scheduled.add(e.id);
       setTimeout(() => dismiss(e.id), 60_000);
@@ -525,8 +527,10 @@ export default function ScheduleWidget() {
   };
 
   const canBack   = screen in BACK;
-  // A declined event is cancelled for everyone — never shown as an open invite.
-  const myInvites = notifs.filter(e => !e.isCreator && e.status !== 'declined' && !(e.declines ?? []).includes(myId) && !_dismissed.has(e.id));
+  // Declined/rescheduled events are closed for invitees — never open invites.
+  // (A partial decliner is removed from invited_user_ids server-side, so their
+  // copy disappears while the event stays live for everyone else.)
+  const myInvites = notifs.filter(e => !e.isCreator && !['declined', 'rescheduled'].includes(e.status) && !(e.declines ?? []).includes(myId) && !_dismissed.has(e.id));
   const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted' && !_dismissed.has(e.id));
 
   return (
@@ -568,8 +572,23 @@ export default function ScheduleWidget() {
             (e.declinedUsers ?? []).map(u => (
               <div key={`decline-${e.id}-${u.id}`} className="sw-decline-notif">
                 <span className="sw-decline-name">{u.display_name || u.name || 'Someone'}</span>
-                {' declined · '}
+                {e.status === 'declined' ? ' declined · ' : ' declined (others still in) · '}
                 <span className="sw-decline-time">{formatTime(e.event_time)} ({formatDuration(e.duration_hours)})</span>
+                <button className="sw-notif-x" onClick={() => dismiss(e.id)} title="Dismiss">✕</button>
+              </div>
+            ))
+          )
+        }
+
+        {notifs
+          .filter(e => e.isCreator && e.status === 'rescheduled' && !_dismissed.has(e.id))
+          .flatMap(e =>
+            (e.rescheduleUsers ?? []).map(u => (
+              <div key={`resched-${e.id}-${u.id}`} className="sw-resched-notif">
+                <span className="sw-decline-name">{u.display_name || u.name || 'Someone'}</span>
+                {' asked to reschedule · '}
+                <span className="sw-decline-time">{formatTime(e.event_time)}</span>
+                <span className="sw-resched-hint">Open the Scheduling Assistant to pick new times.</span>
                 <button className="sw-notif-x" onClick={() => dismiss(e.id)} title="Dismiss">✕</button>
               </div>
             ))

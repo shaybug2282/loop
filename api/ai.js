@@ -6,6 +6,7 @@
 //
 // GET  ?op=conversations&googleId=      → { conversations } (open scheduling chats)
 // GET  ?op=conversation&googleId=&id=   → { conversation } (full message history)
+// GET  ?op=refresh-profiles             → cron: rebuild stalest profiles (CRON_SECRET auth)
 // POST { op:'build-profile', googleId, notes?, force? }        → { profile }
 // POST { op:'schedule', googleId, participantIds[], request }  → { plans }
 // POST { op:'chat', googleId, conversationId?, message }       → { conversationId, reply, plans }
@@ -245,6 +246,43 @@ const SCHEDULING_RULES =
   '(5) Offer genuinely DISTINCT options as time/location pairs — vary the day and time-of-day across options (e.g. a weekday evening, a weekend afternoon), not three near-identical slots; suggest a location suited to the event type and participants\' frequented areas when you can, otherwise omit it. ' +
   '(6) All proposed times must be in the future, inside the availability window provided.';
 
+// Haiku profiler system prompt — consumed by buildProfileForUser below.
+// Output schema: { user, tags[], hard_constraints[], soft_constraints[],
+//                  inferred_rhythm, awake_hours, weekday_pattern }
+const PROFILER_SYSTEM =
+  'Read through the user\'s calendar history and stated notes. Compile a scheduling profile: occupation, when they are typically busy, what hours of the day they are most active, how often they have social events, who they see most often, frequented locations. ' +
+  'Infer the invisible structure too: from event start/end times estimate when this person sleeps and wakes, and whether their weekdays show a work/school pattern (regular daytime commitments) or a flexible daytime. Sparse weekday daytime events do NOT prove availability — say so in weekday_pattern when the calendar is inconclusive. ' +
+  'You MUST respond with ONLY a raw JSON object — no prose, no markdown, no explanation. The object must have exactly these keys: ' +
+  '"user" (string), ' +
+  '"tags" (array of short descriptive strings, e.g. "student", "early riser", "gym regular", "often at Cafe Luna"), ' +
+  '"hard_constraints" (array of inviolable rules, e.g. "no meetings before 9am"), ' +
+  '"soft_constraints" (array of preferences, e.g. "prefers evenings for social events"), ' +
+  '"inferred_rhythm" (single string summarizing their daily pattern), ' +
+  '"awake_hours" (string like "07:30-23:00" — your best estimate of when they are awake; use "unknown" only if there is truly no signal), ' +
+  '"weekday_pattern" (string: does this person appear to have work/school on weekdays? e.g. "9-5 office pattern Mon-Fri", "student, classes Mon/Wed/Fri mornings", "flexible daytime", or "inconclusive — assume daytime commitments"). ' +
+  'If you cannot infer something, use an empty array or empty string.';
+
+// buildProfileForUser — run the Haiku profiler for one user and persist the
+// result. Shared by op:'build-profile' and the cron refresh. out: profile.
+async function buildProfileForUser(client, user, notes = '') {
+  const signals = await gatherUserSignals(user, notes);
+
+  const reply = await callModel({
+    model:     MODELS.PROFILER,
+    system:    PROFILER_SYSTEM,
+    messages:  [{ role: 'user', content: JSON.stringify(signals) }],
+    maxTokens: 800,
+  });
+
+  const profile = extractJson(reply) ?? {
+    user: signals.user, tags: [], hard_constraints: [], soft_constraints: [],
+    inferred_rhythm: '', awake_hours: 'unknown', weekday_pattern: 'inconclusive',
+  };
+
+  await saveProfile(client, user.id, profile, signals);
+  return profile;
+}
+
 // loadConversation — fetch one conversation, enforcing ownership. out: row or null.
 async function loadConversation(client, userId, conversationId) {
   const { data } = await client
@@ -277,9 +315,45 @@ export default async function handler(req, res) {
 
   const client = db();
 
-  // ── GET · conversation memory reads ───────────────────────────────────────
+  // ── GET · conversation memory reads + cron ──────────────────────────────
   if (req.method === 'GET') {
     const { op, googleId, id } = req.query;
+
+    // Vercel cron (vercel.json crons → GET /api/ai?op=refresh-profiles):
+    // rebuild the stalest scheduling profiles so participants who rarely open
+    // Loop still contribute up-to-date inference. Authenticated by CRON_SECRET
+    // when configured (Vercel sends it as a Bearer token automatically).
+    if (op === 'refresh-profiles') {
+      const secret = process.env.CRON_SECRET;
+      if (secret && req.headers.authorization !== `Bearer ${secret}`)
+        return res.status(401).json({ error: 'Unauthorized' });
+
+      try {
+        const { data: users } = await client
+          .from('users')
+          .select('id, name, display_name, timezone, access_token')
+          .not('access_token', 'is', null);
+        const { data: profs } = await client
+          .from('user_profiles')
+          .select('user_id, updated_at');
+        const updatedAt = Object.fromEntries((profs ?? []).map(p => [p.user_id, new Date(p.updated_at).getTime()]));
+
+        // Stalest first (users with no profile at all lead); cap the batch so
+        // the run fits a serverless window and Haiku spend stays bounded.
+        const cutoff = Date.now() - PROFILE_MAX_AGE_MS;
+        const stale  = (users ?? [])
+          .filter(u => (updatedAt[u.id] ?? 0) < cutoff)
+          .sort((a, b) => (updatedAt[a.id] ?? 0) - (updatedAt[b.id] ?? 0))
+          .slice(0, 10);
+
+        const results = await Promise.allSettled(stale.map(u => buildProfileForUser(client, u)));
+        const refreshed = results.filter(r => r.status === 'fulfilled').length;
+        return res.status(200).json({ ok: true, refreshed, failed: results.length - refreshed });
+      } catch (err) {
+        return res.status(500).json({ error: err.message ?? 'Internal error' });
+      }
+    }
+
     if (!googleId) return res.status(400).json({ error: 'googleId required' });
 
     try {
@@ -331,37 +405,7 @@ export default async function handler(req, res) {
         }
       }
 
-      const signals = await gatherUserSignals(user, notes);
-
-      // Profile schema consumed by the scheduler prompts below:
-      //   { user, tags[], hard_constraints[], soft_constraints[],
-      //     inferred_rhythm, awake_hours, weekday_pattern }
-      const PROFILER_SYSTEM =
-        'Read through the user\'s calendar history and stated notes. Compile a scheduling profile: occupation, when they are typically busy, what hours of the day they are most active, how often they have social events, who they see most often, frequented locations. ' +
-        'Infer the invisible structure too: from event start/end times estimate when this person sleeps and wakes, and whether their weekdays show a work/school pattern (regular daytime commitments) or a flexible daytime. Sparse weekday daytime events do NOT prove availability — say so in weekday_pattern when the calendar is inconclusive. ' +
-        'You MUST respond with ONLY a raw JSON object — no prose, no markdown, no explanation. The object must have exactly these keys: ' +
-        '"user" (string), ' +
-        '"tags" (array of short descriptive strings, e.g. "student", "early riser", "gym regular", "often at Cafe Luna"), ' +
-        '"hard_constraints" (array of inviolable rules, e.g. "no meetings before 9am"), ' +
-        '"soft_constraints" (array of preferences, e.g. "prefers evenings for social events"), ' +
-        '"inferred_rhythm" (single string summarizing their daily pattern), ' +
-        '"awake_hours" (string like "07:30-23:00" — your best estimate of when they are awake; use "unknown" only if there is truly no signal), ' +
-        '"weekday_pattern" (string: does this person appear to have work/school on weekdays? e.g. "9-5 office pattern Mon-Fri", "student, classes Mon/Wed/Fri mornings", "flexible daytime", or "inconclusive — assume daytime commitments"). ' +
-        'If you cannot infer something, use an empty array or empty string.';
-
-      const reply = await callModel({
-        model:     MODELS.PROFILER,
-        system:    PROFILER_SYSTEM,
-        messages:  [{ role: 'user', content: JSON.stringify(signals) }],
-        maxTokens: 800,
-      });
-
-      const profile = extractJson(reply) ?? {
-        user: signals.user, tags: [], hard_constraints: [], soft_constraints: [],
-        inferred_rhythm: '', awake_hours: 'unknown', weekday_pattern: 'inconclusive',
-      };
-
-      await saveProfile(client, user.id, profile, signals);
+      const profile = await buildProfileForUser(client, user, notes);
       return res.status(200).json({ profile });
     }
 
