@@ -12,6 +12,11 @@ import './AISummary.css';
 //          the pending event (title + location included) and links it to the
 //          conversation. The server deletes the conversation once that event
 //          is confirmed or declined, so the list is always "pending only".
+//
+// Group mode: when rendered with a `group` prop (inside GroupsWidget's
+// schedule popup) the widget opens straight into a chat headed by a banner
+// with the group name + members, greets the user, and sends `groupId` with
+// every message so the server schedules for all group members automatically.
 
 // fmt — short human timestamp for a plan's start time.
 // out: e.g. "Sat, Jul 11, 6:30 PM".
@@ -98,20 +103,20 @@ const PlanCard = ({ plan, booking, locked, onBook }) => {
   );
 };
 
-const AISummary = () => {
-  const [view,    setView]    = useState('list');   // 'list' | 'chat'
+// groupGreeting — client-side opening bubble for a group-mode chat (not
+// persisted; the server learns the group from the groupId on each message).
+const groupGreeting = () =>
+  [{ id: 'greet', role: 'ai', text: 'What type of event would you like me to schedule?' }];
+
+const AISummary = ({ group = null, onClose = null }) => {
+  const [view,    setView]    = useState(group ? 'chat' : 'list');   // 'list' | 'chat'
   const [convos,  setConvos]  = useState([]);
   // active — the open conversation: { id, title, pendingEventId }; id null = new unsaved chat.
   const [active,  setActive]  = useState(null);
   // items — display list: { id, role:'user'|'ai'|'error', text, plans?, bookings?, booked? }
-  const [items,   setItems]   = useState([]);
+  const [items,   setItems]   = useState(group ? groupGreeting() : []);
   const [input,   setInput]   = useState('');
   const [loading, setLoading] = useState(false);
-  // Group-seeded first message: member names pre-loaded into the composer plus
-  // an event-name field, planted when the user hits "Schedule" on a group card
-  // (see GroupsWidget.handleSchedule). Cleared once sent or the chat changes.
-  const [seedMembers, setSeedMembers] = useState(null);
-  const [eventName,   setEventName]   = useState('');
 
   const bodyRef   = useRef(null);
   const inputRef  = useRef(null);
@@ -135,33 +140,10 @@ const AISummary = () => {
     }).catch(() => {});
   }, [googleId]);
 
-  // consumeSeed — if a group "Schedule" planted a seed, open a fresh chat with
-  // the member list pre-loaded into the composer and the event-name field
-  // revealed. Reads the seed once, then clears it.
-  const consumeSeed = useCallback(() => {
-    let raw = null;
-    try { raw = sessionStorage.getItem('ais-group-seed'); } catch {}
-    if (!raw) return;
-    try { sessionStorage.removeItem('ais-group-seed'); } catch {}
-    let members = [];
-    try { members = (JSON.parse(raw)?.members ?? []).filter(Boolean); } catch { return; }
-    if (!members.length) return;
-    setActive(null);
-    setItems([]);
-    setEventName('');
-    setSeedMembers(members);
-    setInput(`with ${members.join(', ')}`);
-    setView('chat');
-    setTimeout(() => inputRef.current?.focus(), 0);
-  }, []);
-
-  // Pick up a seed on mount (arriving via cross-page navigation) and on the
-  // same-page custom event (assistant already mounted on the dashboard).
+  // Focus the composer right away when opening as a group popup.
   useEffect(() => {
-    consumeSeed();
-    window.addEventListener('ais-seed', consumeSeed);
-    return () => window.removeEventListener('ais-seed', consumeSeed);
-  }, [consumeSeed]);
+    if (group) setTimeout(() => inputRef.current?.focus(), 0);
+  }, [group]);
 
   const loadConvos = useCallback(async () => {
     if (!googleId) return;
@@ -182,8 +164,6 @@ const AISummary = () => {
 
   // openConvo — fetch full history and enter the chat view.
   const openConvo = useCallback(async (c) => {
-    setSeedMembers(null);
-    setEventName('');
     setInput('');
     setActive({ id: c.id, title: c.title, pendingEventId: c.pending_event_id ?? null });
     setItems([]);
@@ -202,8 +182,6 @@ const AISummary = () => {
   const newChat = () => {
     setActive(null);
     setItems([]);
-    setSeedMembers(null);
-    setEventName('');
     setInput('');
     setView('chat');
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -214,8 +192,6 @@ const AISummary = () => {
     setActive(null);
     setItems([]);
     setInput('');
-    setSeedMembers(null);
-    setEventName('');
     loadConvos();
   };
 
@@ -232,16 +208,8 @@ const AISummary = () => {
   }, [googleId]);
 
   const send = useCallback(async () => {
-    const base = input.trim();
-    if (!base || loading || !googleId) return;
-
-    // A group-seeded first message folds the event name + member list into one
-    // request; afterwards the chat is an ordinary free-text thread.
-    const name = eventName.trim();
-    const text = seedMembers
-      ? `${name ? `Schedule "${name}"` : 'Schedule an event'} ${base}. Please find times that work for everyone.`
-      : base;
-    if (seedMembers) { setSeedMembers(null); setEventName(''); }
+    const text = input.trim();
+    if (!text || loading || !googleId) return;
 
     setItems(prev => [...prev, { id: Date.now(), role: 'user', text }]);
     setInput('');
@@ -251,7 +219,14 @@ const AISummary = () => {
       const res = await fetch('/api/ai', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ op: 'chat', googleId, conversationId: active?.id ?? undefined, message: text }),
+        body:    JSON.stringify({
+          op: 'chat', googleId,
+          conversationId: active?.id ?? undefined,
+          message: text,
+          // Group mode: the server resolves the group's members and schedules
+          // for all of them — the user never has to list participants.
+          groupId: group?.id ?? undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'AI error');
@@ -273,7 +248,7 @@ const AISummary = () => {
       setLoading(false);
       inputRef.current?.focus();
     }
-  }, [input, loading, googleId, active, seedMembers, eventName]);
+  }, [input, loading, googleId, active, group]);
 
   // bookPlan — create the pending event, then link it to this conversation so
   // the server can retire the chat once the event is confirmed or declined.
@@ -378,27 +353,42 @@ const AISummary = () => {
   }
 
   // ── Chat view ───────────────────────────────────────────────────────────────
+  const memberNames = group
+    ? (group.members ?? [])
+        .filter(m => m.status === 'accepted')
+        .map(m => m.display_name || m.name)
+        .filter(Boolean)
+        .join(', ')
+    : '';
+
   return (
     <div className="ais-wrap">
-      <div className="ais-header">
-        <button className="ais-back" onClick={backToList} title="All chats">
-          <ChevronLeft size={16} />
-        </button>
-        <span className="ais-title ais-title-ellipsis">{active?.title || 'New chat'}</span>
-        {locked && <span className="ais-convo-badge">event pending</span>}
-      </div>
+      {group ? (
+        <div className="ais-header">
+          <div className="ais-group-head">
+            <span className="ais-title ais-title-ellipsis">{group.name}</span>
+            {memberNames && <span className="ais-group-members">{memberNames}</span>}
+          </div>
+          {locked && <span className="ais-convo-badge">event pending</span>}
+          {onClose && (
+            <button className="ais-new-btn" onClick={onClose} title="Close">
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="ais-header">
+          <button className="ais-back" onClick={backToList} title="All chats">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="ais-title ais-title-ellipsis">{active?.title || 'New chat'}</span>
+          {locked && <span className="ais-convo-badge">event pending</span>}
+        </div>
+      )}
 
       <div className="ais-body" ref={bodyRef}>
         {items.length === 0 && !loading && (
-          seedMembers ? (
-            <div className="ais-seed-banner">
-              <span className="ais-seed-label">Scheduling with</span>
-              <span className="ais-seed-members">{seedMembers.join(', ')}</span>
-              <span className="ais-seed-hint">Name your event below, then send and I'll find times that fit everyone.</span>
-            </div>
-          ) : (
-            <p className="ais-hint">Tell me what to schedule — I'll check everyone's calendars and find times that fit.</p>
-          )
+          <p className="ais-hint">Tell me what to schedule — I'll check everyone's calendars and find times that fit.</p>
         )}
 
         {items.map(item => {
@@ -450,20 +440,6 @@ const AISummary = () => {
           </div>
         )}
       </div>
-
-      {seedMembers && (
-        <div className="ais-eventname-row">
-          <input
-            className="ais-eventname-input"
-            type="text"
-            placeholder="Event name (e.g. Dinner)"
-            value={eventName}
-            onChange={e => setEventName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
-            disabled={loading}
-          />
-        </div>
-      )}
 
       <div className="ais-input-row">
         <input

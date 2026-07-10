@@ -212,55 +212,24 @@
 
 .ais-plan-status.err { color: #dc2626; }
 
-/* ── Group-seed banner + event-name field ── */
+/* ── Group-mode banner (schedule popup) ── */
 
-.ais-seed-banner {
-  margin: auto;
-  padding: 1rem;
-  text-align: center;
+.ais-group-head {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
 }
 
-.ais-seed-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #A3A8B0;
+.ais-group-members {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #9CA3AF;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.ais-seed-members {
-  font-size: 15px;
-  font-weight: 700;
-  color: #E8607A;
-  line-height: 1.4;
-}
-
-.ais-seed-hint {
-  font-size: 12.5px;
-  color: #A3A8B0;
-  margin-top: 2px;
-}
-
-.ais-eventname-row {
-  padding: 10px 12px 0;
-  flex-shrink: 0;
-}
-
-.ais-eventname-input {
-  width: 100%;
-  padding: 8px 13px;
-  border: 1px solid #F3D8E4;
-  border-radius: 20px;
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s;
-  box-sizing: border-box;
-}
-
-.ais-eventname-input:focus { border-color: #E8607A; }
 
 /* ── Input row ── */
 

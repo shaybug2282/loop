@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Users, Calendar, MessageSquare, X, Check, Trash2, UserPlus, UserMinus } from 'lucide-react';
 import { useGroupChat } from '../contexts/GroupChatContext';
 import { useMessages } from '../contexts/MessagesContext';
 import { sendDm } from '../utils/messageCrypto';
+import AISummary from './AISummary';
 import './GroupsWidget.css';
 
 const PRESET_COLORS = ['#E8607A','#6366F1','#10B981','#F59E0B','#3B82F6','#EC4899','#14B8A6','#8B5CF6'];
@@ -82,7 +82,6 @@ const FriendChip = ({ friend, selected, onToggle }) => (
 // ── Main widget ──────────────────────────────────────────────────────────────
 
 export default function GroupsWidget() {
-  const navigate    = useNavigate();
   const { openGroupChat }  = useGroupChat();
   const { openMessages }   = useMessages();
   const googleId    = localStorage.getItem('googleUserId');
@@ -102,6 +101,9 @@ export default function GroupsWidget() {
 
   // Expanded action buttons per group
   const [expandedId, setExpandedId]     = useState(null);
+
+  // Group whose scheduling-chat popup is open (null = closed)
+  const [scheduleGroup, setScheduleGroup] = useState(null);
 
   // Edit modal
   const [editGroup,        setEditGroup]        = useState(null);
@@ -195,21 +197,12 @@ export default function GroupsWidget() {
 
   // ── Group actions ───────────────────────────────────────────────────────────
 
-  // Scheduling a group now hands off to the Scheduling Assistant: seed a fresh
-  // chat with the members pre-loaded and an event-name field to fill in.
+  // Scheduling a group opens a popup with the AI scheduling chat pinned to
+  // this group — the backend receives the groupId with every message and
+  // schedules for all accepted members automatically.
   const handleSchedule = group => {
-    const memberNames = (group.members ?? [])
-      .filter(m => m.status === 'accepted' && m.id !== myIdRef.current)
-      .map(m => m.display_name || m.name)
-      .filter(Boolean);
-    try {
-      sessionStorage.setItem('ais-group-seed', JSON.stringify({ group: group.name, members: memberNames }));
-    } catch {}
     setExpandedId(null);
-    // The assistant lives on the dashboard; navigate there (no-op if already
-    // there) and fire an event so an already-mounted assistant picks it up.
-    navigate('/dashboard');
-    window.dispatchEvent(new Event('ais-seed'));
+    setScheduleGroup(group);
   };
 
   const handleMessage = group => {
@@ -575,6 +568,15 @@ export default function GroupsWidget() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group scheduling popup — AI chat scoped to this group */}
+      {scheduleGroup && (
+        <div className="gw-modal-backdrop" onClick={() => setScheduleGroup(null)}>
+          <div className="gw-schedule-modal" onClick={e => e.stopPropagation()}>
+            <AISummary group={scheduleGroup} onClose={() => setScheduleGroup(null)} />
           </div>
         </div>
       )}

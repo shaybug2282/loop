@@ -8,7 +8,9 @@
 // GET  ?op=conversation&googleId=&id=   → { conversation } (full message history)
 // POST { op:'build-profile', googleId, notes?, force? }        → { profile }
 // POST { op:'schedule', googleId, participantIds[], request }  → { plans }
-// POST { op:'chat', googleId, conversationId?, message }       → { conversationId, reply, plans }
+// POST { op:'chat', googleId, conversationId?, message, groupId? } → { conversationId, reply, plans }
+//        groupId puts the chat in group mode: the group's accepted members are
+//        injected as mandatory participants (sent by the client on every turn).
 // POST { op:'record-booking', googleId, conversationId, eventId, plan } → { ok }
 // POST { op:'delete-conversation', googleId, conversationId }  → { ok }
 //
@@ -125,6 +127,32 @@ const SCHEDULING_RULES =
   '(4) Honor every hard_constraint absolutely; satisfy soft_constraints and stated preferences whenever possible, and use profile tags (occupation, frequented locations, active hours, social rhythm) to infer unstated preferences. ' +
   '(5) Offer genuinely DISTINCT options as time/location pairs — vary the day and time-of-day across options (e.g. a weekday evening, a weekend afternoon), not three near-identical slots; suggest a location suited to the event type and participants\' frequented areas when you can, otherwise omit it. ' +
   '(6) All proposed times must be in the future, inside the availability window provided.';
+
+// loadGroupContext — groupId → { id, name, members: [{ id, name }] } for a
+// group-mode chat; members are the group's OTHER accepted members (requester
+// excluded). Returns null unless the requester is an accepted member, so a
+// leaked groupId can't expose a group's roster.
+async function loadGroupContext(client, groupId, userId) {
+  const { data: g } = await client
+    .from('groups')
+    .select('id, name')
+    .eq('id', groupId)
+    .single();
+  if (!g) return null;
+
+  const { data: gm } = await client
+    .from('group_members')
+    .select('user_id, status')
+    .eq('group_id', groupId)
+    .eq('status', 'accepted');
+  const memberIds = (gm ?? []).map(m => m.user_id);
+  if (!memberIds.includes(userId)) return null;
+
+  // group_members has two FKs to users (ambiguous embed) — resolve names in a
+  // separate batch, same pattern as api/groups.js.
+  const rows = await resolveUsersByIds(client, memberIds.filter(id => id !== userId));
+  return { id: g.id, name: g.name, members: rows.map(u => ({ id: u.id, name: u.display_name || u.name })) };
+}
 
 // loadConversation — fetch one conversation, enforcing ownership. out: row or null.
 async function loadConversation(client, userId, conversationId) {
@@ -266,19 +294,23 @@ export default async function handler(req, res) {
     // turn, results NOT persisted — availability goes stale, the model can
     // re-request it next turn).
     if (op === 'chat') {
-      const { googleId, conversationId, message } = req.body;
+      const { googleId, conversationId, message, groupId } = req.body;
       if (!googleId || !message?.trim())
         return res.status(400).json({ error: 'googleId and message required' });
 
       const [user] = await resolveUsers(client, [googleId]);
       if (!user) return res.status(404).json({ error: 'User not found' });
 
+      // Group mode (GroupsWidget schedule popup): the client sends groupId on
+      // every message; the group's members become mandatory participants.
+      const group = groupId ? await loadGroupContext(client, groupId, user.id) : null;
+
       // Load or create the conversation.
       let convo = conversationId ? await loadConversation(client, user.id, conversationId) : null;
       if (conversationId && !convo)
         return res.status(404).json({ error: 'Conversation not found' });
       if (!convo) {
-        const title = message.trim().slice(0, 60);
+        const title = (group ? `${group.name}: ${message.trim()}` : message.trim()).slice(0, 60);
         const { data, error } = await client
           .from('ai_conversations')
           .insert({ user_id: user.id, title, messages: [] })
@@ -310,6 +342,11 @@ export default async function handler(req, res) {
         };
       });
 
+      // Group members may not all be friends of the requester, but they are
+      // valid participants in a group-mode chat — widen the allowed set used
+      // for availability lookups and plan validation.
+      const allowedIds = new Set([...friendIds, ...(group?.members ?? []).map(m => m.id)]);
+
       // User's own busy windows — gives Sonnet real availability context.
       const availability = await gatherBusy([user]);
 
@@ -322,6 +359,9 @@ export default async function handler(req, res) {
         friends.length
           ? `Friends roster (id, name, profile digest): ${JSON.stringify(friends)}`
           : 'Friends: none yet.',
+        group
+          ? `GROUP SCHEDULING MODE: this conversation schedules ONE event for the group "${group.name}". The other group members (id, name): ${JSON.stringify(group.members)}. Every plan's participantIds MUST include ALL of these member ids — never ask who is attending, and run check_availability for all of them before first proposing times.`
+          : null,
         `User's own busy windows (next 14 days): ${JSON.stringify(availability)}`,
         convo.pending_event_id
           ? 'An event from this conversation has already been booked and is awaiting responses — do not propose new plans unless the user asks to reschedule.'
@@ -354,14 +394,14 @@ export default async function handler(req, res) {
           Array.isArray(parsed.participantIds);
         if (!wantsLookup) break;
 
-        const ids  = [...new Set(parsed.participantIds.filter(id => friendIds.has(id)))];
+        const ids  = [...new Set(parsed.participantIds.filter(id => allowedIds.has(id)))];
         const info = ids.length ? await gatherParticipantContext(client, ids) : [];
         apiMessages.push({ role: 'assistant', content: JSON.stringify(parsed) });
         apiMessages.push({ role: 'user', content: JSON.stringify({ availability_result: info, note: 'Real calendar data. Now respond to the user with contract form (A).' }) });
       }
 
       const reply = typeof parsed?.reply === 'string' ? parsed.reply : (raw || 'Sorry — I had trouble with that. Could you rephrase?');
-      const plans = validatePlans(parsed?.plans, friendIds);
+      const plans = validatePlans(parsed?.plans, allowedIds);
 
       // Persist the exchange (assistant stored as its JSON contract string so
       // plan cards re-render when the chat is reopened). Lookup exchanges are
