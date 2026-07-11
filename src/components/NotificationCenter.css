@@ -148,6 +148,10 @@
 
 .nc-item-body { min-width: 0; flex: 1; }
 
+/* Clickable: opens the universal event popup. */
+.nc-item-click { cursor: pointer; }
+.nc-item-click:hover .nc-item-title { color: #E8607A; }
+
 /* Delete button — appears on hover, matches the widget dismiss pattern */
 .nc-item-x {
   position: absolute;

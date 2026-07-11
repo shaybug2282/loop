@@ -1,0 +1,340 @@
+/* ── Universal event popup ── */
+
+.ep-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ep-modal {
+  width: min(430px, 94vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  animation: ep-pop 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes ep-pop {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* ── Header ── */
+
+.ep-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid #F3D8E4;
+}
+
+.ep-head-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ep-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1A1A1A;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.ep-title-input {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1A1A1A;
+  border: 1px solid #E8607A;
+  border-radius: 6px;
+  padding: 2px 8px;
+  outline: none;
+  width: 100%;
+}
+
+.ep-when {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4A4A52;
+}
+
+.ep-when svg { color: #E8607A; flex-shrink: 0; }
+
+.ep-when-edit {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ep-input {
+  border: 1px solid #F3D8E4;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  color: #1A1A1A;
+  outline: none;
+}
+
+.ep-input:focus { border-color: #E8607A; }
+
+.ep-input-dur { width: 58px; }
+
+.ep-mini-btn {
+  border: none;
+  border-radius: 6px;
+  background: #E8607A;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.ep-mini-btn:hover { background: #C94D65; }
+
+.ep-status {
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 1px 7px;
+}
+
+.ep-status-pending     { background: #FEF3C7; color: #B45309; }
+.ep-status-accepted    { background: #DCFCE7; color: #15803D; }
+.ep-status-rescheduled { background: #FEF3C7; color: #B45309; }
+.ep-status-declined    { background: #E5E7EB; color: #6B7280; }
+
+.ep-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #E8607A;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.14s;
+}
+
+.ep-close:hover { background: #FDE8EF; }
+
+/* ── Editable fields ── */
+
+.ep-editable { cursor: pointer; border-radius: 6px; transition: background 0.12s; }
+.ep-editable:hover { background: #FDF5F7; }
+
+/* ── Participants ── */
+
+.ep-participants {
+  padding: 12px 16px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ep-part-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+/* Chip colors: blue host, green accepted, yellow pending, grey declined. */
+.ep-part {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 3px 10px;
+}
+
+.ep-part.host     { background: #DBEAFE; color: #1D4ED8; }
+.ep-part.accepted { background: #DCFCE7; color: #15803D; }
+.ep-part.pending  { background: #FEF3C7; color: #B45309; }
+.ep-part.declined { background: #E5E7EB; color: #6B7280; }
+
+.ep-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ep-legend-item {
+  font-size: 10px;
+  color: #9CA3AF;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ep-legend-item::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.ep-legend-item.host::before     { background: #1D4ED8; }
+.ep-legend-item.accepted::before { background: #15803D; }
+.ep-legend-item.pending::before  { background: #D97706; }
+.ep-legend-item.declined::before { background: #9CA3AF; }
+
+/* ── Detail rows ── */
+
+.ep-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 16px 0;
+  font-size: 13px;
+  color: #4A4A52;
+}
+
+.ep-row-ic { color: #E8607A; flex-shrink: 0; margin-top: 3px; }
+
+.ep-row-val {
+  min-width: 0;
+  word-break: break-word;
+  padding: 1px 4px;
+  margin: -1px -4px;
+}
+
+.ep-row-empty { color: #C4C9D0; font-style: italic; }
+
+.ep-row-input { flex: 1; }
+
+.ep-desc-input { resize: vertical; font-family: inherit; }
+
+/* ── Confirm bar & messages ── */
+
+.ep-error {
+  margin: 12px 16px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fee2e2;
+  color: #C0392B;
+  font-size: 12px;
+}
+
+.ep-saved {
+  margin: 12px 16px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ep-confirm {
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+  border: 1px solid #F3D8E4;
+  border-radius: 8px;
+  background: #FDF5F7;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ep-confirm.nudged { border-color: #E8607A; }
+
+.ep-confirm-msg {
+  margin: 0;
+  font-size: 12.5px;
+  color: #4A4A52;
+}
+
+.ep-confirm-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.ep-btn-confirm {
+  flex: 1;
+  border: none;
+  border-radius: 7px;
+  background: #E8607A;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ep-btn-confirm:hover:not(:disabled) { background: #C94D65; }
+.ep-btn-confirm:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.ep-btn-discard {
+  border: 1px solid #F3D8E4;
+  border-radius: 7px;
+  background: #fff;
+  color: #4A4A52;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.ep-btn-discard:hover:not(:disabled) { background: #FDE8EF; }
+
+/* ── Footer ── */
+
+.ep-footer {
+  padding: 14px 16px 16px;
+  margin-top: 4px;
+}
+
+.ep-ai-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  border: 1px solid #F3D8E4;
+  border-radius: 20px;
+  background: #fff;
+  color: #E8607A;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 0;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ep-ai-btn:hover { background: #FDE8EF; border-color: #E8607A; }
+
+/* ── Nested Scheduling Assistant popup ── */
+
+.ep-ai-backdrop { z-index: 1200; }
+
+.ep-ai-modal {
+  width: min(440px, 95vw);
+  animation: ep-pop 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+.ep-ai-modal .ais-wrap {
+  margin-top: 0;
+  height: min(640px, 85vh);
+}

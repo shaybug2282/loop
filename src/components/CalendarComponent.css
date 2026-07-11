@@ -119,6 +119,10 @@
   transition: all 0.2s;
 }
 
+/* Clickable: opens the universal event popup. */
+.event-item-click { cursor: pointer; }
+.event-item-click:hover { background: #FDE8EF; }
+
 .event-item:hover {
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
   transform: translateX(4px);

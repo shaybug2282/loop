@@ -3,6 +3,7 @@
 // GET  ?op=pending-events&googleId=              → events/invites for this user
 // POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location? }
 // POST { op:'respond', googleId, eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
+// POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location? }  → creator edits; restarts the invite cycle
 // POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
 //
 // Requires the pending_events table: db/migrations/002_pending_events.sql
@@ -364,6 +365,63 @@ export default async function handler(req, res) {
 
       await client.from('pending_events').update({ acceptances }).eq('id', eventId);
       return res.status(200).json({ ok: true, status: 'pending', allAccepted: false });
+    }
+
+    if (op === 'update-event') {
+      const { googleId, eventId, title, eventTime, durationHours, location } = req.body;
+      if (!googleId || !eventId)
+        return res.status(400).json({ error: 'googleId and eventId required' });
+
+      const { data: me } = await client.from('users').select('id, access_token').eq('google_id', googleId).single();
+      if (!me) return res.status(404).json({ error: 'User not found' });
+
+      const { data: ev } = await client.from('pending_events').select('*').eq('id', eventId).single();
+      if (!ev) return res.status(404).json({ error: 'Event not found' });
+
+      if (ev.creator_id !== me.id)
+        return res.status(403).json({ error: 'Only the event creator can edit it' });
+
+      // Any edit restarts the invite cycle: acceptances/declines are wiped and
+      // the event returns to 'pending', so every invitee gets a fresh invite
+      // card reflecting the updated details.
+      const { error } = await client.from('pending_events').update({
+        ...(eventTime ? { event_time: eventTime } : {}),
+        ...(durationHours ? { duration_hours: durationHours } : {}),
+        acceptances: [],
+        declines: [],
+        status: 'pending',
+        google_event_created: false,
+      }).eq('id', eventId);
+      if (error) return res.status(500).json({ error: error.message });
+
+      // Columns from later migrations — updated separately so an unmigrated DB
+      // (missing title/location or reschedule_requests) can't fail the core
+      // update above.
+      if (title !== undefined || location !== undefined) {
+        await client.from('pending_events').update({
+          ...(title !== undefined ? { title } : {}),
+          ...(location !== undefined ? { location } : {}),
+        }).eq('id', eventId);
+      }
+      await client.from('pending_events').update({ reschedule_requests: [] }).eq('id', eventId);
+
+      // If the old version was already confirmed onto Google Calendar, cancel
+      // that copy (attendees are notified) — the edited event books a fresh
+      // one when everyone re-accepts.
+      if (ev.google_event_id) {
+        try {
+          if (me.access_token) {
+            const token = decrypt(me.access_token);
+            await fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(ev.google_event_id)}?sendUpdates=all`,
+              { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+            );
+          }
+        } catch {}
+        await client.from('pending_events').update({ google_event_id: null }).eq('id', eventId);
+      }
+
+      return res.status(200).json({ ok: true });
     }
 
     if (op === 'find-times') {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import CalendarComponent from '../components/CalendarComponent';
-import AISummary from '../components/AISummary';
+import PendingEventsWidget from '../components/PendingEventsWidget';
 import ScheduleWidget from '../components/ScheduleWidget';
 import FriendsWidget from '../components/FriendsWidget';
 import SignInModal from '../components/SignInModal';
@@ -81,7 +81,7 @@ const Dashboard = () => {
         </div>
         <div className="dashboard-item dashboard-col-stack">
           <ScheduleWidget />
-          <AISummary />
+          <PendingEventsWidget />
         </div>
         <div className="dashboard-item">
           <FriendsWidget />

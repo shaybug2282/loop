@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchCalendarEvents } from '../utils/googleCalendar';
+import EventPopup from './EventPopup';
 import './WeekView.css';
 
 const SEEN_CONFIRMED_KEY = 'wv-confirmed-seen';
@@ -19,6 +20,7 @@ const WeekView = () => {
   const [newlyConfirmed, setNewlyConfirmed] = useState(new Set());
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState(null);
+  const [selected,      setSelected]      = useState(null); // display item open in the popup
   const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
   const googleId = localStorage.getItem('googleUserId');
 
@@ -139,6 +141,7 @@ const WeekView = () => {
         allDay:   !ev.start.dateTime,
         title:    ev.summary,
         location: ev.location,
+        gEvent:   ev, // raw Google event for the universal popup
       }));
 
     const app = visibleAppEvents
@@ -146,13 +149,14 @@ const WeekView = () => {
       .map(e => ({
         key:       `p-${e.id}`,
         start:     e.event_time,
-        title:     'Hangout',
+        title:     e.title || 'Hangout',
         with:      e.isCreator
           ? (e.invitedUsers ?? []).map(u => u.display_name || u.name).filter(Boolean).join(', ')
           : e.creator?.display_name || e.creator?.name || '',
         pending:   e.status !== 'accepted',
         confirmed: e.status === 'accepted',
         isNew:     newlyConfirmed.has(e.id),
+        appEvent:  e, // enriched Loop event for the universal popup
       }));
 
     return [...gcal, ...app].sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -254,6 +258,10 @@ const WeekView = () => {
                         (item.confirmed ? ' week-event-confirmed' : '') +
                         (item.isNew ? ' week-event-new' : '')
                       }
+                      onClick={() => setSelected(item)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setSelected(item); }}
                     >
                       {item.allDay ? (
                         <div className="event-time all-day">All Day</div>
@@ -283,6 +291,15 @@ const WeekView = () => {
           );
         })}
       </div>
+
+      {selected && (
+        <EventPopup
+          googleEvent={selected.gEvent ?? null}
+          loopEvent={selected.appEvent ?? null}
+          onClose={() => setSelected(null)}
+          onChanged={loadEvents}
+        />
+      )}
     </div>
   );
 };

@@ -4,13 +4,15 @@ import { Menu, Clock, Calendar, Home } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ScheduleWidget from '../components/ScheduleWidget';
 import GroupsWidget from '../components/GroupsWidget';
+import EventPopup from '../components/EventPopup';
 import { formatEventTime as formatTime, formatDuration } from '../utils/format';
 import './SchedulePage.css';
 
 // ── Upcoming Events panel ─────────────────────────────────────────────────────
 
-const UpcomingEvents = ({ events }) => {
+const UpcomingEvents = ({ events, onChanged }) => {
   const [expanded, setExpanded] = useState(false);
+  const [selected, setSelected] = useState(null); // event open in the popup
 
   const upcoming = events
     .filter(e => !['declined', 'rescheduled'].includes(e.status) && new Date(e.event_time) > new Date())
@@ -32,7 +34,14 @@ const UpcomingEvents = ({ events }) => {
                 : [e.creator?.display_name || e.creator?.name].filter(Boolean);
 
               return (
-                <li key={e.id} className="sp-event-item">
+                <li
+                  key={e.id}
+                  className="sp-event-item sp-event-click"
+                  onClick={() => setSelected(e)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') setSelected(e); }}
+                >
                   <div className="sp-event-time">
                     <Clock size={11} />
                     {formatTime(e.event_time)}
@@ -61,6 +70,13 @@ const UpcomingEvents = ({ events }) => {
             </button>
           )}
         </>
+      )}
+      {selected && (
+        <EventPopup
+          loopEvent={selected}
+          onClose={() => setSelected(null)}
+          onChanged={onChanged}
+        />
       )}
     </div>
   );
@@ -104,7 +120,7 @@ const SchedulePage = () => {
       <div className="schedule-page-grid">
         <div className="sp-col"><ScheduleWidget /></div>
         <div className="sp-col"><GroupsWidget /></div>
-        <div className="sp-col"><UpcomingEvents events={events} /></div>
+        <div className="sp-col"><UpcomingEvents events={events} onChanged={loadEvents} /></div>
       </div>
     </div>
   );

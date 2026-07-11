@@ -1,0 +1,118 @@
+/* ── In the Works (pending events) widget ── */
+
+.pe-widget {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+  overflow: hidden;
+}
+
+.pe-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 16px 11px;
+  border-bottom: 1px solid #F3D8E4;
+  flex-shrink: 0;
+  color: #E8607A;
+}
+
+.pe-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1A1A1A;
+}
+
+.pe-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pe-body::-webkit-scrollbar { width: 4px; }
+.pe-body::-webkit-scrollbar-thumb { background: #F3D8E4; border-radius: 4px; }
+
+.pe-hint {
+  text-align: center;
+  color: #A3A8B0;
+  font-size: 13px;
+  margin: auto;
+  padding: 1rem;
+}
+
+.pe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
+.pe-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 11px;
+  border: 1px solid #F3D8E4;
+  border-radius: 10px;
+  background: #FDF5F7;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.pe-tile:hover {
+  background: #FDE8EF;
+  border-color: #E8607A;
+}
+
+.pe-tile-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1A1A1A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.pe-tile-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #4A4A52;
+}
+
+.pe-tile-time svg { color: #E8607A; }
+
+.pe-tile-people {
+  font-size: 11px;
+  color: #9CA3AF;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.pe-tile-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #B45309;
+  background: #FEF3C7;
+  border-radius: 8px;
+  padding: 1px 7px;
+  margin-top: 2px;
+}
+
+.pe-tile-badge.resched {
+  color: #6B7280;
+  background: #E5E7EB;
+}

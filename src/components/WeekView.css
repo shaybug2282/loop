@@ -151,6 +151,7 @@
   margin-bottom: 8px;
   border-radius: 4px;
   transition: all 0.2s;
+  cursor: pointer; /* opens the universal event popup */
 }
 
 .week-event:hover {

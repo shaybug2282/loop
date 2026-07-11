@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDuration } from '../utils/format';
+import EventPopup from './EventPopup';
 import './NotificationCenter.css';
 
 // localStorage keys for notification read/delete state (shared across tabs/reloads).
@@ -69,6 +70,7 @@ const NotificationCenter = () => {
   const [loading,      setLoading]      = useState(false);
   const [seen,         setSeen]         = useState(() => loadSet(LS_SEEN));
   const [dismissed,    setDismissed]    = useState(() => loadSet(LS_DISMISSED));
+  const [popupEvent,   setPopupEvent]   = useState(null); // event open in the universal popup
   const wrapRef    = useRef(null);
   const fetchedRef = useRef(false); // true after the first successful fetch — gates pruning
   const syncedRef  = useRef(false); // true after server state is merged — gates pushes
@@ -282,7 +284,14 @@ const NotificationCenter = () => {
                 return (
                   <div key={item.id} className="nc-item">
                     <span className={`nc-dot nc-dot-${info.color}`} />
-                    <div className="nc-item-body">
+                    <div
+                      className="nc-item-body nc-item-click"
+                      onClick={() => setPopupEvent(item.a.event)}
+                      role="button"
+                      tabIndex={0}
+                      title="Open event"
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setPopupEvent(item.a.event); }}
+                    >
                       <p className="nc-item-title">{info.title}</p>
                       <p className="nc-item-sub">{info.sub}</p>
                     </div>
@@ -294,6 +303,14 @@ const NotificationCenter = () => {
             )}
           </div>
         </div>
+      )}
+
+      {popupEvent && (
+        <EventPopup
+          loopEvent={popupEvent}
+          onClose={() => setPopupEvent(null)}
+          onChanged={fetchAll}
+        />
       )}
     </div>
   );

@@ -88,6 +88,10 @@
 
 .sp-event-item:last-child { border-bottom: none; }
 
+/* Clickable: opens the universal event popup. */
+.sp-event-click { cursor: pointer; transition: background 0.14s; }
+.sp-event-click:hover { background: #FDF5F7; }
+
 .sp-event-time {
   display: flex;
   align-items: center;

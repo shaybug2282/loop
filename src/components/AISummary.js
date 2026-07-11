@@ -314,6 +314,11 @@ const AISummary = ({ group = null, onClose = null }) => {
           <button className="ais-new-btn" onClick={newChat} title="New scheduling chat">
             <Plus size={15} />
           </button>
+          {onClose && (
+            <button className="ais-new-btn ais-close-btn" onClick={onClose} title="Close">
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         <div className="ais-body">
@@ -383,6 +388,11 @@ const AISummary = ({ group = null, onClose = null }) => {
           </button>
           <span className="ais-title ais-title-ellipsis">{active?.title || 'New chat'}</span>
           {locked && <span className="ais-convo-badge">event pending</span>}
+          {onClose && (
+            <button className="ais-new-btn" onClick={onClose} title="Close">
+              <X size={15} />
+            </button>
+          )}
         </div>
       )}
 

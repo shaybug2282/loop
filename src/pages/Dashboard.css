@@ -67,6 +67,14 @@
 .dashboard-col-stack {
   display: flex;
   flex-direction: column;
+  gap: 24px;
+}
+
+/* The pending-events tiles fill whatever the Schedule widget leaves, so the
+   middle column ends where the others do. */
+.dashboard-col-stack .pe-widget {
+  flex: 1;
+  min-height: 260px;
 }
 
 @media (max-width: 768px) {

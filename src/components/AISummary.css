@@ -56,6 +56,9 @@
 
 .ais-new-btn { margin-left: auto; }
 
+/* Second header button (popup close) sits right beside the first. */
+.ais-close-btn { margin-left: 0; }
+
 /* ── Chat body ── */
 
 .ais-body {
