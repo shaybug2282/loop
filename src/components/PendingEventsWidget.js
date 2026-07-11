@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Hourglass, Clock, Archive } from 'lucide-react';
+import { Hourglass, Clock, Archive, Plus } from 'lucide-react';
 import EventPopup from './EventPopup';
+import NewEventPopup from './NewEventPopup';
 import { formatEventTime as formatTime } from '../utils/format';
 import './PendingEventsWidget.css';
 
@@ -28,6 +29,7 @@ export default function PendingEventsWidget() {
   const [expanded,  setExpanded]  = useState(false);
   const [dismissed, setDismissed] = useState(loadDismissed);
   const [showDismissed, setShowDismissed] = useState(false); // body shows dismissed list instead of tiles
+  const [showNew, setShowNew] = useState(false); // "New event" creation popup open
   const googleId = localStorage.getItem('googleUserId');
 
   // setMembership — add or remove an id from the persisted dismissed set.
@@ -83,6 +85,9 @@ export default function PendingEventsWidget() {
       <div className="pe-header">
         <Hourglass size={16} />
         <h2>In the Works</h2>
+        <button className="pe-new-btn" onClick={() => setShowNew(true)} title="Schedule a new event">
+          <Plus size={12} /> New event
+        </button>
         <button
           className={`pe-dismissed-btn${showDismissed ? ' active' : ''}`}
           onClick={() => setShowDismissed(v => !v)}
@@ -169,6 +174,10 @@ export default function PendingEventsWidget() {
           onClose={() => setSelected(null)}
           onChanged={load}
         />
+      )}
+
+      {showNew && (
+        <NewEventPopup onClose={() => setShowNew(false)} onCreated={load} />
       )}
     </div>
   );

@@ -43,7 +43,10 @@ async function saveProfile(client, userId, profile, rawSignals) {
 }
 
 // fetchRecentEvents — last `days` days of calendar events compressed for Haiku.
-async function fetchRecentEvents(token, days = 30) {
+// weekday/hour are computed in the USER's timezone, not the server's (UTC on
+// Vercel) — otherwise every signal shifts by the UTC offset and the inferred
+// awake_hours / weekday_pattern come out wrong.
+async function fetchRecentEvents(token, tz = 'UTC', days = 30) {
   const now     = new Date();
   const timeMin = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
   const url =
@@ -53,15 +56,18 @@ async function fetchRecentEvents(token, days = 30) {
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!r.ok) return [];
   const { items = [] } = await r.json();
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', hour: 'numeric', hourCycle: 'h23' });
   return items
     .filter(ev => ev.start?.dateTime)
     .map(ev => {
       const start = new Date(ev.start.dateTime);
       const end   = ev.end?.dateTime ? new Date(ev.end.dateTime) : null;
+      const parts = fmt.formatToParts(start);
+      const get   = t => parts.find(p => p.type === t)?.value ?? '';
       return {
         title:         ev.summary ?? '(untitled)',
-        weekday:       start.toLocaleDateString('en-US', { weekday: 'short' }),
-        hour:          start.getHours(),
+        weekday:       get('weekday'),
+        hour:          Number(get('hour')),
         durationHours: end ? +((end - start) / 3.6e6).toFixed(1) : null,
         recurring:     Boolean(ev.recurringEventId),
         location:      ev.location ?? null,
@@ -73,7 +79,7 @@ async function fetchRecentEvents(token, days = 30) {
 async function gatherUserSignals(user, notes = '') {
   let recentEvents = [];
   if (user.access_token) {
-    try { recentEvents = await fetchRecentEvents(decrypt(user.access_token)); } catch {}
+    try { recentEvents = await fetchRecentEvents(decrypt(user.access_token), user.timezone || 'UTC'); } catch {}
   }
   return {
     user:        user.display_name || user.name || 'User',
@@ -87,7 +93,7 @@ async function gatherUserSignals(user, notes = '') {
 // Output schema: { user, tags[], hard_constraints[], soft_constraints[],
 //                  inferred_rhythm, awake_hours, weekday_pattern }
 const PROFILER_SYSTEM =
-  'Read through the user\'s calendar history and stated notes. Compile a scheduling profile: occupation, when they are typically busy, what hours of the day they are most active, how often they have social events, who they see most often, frequented locations. ' +
+  'Read through the user\'s calendar history and stated notes. Every event\'s weekday and hour is already expressed in the user\'s own local timezone — treat them as local clock times. Compile a scheduling profile: occupation, when they are typically busy, what hours of the day they are most active, how often they have social events, who they see most often, frequented locations. ' +
   'Infer the invisible structure too: from event start/end times estimate when this person sleeps and wakes, and whether their weekdays show a work/school pattern (regular daytime commitments) or a flexible daytime. Sparse weekday daytime events do NOT prove availability — say so in weekday_pattern when the calendar is inconclusive. ' +
   'You MUST respond with ONLY a raw JSON object — no prose, no markdown, no explanation. The object must have exactly these keys: ' +
   '"user" (string), ' +

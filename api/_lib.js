@@ -38,9 +38,22 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
 // callModel — single entry point to the Anthropic Messages API.
 // in:  { model, system, messages, maxTokens? }. out: assistant reply string.
+// `system` is either a plain string or { static, dynamic }: the static text is
+// marked as a prompt-cache breakpoint — because it is byte-identical across
+// every user and turn it becomes a cache READ on subsequent calls (~90%
+// cheaper) — while the dynamic per-user/per-turn context follows uncached.
+// Never put changing data (timestamps, busy windows) in the static part: one
+// changed byte invalidates the cache prefix.
 export async function callModel({ model, system, messages, maxTokens = 1024 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
+
+  const systemBlocks = typeof system === 'string'
+    ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+    : [
+        { type: 'text', text: system.static, cache_control: { type: 'ephemeral' } },
+        ...(system.dynamic ? [{ type: 'text', text: system.dynamic }] : []),
+      ];
 
   const r = await fetch(ANTHROPIC_URL, {
     method: 'POST',
@@ -53,7 +66,7 @@ export async function callModel({ model, system, messages, maxTokens = 1024 }) {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      system:   [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+      system:   systemBlocks,
       messages,
     }),
   });
