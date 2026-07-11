@@ -225,6 +225,90 @@
 
 .ep-desc-input { resize: vertical; font-family: inherit; }
 
+/* ── Invite response ── */
+
+.ep-resched-notice {
+  margin: 12px 16px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #FEF3C7;
+  color: #B45309;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.ep-resp-waiting {
+  margin: 12px 16px 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #6B7280;
+}
+
+.ep-respond {
+  margin: 12px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ep-resp-btns { flex-direction: row; flex-wrap: wrap; }
+
+.ep-resp-accept {
+  border: none;
+  border-radius: 7px;
+  background: #E8607A;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ep-resp-accept:hover:not(:disabled) { background: #C94D65; }
+.ep-resp-accept:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.ep-resp-alt {
+  border: 1px solid #F3D8E4;
+  border-radius: 7px;
+  background: #fff;
+  color: #4A4A52;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.ep-resp-alt:hover:not(:disabled) { background: #FDE8EF; }
+.ep-resp-alt:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.ep-resp-q {
+  margin: 0;
+  font-size: 12.5px;
+  color: #4A4A52;
+}
+
+.ep-resp-note-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ep-resp-note { flex: 1; }
+
+.ep-resp-cancel {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: #9CA3AF;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ep-resp-cancel:hover { color: #6B7280; }
+
 /* ── Confirm bar & messages ── */
 
 .ep-error {

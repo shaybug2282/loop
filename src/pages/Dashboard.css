@@ -44,7 +44,7 @@
   max-width: 1400px;
   margin: 0 auto;
   /* Stretch columns so all three end at the same point; the middle column
-     (Schedule + Assistant stack) sets the row height, the others fill it. */
+     (Groups + pending-events stack) sets the row height, the others fill it. */
   align-items: stretch;
 }
 
@@ -70,7 +70,7 @@
   gap: 24px;
 }
 
-/* The pending-events tiles fill whatever the Schedule widget leaves, so the
+/* The pending-events tiles fill whatever the Groups widget leaves, so the
    middle column ends where the others do. */
 .dashboard-col-stack .pe-widget {
   flex: 1;

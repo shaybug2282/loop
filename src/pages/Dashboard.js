@@ -3,7 +3,7 @@ import { Menu } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import CalendarComponent from '../components/CalendarComponent';
 import PendingEventsWidget from '../components/PendingEventsWidget';
-import ScheduleWidget from '../components/ScheduleWidget';
+import GroupsWidget from '../components/GroupsWidget';
 import FriendsWidget from '../components/FriendsWidget';
 import SignInModal from '../components/SignInModal';
 import { useAuth } from '../contexts/AuthContext';
@@ -80,7 +80,7 @@ const Dashboard = () => {
           <CalendarComponent />
         </div>
         <div className="dashboard-item dashboard-col-stack">
-          <ScheduleWidget />
+          <GroupsWidget />
           <PendingEventsWidget />
         </div>
         <div className="dashboard-item">

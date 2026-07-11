@@ -27,6 +27,26 @@
   color: #1A1A1A;
 }
 
+/* "Dismissed" toggle — flips the body to the restorable hidden-events list. */
+.pe-dismissed-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  border: 1px solid #F3D8E4;
+  border-radius: 14px;
+  background: #fff;
+  color: #E8607A;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.pe-dismissed-btn:hover,
+.pe-dismissed-btn.active { background: #FDE8EF; border-color: #E8607A; }
+
 .pe-body {
   flex: 1;
   overflow-y: auto;
@@ -162,3 +182,63 @@
 }
 
 .pe-more-btn:hover { background: #FDE8EF; }
+
+/* ── Dismissed events list ── */
+
+.pe-dm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pe-dm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 2px;
+  border-bottom: 1px solid #FDF5F7;
+}
+
+.pe-dm-item:last-child { border-bottom: none; }
+
+.pe-dm-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.pe-dm-info:hover .pe-dm-title { color: #E8607A; }
+
+.pe-dm-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1A1A1A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.12s;
+}
+
+.pe-dm-time {
+  font-size: 11.5px;
+  color: #6B7280;
+  white-space: nowrap;
+}
+
+.pe-dm-restore {
+  flex-shrink: 0;
+  border: 1px solid #F3D8E4;
+  border-radius: 12px;
+  background: #fff;
+  color: #E8607A;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.pe-dm-restore:hover { background: #FDE8EF; }

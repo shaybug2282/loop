@@ -13,7 +13,6 @@ import CalendarPage from './pages/CalendarPage';
 import TodosPage from './pages/TodosPage';
 import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
-import SchedulePage from './pages/SchedulePage';
 import PrivacyPage from './pages/PrivacyPage';
 import Footer from './components/Footer';
 import './App.css';
@@ -60,10 +59,9 @@ function App() {
                 path="/profile"
                 element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
               />
-              <Route
-                path="/schedule"
-                element={<ProtectedRoute><SchedulePage /></ProtectedRoute>}
-              />
+              {/* The schedule page was folded into the dashboard (Groups +
+                  pending tiles + event popups); old links land there. */}
+              <Route path="/schedule" element={<Navigate to="/dashboard" />} />
               {/* /messages redirects home; the panel handles all messaging */}
               <Route path="/messages" element={<Navigate to="/dashboard" />} />
               <Route path="/privacy" element={<PrivacyPage />} />

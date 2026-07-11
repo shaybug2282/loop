@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Hourglass, Clock } from 'lucide-react';
+import { Hourglass, Clock, Archive } from 'lucide-react';
 import EventPopup from './EventPopup';
 import { formatEventTime as formatTime } from '../utils/format';
 import './PendingEventsWidget.css';
@@ -18,24 +18,31 @@ const loadDismissed = () => {
 // (status pending or rescheduling). Clicking a tile opens the universal
 // EventPopup, where the event is viewed, edited, deleted, or handed to the
 // assistant. Shows at most MAX_TILES at once, with a "See more" toggle for
-// the rest; each tile can also be dismissed locally via a hover ✕.
+// the rest; each tile can also be dismissed locally via a hover ✕, and the
+// header's "Dismissed" button flips the body to a restorable list of those
+// hidden events.
 export default function PendingEventsWidget() {
   const [events,    setEvents]    = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [selected,  setSelected]  = useState(null);
   const [expanded,  setExpanded]  = useState(false);
   const [dismissed, setDismissed] = useState(loadDismissed);
+  const [showDismissed, setShowDismissed] = useState(false); // body shows dismissed list instead of tiles
   const googleId = localStorage.getItem('googleUserId');
 
-  const dismiss = (id) => {
+  // setMembership — add or remove an id from the persisted dismissed set.
+  const setMembership = (id, add) => {
     setDismissed(prev => {
-      if (prev.has(id)) return prev;
+      if (prev.has(id) === add) return prev;
       const next = new Set(prev);
-      next.add(id);
+      add ? next.add(id) : next.delete(id);
       try { localStorage.setItem('pe-dismissed', JSON.stringify([...next])); } catch {}
       return next;
     });
   };
+
+  const dismiss = (id) => setMembership(id, true);
+  const restore = (id) => setMembership(id, false);
 
   const load = useCallback(async () => {
     if (!googleId) { setLoading(false); return; }
@@ -59,6 +66,13 @@ export default function PendingEventsWidget() {
 
   const visible = expanded ? inWorks : inWorks.slice(0, MAX_TILES);
 
+  // Dismissed tiles, newest first — viewable and restorable via the header
+  // button. Unfinalized dismissed events age out of the DB after 2 weeks
+  // (api/schedule.js purgeStaleEvents), so this list is self-pruning.
+  const dismissedEvents = events
+    .filter(e => dismissed.has(e.id))
+    .sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
+
   // withLine — who the event is with, from the viewer's side.
   const withLine = e => e.isCreator
     ? (e.invitedUsers ?? []).map(u => u.display_name || u.name).filter(Boolean).join(', ')
@@ -69,10 +83,43 @@ export default function PendingEventsWidget() {
       <div className="pe-header">
         <Hourglass size={16} />
         <h2>In the Works</h2>
+        <button
+          className={`pe-dismissed-btn${showDismissed ? ' active' : ''}`}
+          onClick={() => setShowDismissed(v => !v)}
+          title={showDismissed ? 'Back to pending events' : 'View dismissed events'}
+        >
+          <Archive size={12} />
+          {showDismissed ? 'Back' : `Dismissed${dismissedEvents.length ? ` (${dismissedEvents.length})` : ''}`}
+        </button>
       </div>
 
       <div className="pe-body">
-        {loading ? (
+        {showDismissed ? (
+          dismissedEvents.length === 0 ? (
+            <p className="pe-hint">
+              Nothing dismissed.<br />
+              Tiles you hide with ✕ land here — unfinished ones are removed after two weeks.
+            </p>
+          ) : (
+            <ul className="pe-dm-list">
+              {dismissedEvents.map(e => (
+                <li key={e.id} className="pe-dm-item">
+                  <div
+                    className="pe-dm-info"
+                    onClick={() => setSelected(e)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') setSelected(e); }}
+                  >
+                    <span className="pe-dm-title">{e.title || 'Hangout'}</span>
+                    <span className="pe-dm-time">{formatTime(e.event_time)}</span>
+                  </div>
+                  <button className="pe-dm-restore" onClick={() => restore(e.id)}>Restore</button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : loading ? (
           <p className="pe-hint">Loading…</p>
         ) : inWorks.length === 0 ? (
           <p className="pe-hint">
@@ -109,7 +156,7 @@ export default function PendingEventsWidget() {
           </div>
         )}
 
-        {inWorks.length > MAX_TILES && (
+        {!showDismissed && inWorks.length > MAX_TILES && (
           <button className="pe-more-btn" onClick={() => setExpanded(v => !v)}>
             {expanded ? 'Show less' : `See more (${inWorks.length - MAX_TILES})`}
           </button>

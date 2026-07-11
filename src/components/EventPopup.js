@@ -12,7 +12,10 @@ import './EventPopup.css';
 // declined), then any extra details. The organizer can click any field to
 // edit it; edits must be confirmed, which sends an updated invite to every
 // invitee (Loop events restart their accept cycle; Google events are patched
-// with sendUpdates=all). The Scheduling Assistant opens in a nested popup.
+// with sendUpdates=all). Invitees answer pending Loop invites here too:
+// Accept, or "This doesn't work for me." → Reschedule? (with a constraint
+// note for the organizer) / Decline. The Scheduling Assistant opens in a
+// nested popup.
 //
 // Pass exactly one of:
 //   loopEvent   — an enriched row from /api/schedule?op=pending-events
@@ -47,6 +50,10 @@ function normalize({ loopEvent, googleEvent }) {
       description:   '',
       status:        e.status,
       canEdit:       Boolean(e.isCreator),
+      // Invitees answer the invite right in the popup (the pending tiles and
+      // notification center are now the only surfaces that show invites).
+      canRespond:    !e.isCreator && e.status === 'pending' && (e.invited_user_ids ?? []).includes(e.myId),
+      iAccepted:     accepted.has(e.myId),
       participants: [
         { key: 'host', name: e.isCreator ? 'You' : nameOf(e.creator), status: 'host' },
         ...(e.invitedUsers ?? []).map(u => ({
@@ -76,6 +83,8 @@ function normalize({ loopEvent, googleEvent }) {
     description:   g.description || '',
     status:        null,
     canEdit:       !g.organizer || g.organizer.self === true,
+    canRespond:    false,
+    iAccepted:     false,
     participants: [
       ...(g.organizer ? [{ key: 'host', name: gName(g.organizer), status: 'host' }] : []),
       ...(g.attendees ?? []).filter(a => !a.organizer).map(a => ({
@@ -118,6 +127,12 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
   const [showAI,   setShowAI]   = useState(false);
   const [delConfirm, setDelConfirm] = useState(false); // "Delete event" clicked, awaiting confirm
   const [deleting,   setDeleting]   = useState(false);
+  // Invite-response state (invitees on pending Loop events only)
+  const [noWork,      setNoWork]      = useState(false); // "This doesn't work for me." expanded
+  const [reschedOpen, setReschedOpen] = useState(false); // constraint-note input visible
+  const [reschedNote, setReschedNote] = useState('');
+  const [responding,  setResponding]  = useState(false);
+  const [respMsg,     setRespMsg]     = useState(null);  // post-response confirmation text
 
   const googleId = localStorage.getItem('googleUserId');
   const dirty    = JSON.stringify(draft) !== JSON.stringify(baseline);
@@ -201,6 +216,38 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
       setError(err.message || 'Could not save changes.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // respond — answer the invite (accept | decline | reschedule + optional
+  // constraint note). On success the action bar is replaced by a confirmation
+  // message and the parent surface refetches via onChanged.
+  const respond = async (action, note = null) => {
+    setResponding(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/schedule', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ op: 'respond', googleId, eventId: norm.id, action, ...(note ? { note } : {}) }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || `Error ${r.status}`);
+      const hostName = norm.participants.find(p => p.status === 'host')?.name || 'the organizer';
+      setRespMsg(
+        action === 'accept'
+          ? (body.status === 'accepted'
+              ? "Everyone's in — the event is confirmed!"
+              : 'Accepted — waiting for the others.')
+          : action === 'decline'
+            ? `Declined — ${hostName} will be notified.`
+            : `Got it — we've asked ${hostName} to reschedule and passed your note along. You'll get a new invite once they pick a time.`
+      );
+      onChanged?.();
+    } catch (err) {
+      setError(err.message || 'Could not send your response.');
+    } finally {
+      setResponding(false);
     }
   };
 
@@ -350,6 +397,51 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
               >{draft.description || 'Add description'}</span>
             )}
           </div>
+        )}
+
+        {/* ── Invite response (invitee on a pending Loop event) ── */}
+        {norm.source === 'loop' && !norm.canEdit && norm.status === 'rescheduled' && (
+          <p className="ep-resched-notice">Pending: Event is being rescheduled.</p>
+        )}
+        {respMsg && <p className="ep-saved">{respMsg}</p>}
+        {norm.canRespond && !respMsg && (
+          norm.iAccepted ? (
+            <p className="ep-resp-waiting">You accepted · waiting for others</p>
+          ) : reschedOpen ? (
+            <div className="ep-respond">
+              <p className="ep-resp-q">Are there any other constraints or preferred times for this event?</p>
+              <div className="ep-resp-note-row">
+                <input
+                  className="ep-input ep-resp-note"
+                  type="text"
+                  placeholder="e.g. Evenings after 6 work best…"
+                  value={reschedNote}
+                  autoFocus
+                  onChange={e => setReschedNote(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && reschedNote.trim() && !responding) respond('reschedule', reschedNote.trim()); }}
+                  disabled={responding}
+                />
+                <button
+                  className="ep-mini-btn"
+                  disabled={!reschedNote.trim() || responding}
+                  onClick={() => respond('reschedule', reschedNote.trim())}
+                >{responding ? 'Sending…' : 'Send'}</button>
+              </div>
+              <button className="ep-resp-cancel" onClick={() => setReschedOpen(false)} disabled={responding}>Cancel</button>
+            </div>
+          ) : (
+            <div className="ep-respond ep-resp-btns">
+              <button className="ep-resp-accept" disabled={responding} onClick={() => respond('accept')}>Accept</button>
+              {noWork ? (
+                <>
+                  <button className="ep-resp-alt" disabled={responding} onClick={() => setReschedOpen(true)}>Reschedule?</button>
+                  <button className="ep-resp-alt" disabled={responding} onClick={() => respond('decline')}>Decline.</button>
+                </>
+              ) : (
+                <button className="ep-resp-alt" disabled={responding} onClick={() => setNoWork(true)}>This doesn't work for me.</button>
+              )}
+            </div>
+          )
         )}
 
         {/* ── Confirm / status bar ── */}
