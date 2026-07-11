@@ -2,7 +2,7 @@
 //
 // GET  ?op=pending-events&googleId=              → events/invites for this user
 // POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location? }
-// POST { op:'respond', googleId, eventId, action }  → accept / decline / reschedule
+// POST { op:'respond', googleId, eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
 // POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
 //
 // Requires the pending_events table: db/migrations/002_pending_events.sql
@@ -149,10 +149,11 @@ async function confirmEvent(client, ev, eventId, patch) {
 }
 
 // seedRescheduleConversation — reopen (or start) the creator's Scheduling
-// Assistant chat with a note about who asked to move the event, and unlink the
-// old event so replacement plans can be booked from the same thread. Errors
-// are swallowed — an unmigrated DB (no ai_conversations) skips the AI handoff.
-async function seedRescheduleConversation(client, ev, requesterId) {
+// Assistant chat with a note about who asked to move the event (including the
+// requester's constraints/preferred times when given), and unlink the old
+// event so replacement plans can be booked from the same thread. Errors are
+// swallowed — an unmigrated DB (no ai_conversations) skips the AI handoff.
+async function seedRescheduleConversation(client, ev, requesterId, note = null) {
   try {
     const ids = [...new Set([ev.creator_id, ...ev.invited_user_ids])];
     const { data: users } = await client.from('users')
@@ -168,7 +169,9 @@ async function seedRescheduleConversation(client, ev, requesterId) {
     const others = ev.invited_user_ids.map(nameOf).join(', ');
     const reply =
       `${nameOf(requesterId)} asked to reschedule ${ev.title ? `"${ev.title}"` : 'your event'} ` +
-      `on ${when} (with ${others}). Tell me any new constraints, or say "find new times" and I'll suggest alternatives.`;
+      `on ${when} (with ${others}).` +
+      (note ? ` Their note: "${note}".` : '') +
+      ` Tell me any new constraints, or say "find new times" and I'll suggest alternatives.`;
     const note = { role: 'assistant', content: JSON.stringify({ reply, plans: [] }) };
 
     const { data: convo } = await client.from('ai_conversations')
@@ -288,7 +291,7 @@ export default async function handler(req, res) {
     }
 
     if (op === 'respond') {
-      const { googleId, eventId, action } = req.body;
+      const { googleId, eventId, action, note } = req.body;
       if (!googleId || !eventId || !['accept', 'decline', 'reschedule'].includes(action))
         return res.status(400).json({ error: 'googleId, eventId, and action (accept|decline|reschedule) required' });
 
@@ -300,6 +303,11 @@ export default async function handler(req, res) {
 
       if (!ev.invited_user_ids.includes(me.id))
         return res.status(403).json({ error: 'Not invited to this event' });
+
+      // A rescheduling event is frozen for everyone — no invitee may accept
+      // (or otherwise respond to) a time that is being moved.
+      if (ev.status === 'rescheduled')
+        return res.status(409).json({ error: 'Event is being rescheduled' });
 
       if (action === 'decline') {
         // The creator is notified either way via the declines array.
@@ -341,7 +349,7 @@ export default async function handler(req, res) {
         const requests = [...new Set([...(ev.reschedule_requests ?? []), me.id])];
         await client.from('pending_events').update({ reschedule_requests: requests }).eq('id', eventId);
 
-        await seedRescheduleConversation(client, ev, me.id);
+        await seedRescheduleConversation(client, ev, me.id, typeof note === 'string' ? note.slice(0, 500) : null);
         return res.status(200).json({ ok: true, status: 'rescheduled' });
       }
 

@@ -212,20 +212,25 @@ const PendingScreen = ({ onReset }) => (
 
 // ── Notification card ─────────────────────────────────────────────────────────
 
-const NotifCard = ({ event, myId, onRespond }) => {
-  const [busy, setBusy] = useState(false);
+// NotifCard — an invite card. "This doesn't work for me." expands into
+// "Reschedule?" (opens the constraint popup via onReschedule) and "Decline.".
+// A rescheduling event renders grayed out with a pending notice and no actions.
+const NotifCard = ({ event, myId, onRespond, onReschedule }) => {
+  const [busy,    setBusy]    = useState(false);
+  const [noWork,  setNoWork]  = useState(false); // "doesn't work" expanded
   const handle = async (action) => {
     setBusy(true);
     await onRespond(event.id, action);
     setBusy(false);
   };
+  const rescheduling = event.status === 'rescheduled';
   const accepted  = event.acceptances?.includes(myId);
   const allDone   = event.status === 'accepted';
   const acceptedN = event.acceptances?.length ?? 0;
   const totalN    = event.invited_user_ids?.length ?? 0;
 
   return (
-    <div className="sw-notif-card">
+    <div className={`sw-notif-card${rescheduling ? ' rescheduling' : ''}`}>
       <div className="sw-notif-time">
         <Clock size={12} />
         {formatTime(event.event_time)}
@@ -242,17 +247,102 @@ const NotifCard = ({ event, myId, onRespond }) => {
         ))}
       </div>
       <p className="sw-notif-progress">{acceptedN}/{totalN} accepted</p>
-      {allDone ? (
+      {rescheduling ? (
+        <p className="sw-notif-resched-notice">Pending: Event is being rescheduled.</p>
+      ) : allDone ? (
         <p className="sw-notif-done">All accepted! Check Google Calendar.</p>
       ) : accepted ? (
         <p className="sw-notif-waiting">You accepted · waiting for others</p>
       ) : (
         <div className="sw-notif-actions">
           <button className="sw-notif-btn accept" disabled={busy} onClick={() => handle('accept')}>Accept</button>
-          <button className="sw-notif-btn decline" disabled={busy} onClick={() => handle('decline')}>Decline</button>
-          <button className="sw-notif-btn reschedule" disabled={busy} onClick={() => handle('reschedule')}>Reschedule</button>
+          {noWork ? (
+            <>
+              <button className="sw-notif-btn reschedule" disabled={busy} onClick={() => onReschedule(event)}>Reschedule?</button>
+              <button className="sw-notif-btn decline" disabled={busy} onClick={() => handle('decline')}>Decline.</button>
+            </>
+          ) : (
+            <button className="sw-notif-btn nowork" disabled={busy} onClick={() => setNoWork(true)}>This doesn't work for me.</button>
+          )}
         </div>
       )}
+    </div>
+  );
+};
+
+// ── Reschedule constraint popup ───────────────────────────────────────────────
+
+// RescheduleDialog — chat-style popup opened from an invite's "Reschedule?".
+// The assistant asks for constraints/preferred times; the user's single reply
+// is sent with the reschedule request (onSend → /api/schedule respond), which
+// notifies the event's creator. Ends on a confirmation bubble.
+const RescheduleDialog = ({ event, onSend, onClose }) => {
+  const [text,  setText]  = useState('');
+  const [note,  setNote]  = useState(null);   // the sent user message
+  const [phase, setPhase] = useState('ask');  // ask | sending | done | error
+  const creator = event.creator?.display_name || event.creator?.name || 'the organizer';
+
+  const send = async () => {
+    const t = text.trim();
+    if (!t || phase === 'sending' || phase === 'done') return;
+    setNote(t);
+    setPhase('sending');
+    const ok = await onSend(t);
+    setPhase(ok ? 'done' : 'error');
+  };
+
+  return (
+    <div className="sw-modal-backdrop" onClick={onClose}>
+      <div className="sw-resched-modal" onClick={e => e.stopPropagation()}>
+        <div className="sw-rd-header">
+          <Sparkles size={15} />
+          <span className="sw-rd-title">Reschedule · {formatTime(event.event_time)}</span>
+          <button className="sw-rd-close" onClick={onClose} title="Close">✕</button>
+        </div>
+        <div className="sw-rd-body">
+          <div className="sw-rd-bubble ai">
+            Are there any other constraints or preferred times for this event?
+          </div>
+          {note && <div className="sw-rd-bubble user">{note}</div>}
+          {phase === 'sending' && <div className="sw-rd-bubble ai">Sending your request…</div>}
+          {phase === 'done' && (
+            <div className="sw-rd-bubble ai">
+              Got it — I've asked {creator} to reschedule and passed your note along. You'll get a new invite once they pick a time.
+            </div>
+          )}
+          {phase === 'error' && (
+            <div className="sw-rd-bubble ai error">
+              Something went wrong sending your request. Please try again.
+            </div>
+          )}
+        </div>
+        {phase === 'done' ? (
+          <div className="sw-rd-footer">
+            <button className="sw-btn-primary" onClick={onClose}>Done</button>
+          </div>
+        ) : (
+          <div className="sw-ai-input-row sw-rd-input-row">
+            <input
+              className="sw-input sw-ai-input"
+              type="text"
+              placeholder="e.g. Evenings after 6 work best…"
+              value={text}
+              onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') send(); }}
+              disabled={phase === 'sending'}
+              autoFocus
+            />
+            <button
+              className="sw-ai-send"
+              onClick={send}
+              disabled={!text.trim() || phase === 'sending'}
+              title="Send"
+            >
+              <Send size={14} />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -277,6 +367,7 @@ export default function ScheduleWidget() {
   const [myId,          setMyId]          = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [scheduleError, setScheduleError] = useState(null);
+  const [reschedEvent,  setReschedEvent]  = useState(null); // invite being rescheduled via popup
   // AI ask state
   const [aiRequest,     setAiRequest]     = useState('');
   const [aiLoading,     setAiLoading]     = useState(false);
@@ -459,6 +550,26 @@ export default function ScheduleWidget() {
     loadNotifs();
   };
 
+  // requestReschedule — send the popup's constraint note with the reschedule
+  // request; the event is parked as 'rescheduled' for every invitee and the
+  // creator is notified (with the note) via their Scheduling Assistant.
+  // Returns true on success so the dialog can show its confirmation bubble.
+  const requestReschedule = async (note) => {
+    if (!reschedEvent) return false;
+    try {
+      const r = await fetch('/api/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'respond', googleId, eventId: reschedEvent.id, action: 'reschedule', note }),
+      });
+      if (!r.ok) return false;
+      loadNotifs();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const renderScreen = () => {
     switch (screen) {
       case 'start':        return <StartScreen onSelect={setScreen} />;
@@ -482,10 +593,12 @@ export default function ScheduleWidget() {
   };
 
   const canBack   = screen in BACK;
-  // Declined/rescheduled events are closed for invitees — never open invites.
-  // (A partial decliner is removed from invited_user_ids server-side, so their
-  // copy disappears while the event stays live for everyone else.)
-  const myInvites = notifs.filter(e => !e.isCreator && !['declined', 'rescheduled'].includes(e.status) && !(e.declines ?? []).includes(myId) && !_dismissed.has(e.id));
+  // Declined events are closed for invitees. Rescheduling events stay visible
+  // as grayed-out cards ("Pending: Event is being rescheduled.") so no one can
+  // accept a time that is being moved. (A partial decliner is removed from
+  // invited_user_ids server-side, so their copy disappears while the event
+  // stays live for everyone else.)
+  const myInvites = notifs.filter(e => !e.isCreator && e.status !== 'declined' && !(e.declines ?? []).includes(myId) && !_dismissed.has(e.id));
   const myCreated = notifs.filter(e => e.isCreator && e.status === 'accepted' && !_dismissed.has(e.id));
 
   return (
@@ -557,7 +670,7 @@ export default function ScheduleWidget() {
             </p>
             {myInvites.map(e => (
               <div key={e.id} className="sw-notif-wrap">
-                <NotifCard event={e} myId={myId} onRespond={respond} />
+                <NotifCard event={e} myId={myId} onRespond={respond} onReschedule={setReschedEvent} />
                 <button className="sw-notif-x" onClick={() => dismiss(e.id)} title="Dismiss">✕</button>
               </div>
             ))}
@@ -566,6 +679,14 @@ export default function ScheduleWidget() {
 
         {renderScreen()}
       </div>
+
+      {reschedEvent && (
+        <RescheduleDialog
+          event={reschedEvent}
+          onSend={requestReschedule}
+          onClose={() => setReschedEvent(null)}
+        />
+      )}
     </div>
   );
 }

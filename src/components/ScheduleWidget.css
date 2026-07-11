@@ -448,6 +448,23 @@
 .sw-notif-btn.decline:hover:not(:disabled) { background: #fecaca; }
 .sw-notif-btn.reschedule { background: #FEF3C7; color: #B45309; }
 .sw-notif-btn.reschedule:hover:not(:disabled) { background: #FDE68A; }
+.sw-notif-btn.nowork { background: #F9EAF0; color: #9D4457; }
+.sw-notif-btn.nowork:hover:not(:disabled) { background: #F3D8E4; }
+
+/* ── Rescheduling state: card frozen for every invitee ── */
+
+.sw-notif-card.rescheduling {
+  background: #F7F7F8;
+  border-color: #E5E7EB;
+  opacity: 0.72;
+}
+
+.sw-notif-resched-notice {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #B45309;
+  margin: 0;
+}
 
 .sw-notif-done {
   font-size: 0.78rem;
@@ -604,4 +621,111 @@
 /* Decline card needs relative positioning for the absolute X */
 .sw-decline-notif {
   position: relative;
+}
+
+/* ── Reschedule constraint popup (chat-style) ── */
+
+.sw-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sw-resched-modal {
+  width: min(400px, 92vw);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: sw-pop 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes sw-pop {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.sw-rd-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid #F3D8E4;
+  color: #E8607A;
+}
+
+.sw-rd-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1A1A1A;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sw-rd-close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #E8607A;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 12px;
+  transition: background 0.14s;
+}
+
+.sw-rd-close:hover { background: #FDE8EF; }
+
+.sw-rd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  min-height: 130px;
+}
+
+.sw-rd-bubble {
+  max-width: 88%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.sw-rd-bubble.ai {
+  align-self: flex-start;
+  background: #FDF5F7;
+  color: #1A1A1A;
+  border-bottom-left-radius: 4px;
+}
+
+.sw-rd-bubble.user {
+  align-self: flex-end;
+  background: #E8607A;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.sw-rd-bubble.error {
+  background: #fee2e2;
+  color: #C0392B;
+}
+
+.sw-rd-input-row {
+  padding: 10px 12px;
+  border-top: 1px solid #F3D8E4;
+}
+
+.sw-rd-footer {
+  padding: 10px 14px 14px;
 }
