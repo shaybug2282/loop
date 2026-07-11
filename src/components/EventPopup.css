@@ -304,6 +304,9 @@
 .ep-footer {
   padding: 14px 16px 16px;
   margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .ep-ai-btn {
@@ -324,6 +327,59 @@
 }
 
 .ep-ai-btn:hover { background: #FDE8EF; border-color: #E8607A; }
+
+/* ── Delete event ── */
+
+.ep-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #C0392B;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 0;
+  cursor: pointer;
+  transition: background 0.14s;
+}
+
+.ep-delete-btn:hover { background: #fee2e2; }
+
+.ep-delete-confirm {
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ep-delete-msg {
+  margin: 0;
+  font-size: 12.5px;
+  color: #4A4A52;
+}
+
+.ep-btn-delete {
+  flex: 1;
+  border: none;
+  border-radius: 7px;
+  background: #DC2626;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ep-btn-delete:hover:not(:disabled) { background: #B91C1C; }
+.ep-btn-delete:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* ── Nested Scheduling Assistant popup ── */
 

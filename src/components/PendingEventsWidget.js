@@ -4,15 +4,38 @@ import EventPopup from './EventPopup';
 import { formatEventTime as formatTime } from '../utils/format';
 import './PendingEventsWidget.css';
 
+const MAX_TILES = 6;
+
+// Locally dismissed tile ids persist across reloads — dismissing here only
+// hides the tile from this widget, it does not touch the underlying event.
+const loadDismissed = () => {
+  try { return new Set(JSON.parse(localStorage.getItem('pe-dismissed') || '[]')); }
+  catch { return new Set(); }
+};
+
 // PendingEventsWidget — dashboard tile-cards of events still "in the works":
 // invites that haven't been fully accepted onto everyone's calendar yet
 // (status pending or rescheduling). Clicking a tile opens the universal
-// EventPopup, where the event is viewed, edited, or handed to the assistant.
+// EventPopup, where the event is viewed, edited, deleted, or handed to the
+// assistant. Shows at most MAX_TILES at once, with a "See more" toggle for
+// the rest; each tile can also be dismissed locally via a hover ✕.
 export default function PendingEventsWidget() {
-  const [events,   setEvents]   = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [selected, setSelected] = useState(null);
+  const [events,    setEvents]    = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [selected,  setSelected]  = useState(null);
+  const [expanded,  setExpanded]  = useState(false);
+  const [dismissed, setDismissed] = useState(loadDismissed);
   const googleId = localStorage.getItem('googleUserId');
+
+  const dismiss = (id) => {
+    setDismissed(prev => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      try { localStorage.setItem('pe-dismissed', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   const load = useCallback(async () => {
     if (!googleId) { setLoading(false); return; }
@@ -31,8 +54,10 @@ export default function PendingEventsWidget() {
   }, [googleId, load]);
 
   const inWorks = events
-    .filter(e => ['pending', 'rescheduled'].includes(e.status))
+    .filter(e => ['pending', 'rescheduled'].includes(e.status) && !dismissed.has(e.id))
     .sort((a, b) => new Date(a.event_time) - new Date(b.event_time));
+
+  const visible = expanded ? inWorks : inWorks.slice(0, MAX_TILES);
 
   // withLine — who the event is with, from the viewer's side.
   const withLine = e => e.isCreator
@@ -56,25 +81,38 @@ export default function PendingEventsWidget() {
           </p>
         ) : (
           <div className="pe-grid">
-            {inWorks.map(e => {
+            {visible.map(e => {
               const acceptedN = e.acceptances?.length ?? 0;
               const totalN    = e.invited_user_ids?.length ?? 0;
               const resched   = e.status === 'rescheduled';
               return (
-                <button key={e.id} className="pe-tile" onClick={() => setSelected(e)}>
-                  <span className="pe-tile-title">{e.title || 'Hangout'}</span>
-                  <span className="pe-tile-time">
-                    <Clock size={11} />
-                    {formatTime(e.event_time)}
-                  </span>
-                  {withLine(e) && <span className="pe-tile-people">with {withLine(e)}</span>}
-                  <span className={`pe-tile-badge${resched ? ' resched' : ''}`}>
-                    {resched ? 'Rescheduling' : `${acceptedN}/${totalN} accepted`}
-                  </span>
-                </button>
+                <div key={e.id} className="pe-tile-wrap">
+                  <button className="pe-tile" onClick={() => setSelected(e)}>
+                    <span className="pe-tile-title">{e.title || 'Hangout'}</span>
+                    <span className="pe-tile-time">
+                      <Clock size={11} />
+                      {formatTime(e.event_time)}
+                    </span>
+                    {withLine(e) && <span className="pe-tile-people">with {withLine(e)}</span>}
+                    <span className={`pe-tile-badge${resched ? ' resched' : ''}`}>
+                      {resched ? 'Rescheduling' : `${acceptedN}/${totalN} accepted`}
+                    </span>
+                  </button>
+                  <button
+                    className="pe-tile-x"
+                    title="Dismiss"
+                    onClick={ev => { ev.stopPropagation(); dismiss(e.id); }}
+                  >✕</button>
+                </div>
               );
             })}
           </div>
+        )}
+
+        {inWorks.length > MAX_TILES && (
+          <button className="pe-more-btn" onClick={() => setExpanded(v => !v)}>
+            {expanded ? 'Show less' : `See more (${inWorks.length - MAX_TILES})`}
+          </button>
         )}
       </div>
 

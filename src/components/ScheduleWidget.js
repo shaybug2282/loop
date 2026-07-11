@@ -11,6 +11,38 @@ const _dismissed = (() => {
   catch { return new Set(); }
 })();
 const _scheduled = new Set(); // event IDs that already have a 60-s auto-dismiss timer
+const _listeners  = new Set(); // callbacks notified whenever _dismissed changes
+
+const persistDismissed = () => {
+  try { localStorage.setItem('sw-dismissed', JSON.stringify([..._dismissed])); } catch {}
+};
+
+// isDismissed / dismissEvent / restoreEvent / subscribeDismissed — the public
+// surface for other components (e.g. the Schedule page's "View dismissed"
+// panel) to read and mutate the shared dismiss set without duplicating its
+// localStorage logic. subscribeDismissed lets any mounted consumer re-render
+// when a dismissal happens elsewhere (another ScheduleWidget instance, or a
+// restore from the dismissed-events panel).
+export const isDismissed = (id) => _dismissed.has(id);
+
+export const dismissEvent = (id) => {
+  if (_dismissed.has(id)) return;
+  _dismissed.add(id);
+  persistDismissed();
+  _listeners.forEach(fn => fn());
+};
+
+export const restoreEvent = (id) => {
+  if (!_dismissed.has(id)) return;
+  _dismissed.delete(id);
+  persistDismissed();
+  _listeners.forEach(fn => fn());
+};
+
+export const subscribeDismissed = (cb) => {
+  _listeners.add(cb);
+  return () => _listeners.delete(cb);
+};
 
 // ── Sub-screens ───────────────────────────────────────────────────────────────
 
@@ -426,12 +458,11 @@ export default function ScheduleWidget() {
       .then(r => r.json()).then(d => setGroups(d.groups ?? [])).catch(() => {});
   }, [screen, googleId]);
 
-  const dismiss = useCallback(id => {
-    if (_dismissed.has(id)) return;
-    _dismissed.add(id);
-    try { localStorage.setItem('sw-dismissed', JSON.stringify([..._dismissed])); } catch {}
-    setDismissVersion(v => v + 1);
-  }, []);
+  const dismiss = useCallback(id => dismissEvent(id), []);
+
+  // Re-render whenever the shared dismiss set changes, including restores
+  // triggered from the Schedule page's "View dismissed" panel.
+  useEffect(() => subscribeDismissed(() => setDismissVersion(v => v + 1)), []);
 
   useEffect(() => {
     if (!myId) return;

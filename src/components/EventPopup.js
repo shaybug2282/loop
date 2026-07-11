@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { X, Clock, MapPin, AlignLeft, Sparkles } from 'lucide-react';
+import { X, Clock, MapPin, AlignLeft, Sparkles, Trash2 } from 'lucide-react';
 import AISummary from './AISummary';
 import { formatDuration } from '../utils/format';
-import { updateCalendarEvent } from '../utils/googleCalendar';
+import { updateCalendarEvent, deleteCalendarEvent } from '../utils/googleCalendar';
 import './EventPopup.css';
 
 // EventPopup — the universal event modal. Every event surface (calendar week
@@ -116,6 +116,8 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
   const [error,    setError]    = useState(null);
   const [nudge,    setNudge]    = useState(false);  // close attempted with unsaved edits
   const [showAI,   setShowAI]   = useState(false);
+  const [delConfirm, setDelConfirm] = useState(false); // "Delete event" clicked, awaiting confirm
+  const [deleting,   setDeleting]   = useState(false);
 
   const googleId = localStorage.getItem('googleUserId');
   const dirty    = JSON.stringify(draft) !== JSON.stringify(baseline);
@@ -199,6 +201,33 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
       setError(err.message || 'Could not save changes.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // deleteEvent — cancels and removes the event: Loop rows are deleted via
+  // delete-event (which cancels any already-confirmed Google copy first,
+  // sendUpdates=all); Google events are deleted directly. Either way every
+  // invitee/attendee is notified of the cancellation.
+  const deleteEvent = async () => {
+    setDeleting(true);
+    setError(null);
+    try {
+      if (norm.source === 'loop') {
+        const r = await fetch('/api/schedule', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ op: 'delete-event', googleId, eventId: norm.id }),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body.error || `Error ${r.status}`);
+      } else {
+        await deleteCalendarEvent(norm.id);
+      }
+      onChanged?.();
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Could not delete event.');
+      setDeleting(false);
     }
   };
 
@@ -343,11 +372,35 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
           </div>
         )}
 
-        {/* ── Footer: assistant access ── */}
+        {/* ── Footer: assistant access + delete ── */}
         <div className="ep-footer">
           <button className="ep-ai-btn" onClick={() => setShowAI(true)}>
             <Sparkles size={13} /> Scheduling Assistant
           </button>
+
+          {norm.canEdit && (
+            delConfirm ? (
+              <div className="ep-delete-confirm">
+                <p className="ep-delete-msg">
+                  {norm.source === 'loop'
+                    ? 'Delete this event? All invitees will be notified.'
+                    : 'Delete this event? Attendees will be notified of the cancellation.'}
+                </p>
+                <div className="ep-confirm-btns">
+                  <button className="ep-btn-delete" onClick={deleteEvent} disabled={deleting}>
+                    {deleting ? 'Deleting…' : 'Delete event'}
+                  </button>
+                  <button className="ep-btn-discard" onClick={() => setDelConfirm(false)} disabled={deleting}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="ep-delete-btn" onClick={() => setDelConfirm(true)}>
+                <Trash2 size={13} /> Delete event
+              </button>
+            )
+          )}
         </div>
       </div>
 

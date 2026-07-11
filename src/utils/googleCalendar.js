@@ -289,6 +289,26 @@ export const updateCalendarEvent = async (eventId, patch) => {
   return await response.json();
 };
 
+// Delete an event from the primary calendar. sendUpdates=all makes Google
+// email every attendee that the event was cancelled. A 410 (already gone)
+// is treated as success since the end state — the event no longer exists —
+// is what the caller wants.
+export const deleteCalendarEvent = async (eventId) => {
+  const accessToken = await getValidToken();
+
+  const response = await fetch(
+    `${CALENDAR_API_URL}/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  if (!response.ok && response.status !== 410) {
+    throw new Error('Failed to delete calendar event');
+  }
+};
+
 export const createCalendarEvent = async (eventData) => {
   const accessToken = await getValidToken();
 

@@ -1,12 +1,72 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Clock, Calendar, Home } from 'lucide-react';
+import { Menu, Clock, Calendar, Home, Archive } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
-import ScheduleWidget from '../components/ScheduleWidget';
+import ScheduleWidget, { isDismissed, restoreEvent, subscribeDismissed } from '../components/ScheduleWidget';
 import GroupsWidget from '../components/GroupsWidget';
 import EventPopup from '../components/EventPopup';
 import { formatEventTime as formatTime, formatDuration } from '../utils/format';
 import './SchedulePage.css';
+
+const STATUS_LABEL = { accepted: 'Confirmed', pending: 'Pending', declined: 'Declined', rescheduled: 'Rescheduling' };
+
+// ── Dismissed events panel ─────────────────────────────────────────────────────
+
+// DismissedEvents — lists every event hidden via a ✕ (invite cards, decline/
+// reschedule notices, confirmed-done banners) across all ScheduleWidget
+// instances, so a dismissal isn't a dead end. Each entry opens the universal
+// EventPopup, or can be restored so it reappears in Schedule!. Dismissal is
+// purely a local view-state flag — restoring never touches the server; events
+// that were never finalized are separately purged from the database after two
+// weeks (see api/schedule.js purgeStaleEvents), independent of this panel.
+const DismissedEvents = ({ events, onClose, onChanged }) => {
+  const [, setVersion] = useState(0);
+  const [selected, setSelected] = useState(null);
+
+  useEffect(() => subscribeDismissed(() => setVersion(v => v + 1)), []);
+
+  const items = events
+    .filter(e => isDismissed(e.id))
+    .sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
+
+  return (
+    <div className="sp-dm-backdrop" onClick={onClose}>
+      <div className="sp-dm-modal" onClick={e => e.stopPropagation()}>
+        <div className="sp-dm-head">
+          <span className="sp-dm-title">Dismissed events</span>
+          <button className="sp-dm-close" onClick={onClose} title="Close">✕</button>
+        </div>
+        <div className="sp-dm-body">
+          {items.length === 0 ? (
+            <p className="sp-empty">Events you dismiss with ✕ show up here — unfinished ones are removed after two weeks.</p>
+          ) : (
+            <ul className="sp-list">
+              {items.map(e => (
+                <li key={e.id} className="sp-dm-item">
+                  <div
+                    className="sp-dm-info"
+                    onClick={() => setSelected(e)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') setSelected(e); }}
+                  >
+                    <span className="sp-dm-item-title">{e.title || 'Hangout'}</span>
+                    <span className="sp-dm-item-time">{formatTime(e.event_time)}</span>
+                    <span className={`sp-badge status-${e.status}`}>{STATUS_LABEL[e.status] || e.status}</span>
+                  </div>
+                  <button className="sp-dm-restore" onClick={() => restoreEvent(e.id)}>Restore</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+      {selected && (
+        <EventPopup loopEvent={selected} onClose={() => setSelected(null)} onChanged={onChanged} />
+      )}
+    </div>
+  );
+};
 
 // ── Upcoming Events panel ─────────────────────────────────────────────────────
 
@@ -87,7 +147,12 @@ const UpcomingEvents = ({ events, onChanged }) => {
 const SchedulePage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
+  const [showDismissed, setShowDismissed] = useState(false);
+  const [, setDismVersion] = useState(0);
   const googleId = localStorage.getItem('googleUserId');
+
+  useEffect(() => subscribeDismissed(() => setDismVersion(v => v + 1)), []);
+  const dismissedCount = events.filter(e => isDismissed(e.id)).length;
 
   const loadEvents = useCallback(async () => {
     if (!googleId) return;
@@ -115,6 +180,10 @@ const SchedulePage = () => {
           <Menu size={24} />
         </button>
         <h1>Schedule</h1>
+        <button className="sp-dismissed-btn" onClick={() => setShowDismissed(true)}>
+          <Archive size={14} />
+          Dismissed{dismissedCount ? ` (${dismissedCount})` : ''}
+        </button>
       </div>
 
       <div className="schedule-page-grid">
@@ -122,6 +191,10 @@ const SchedulePage = () => {
         <div className="sp-col"><GroupsWidget /></div>
         <div className="sp-col"><UpcomingEvents events={events} onChanged={loadEvents} /></div>
       </div>
+
+      {showDismissed && (
+        <DismissedEvents events={events} onClose={() => setShowDismissed(false)} onChanged={loadEvents} />
+      )}
     </div>
   );
 };

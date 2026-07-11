@@ -1,9 +1,11 @@
 // Schedule router — shared event scheduling with Google Calendar integration.
 //
 // GET  ?op=pending-events&googleId=              → events/invites for this user
+//        (opportunistically purges declined/rescheduled rows older than 2 weeks)
 // POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location? }
 // POST { op:'respond', googleId, eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
 // POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location? }  → creator edits; restarts the invite cycle
+// POST { op:'delete-event', googleId, eventId }  → creator only; cancels the Google copy (if any) and removes the row
 // POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
 //
 // Requires the pending_events table: db/migrations/002_pending_events.sql
@@ -107,6 +109,25 @@ async function deleteLinkedConversations(client, eventId) {
   try { await client.from('ai_conversations').delete().eq('pending_event_id', eventId); } catch {}
 }
 
+// purgeStaleEvents — events that never got finalized (declined outright, or
+// parked for a reschedule that was never rebooked) are exactly what invite
+// cards let a user dismiss; once dismissed-and-dead for 2+ weeks they're
+// deleted so the table doesn't grow unbounded. Runs probabilistically rather
+// than on every call — pending-events is polled every 15s by several widgets
+// (ScheduleWidget, NotificationCenter, PendingEventsWidget, SchedulePage),
+// and a straight delete on each of those would be wasteful.
+async function purgeStaleEvents(client) {
+  if (Math.random() > 0.05) return;
+  try {
+    const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: stale } = await client.from('pending_events')
+      .select('id').in('status', ['declined', 'rescheduled']).lt('created_at', cutoff);
+    if (!stale?.length) return;
+    await client.from('pending_events').delete().in('id', stale.map(e => e.id));
+    await Promise.allSettled(stale.map(e => deleteLinkedConversations(client, e.id)));
+  } catch { /* best-effort cleanup — never blocks the read */ }
+}
+
 // confirmEvent — every remaining invitee accepted: create the shared Google
 // Calendar event and flip the row to accepted. patch carries the final
 // acceptances (plus invited_user_ids/declines when a decliner was removed).
@@ -206,6 +227,8 @@ export default async function handler(req, res) {
 
     if (op === 'pending-events') {
       if (!googleId) return res.status(400).json({ error: 'googleId required' });
+
+      await purgeStaleEvents(client);
 
       const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
       if (!me) return res.status(404).json({ error: 'User not found' });
@@ -420,6 +443,39 @@ export default async function handler(req, res) {
         } catch {}
         await client.from('pending_events').update({ google_event_id: null }).eq('id', eventId);
       }
+
+      return res.status(200).json({ ok: true });
+    }
+
+    if (op === 'delete-event') {
+      const { googleId, eventId } = req.body;
+      if (!googleId || !eventId)
+        return res.status(400).json({ error: 'googleId and eventId required' });
+
+      const { data: me } = await client.from('users').select('id, access_token').eq('google_id', googleId).single();
+      if (!me) return res.status(404).json({ error: 'User not found' });
+
+      const { data: ev } = await client.from('pending_events').select('*').eq('id', eventId).single();
+      if (!ev) return res.status(404).json({ error: 'Event not found' });
+
+      if (ev.creator_id !== me.id)
+        return res.status(403).json({ error: 'Only the event creator can delete it' });
+
+      // If already confirmed onto Google Calendar, cancel that copy first —
+      // sendUpdates=all notifies every attendee of the cancellation.
+      if (ev.google_event_id && me.access_token) {
+        try {
+          const token = decrypt(me.access_token);
+          await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(ev.google_event_id)}?sendUpdates=all`,
+            { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+          );
+        } catch {}
+      }
+
+      await deleteLinkedConversations(client, eventId);
+      const { error } = await client.from('pending_events').delete().eq('id', eventId);
+      if (error) return res.status(500).json({ error: error.message });
 
       return res.status(200).json({ ok: true });
     }

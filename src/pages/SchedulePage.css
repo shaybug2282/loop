@@ -24,6 +24,134 @@
   margin: 0;
 }
 
+/* ── "View dismissed" entry point ── */
+
+.sp-dismissed-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  border: 1px solid #F3D8E4;
+  border-radius: 16px;
+  background: #fff;
+  color: #E8607A;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.sp-dismissed-btn:hover { background: #FDE8EF; border-color: #E8607A; }
+
+/* ── Dismissed events modal ── */
+
+.sp-dm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-dm-modal {
+  width: min(440px, 94vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  animation: sp-dm-pop 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes sp-dm-pop {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.sp-dm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #F3D8E4;
+  flex-shrink: 0;
+}
+
+.sp-dm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1A1A1A;
+}
+
+.sp-dm-close {
+  border: none;
+  background: none;
+  color: #9CA3AF;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.12s;
+}
+
+.sp-dm-close:hover { color: #6B7280; }
+
+.sp-dm-body { padding: 4px 0; }
+
+.sp-dm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #FDF5F7;
+}
+
+.sp-dm-item:last-child { border-bottom: none; }
+
+.sp-dm-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.sp-dm-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1A1A1A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+
+.sp-dm-item-time {
+  font-size: 12px;
+  color: #6B7280;
+  white-space: nowrap;
+}
+
+.sp-dm-restore {
+  flex-shrink: 0;
+  border: 1px solid #F3D8E4;
+  border-radius: 14px;
+  background: #fff;
+  color: #E8607A;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.sp-dm-restore:hover { background: #FDE8EF; }
+
 /* ── 3-column grid ── */
 
 .schedule-page-grid {
@@ -129,6 +257,16 @@
 .sp-badge.status-accepted {
   background: #ECFDF5;
   color: #059669;
+}
+
+.sp-badge.status-declined {
+  background: #F3F4F6;
+  color: #6B7280;
+}
+
+.sp-badge.status-rescheduled {
+  background: #FEF3C7;
+  color: #B45309;
 }
 
 .sp-event-with {
