@@ -155,19 +155,29 @@
   color: #3B82F6;
 }
 
+.ep-rc-undo {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3B82F6;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ep-rc-undo:hover { color: #2563EB; text-decoration: underline; }
+
 .ep-rc-info {
-  position: relative;
   display: inline-flex;
   color: #93C5FD;
   cursor: help;
 }
 
-.ep-rc-info .ep-rc-tip {
-  display: none;
-  position: absolute;
-  bottom: calc(100% + 8px);
-  right: -6px;
-  width: 240px;
+/* Rendered position:fixed with viewport coords from React, so the modal's
+   overflow-y:auto can't clip it — it overlays the popup border when needed. */
+.ep-rc-tip {
+  position: fixed;
   background: #1F2937;
   color: #F9FAFB;
   font-size: 11.5px;
@@ -175,11 +185,9 @@
   line-height: 1.45;
   padding: 8px 10px;
   border-radius: 8px;
-  z-index: 10;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  z-index: 1300;
 }
-
-.ep-rc-info:hover .ep-rc-tip,
-.ep-rc-info:focus .ep-rc-tip { display: block; }
 
 .ep-close {
   display: flex;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Save, Loader, Home, Sparkles, X } from 'lucide-react';
+import { Menu, Save, Loader, Home, Sparkles, X, Copy, Moon, Plus } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../contexts/AuthContext';
 import './ProfilePage.css';
@@ -19,7 +19,14 @@ const ProfilePage = () => {
 
   const [displayName, setDisplayName] = useState('');
   const [showEmail, setShowEmail]     = useState(true);
+  const [showPhone, setShowPhone]     = useState(true);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [friendCode, setFriendCode]   = useState('');
+  const [codeCopied, setCodeCopied]   = useState(false);
+  // Quiet Time: ISO timestamp while on, null while off. Toggling saves
+  // immediately (its own API op) — it isn't part of the Save button flow.
+  const [quietSince, setQuietSince]   = useState(null);
+  const [quietBusy,  setQuietBusy]    = useState(false);
 
   const handlePhoneChange = (e) => setPhoneNumber(formatPhone(e.target.value));
 
@@ -43,7 +50,10 @@ const ProfilePage = () => {
         if (data) {
           setDisplayName(data.display_name ?? '');
           setShowEmail(data.show_email ?? true);
+          setShowPhone(data.show_phone ?? true);
           setPhoneNumber(data.phone_number ?? '');
+          setFriendCode(data.friend_code ?? '');
+          setQuietSince(data.quiet_time_since ?? null);
         }
       })
       .catch(() => {})
@@ -80,16 +90,59 @@ const ProfilePage = () => {
     } catch {}
   }, [googleId]);
 
-  const setReplyStyle = useCallback(async (style) => {
-    setPrefs(prev => prev && { ...prev, reply_style: style });
+  // Preferences input — user-stated scheduling rules ("I'm not a morning
+  // person") saved straight into the assistant's profile.
+  const [prefInput, setPrefInput] = useState('');
+  const [prefBusy,  setPrefBusy]  = useState(false);
+
+  const addPreference = useCallback(async () => {
+    const text = prefInput.trim();
+    if (!text || prefBusy) return;
+    setPrefBusy(true);
     try {
-      await fetch('/api/ai', {
+      const r = await fetch('/api/ai', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ op: 'set-reply-style', googleId, style }),
+        body:    JSON.stringify({ op: 'add-constraint', googleId, constraint: text }),
       });
+      if (r.ok) {
+        const data = await r.json();
+        setPrefs(prev => ({
+          ...(prev ?? {}),
+          hard_constraints: data.hard_constraints,
+          soft_constraints: data.soft_constraints,
+        }));
+        setPrefInput('');
+      }
     } catch {}
-  }, [googleId]);
+    setPrefBusy(false);
+  }, [prefInput, prefBusy, googleId]);
+
+  // Quiet Time toggle — saves immediately; while on, nobody can schedule you.
+  const toggleQuietTime = useCallback(async () => {
+    if (quietBusy) return;
+    setQuietBusy(true);
+    const enabled = !quietSince;
+    try {
+      const r = await fetch('/api/user', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ op: 'quiet-time', googleId, enabled }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setQuietSince(data.quiet_time_since ?? null);
+      }
+    } catch {}
+    setQuietBusy(false);
+  }, [quietBusy, quietSince, googleId]);
+
+  const copyFriendCode = () => {
+    navigator.clipboard.writeText(friendCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -103,6 +156,7 @@ const ProfilePage = () => {
           googleId,
           displayName: displayName.trim() || null,
           showEmail,
+          showPhone,
           phoneNumber: phoneNumber.trim() || null,
         }),
       });
@@ -141,6 +195,14 @@ const ProfilePage = () => {
             <div className="identity-info">
               <p className="identity-name">{user?.name}</p>
               <p className="identity-email">{user?.email}</p>
+              {friendCode && (
+                <p className="identity-code">
+                  Friend code: <span className="identity-code-value">{friendCode}</span>
+                  <button className="identity-code-copy" onClick={copyFriendCode}>
+                    <Copy size={12} /> {codeCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                </p>
+              )}
             </div>
           </div>
 
@@ -192,6 +254,22 @@ const ProfilePage = () => {
               </button>
             </div>
 
+            <div className="field-group toggle-group">
+              <div className="toggle-label">
+                <label htmlFor="showPhone">Show phone number to friends</label>
+                <p className="field-hint">When off, your number is hidden on your contact card</p>
+              </div>
+              <button
+                id="showPhone"
+                role="switch"
+                aria-checked={showPhone}
+                className={`toggle ${showPhone ? 'on' : 'off'}`}
+                onClick={() => setShowPhone(v => !v)}
+              >
+                <span className="toggle-thumb" />
+              </button>
+            </div>
+
             <div className="save-row">
               {saveMsg && (
                 <p className={`save-msg ${saveMsg.type}`}>{saveMsg.text}</p>
@@ -203,18 +281,61 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* Scheduling Assistant — learned rules & reply style */}
+          {/* Quiet Time — while on, nobody can schedule events with you */}
+          <div className="profile-card">
+            <h2><Moon size={15} /> Quiet Time</h2>
+            <div className="field-group toggle-group">
+              <div className="toggle-label">
+                <label htmlFor="quietTime">Quiet Time</label>
+                <p className="field-hint">
+                  While on, friends can't schedule anything with you — they'll be told to try again later.
+                  {quietSince && (
+                    <> On since {new Date(quietSince).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. We'll remind you after 24 hours.</>
+                  )}
+                </p>
+              </div>
+              <button
+                id="quietTime"
+                role="switch"
+                aria-checked={Boolean(quietSince)}
+                className={`toggle ${quietSince ? 'on' : 'off'}`}
+                onClick={toggleQuietTime}
+                disabled={quietBusy}
+              >
+                <span className="toggle-thumb" />
+              </button>
+            </div>
+          </div>
+
+          {/* Scheduling Assistant — preferences it schedules around */}
           {prefs && (
             <div className="profile-card">
-              <h2><Sparkles size={15} /> Scheduling Assistant</h2>
+              <h2><Sparkles size={15} /> Preferences</h2>
 
               <div className="field-group">
-                <label>Things it remembers about you</label>
+                <label>Things the assistant remembers about you</label>
                 <p className="field-hint">
-                  Rules the assistant saved from your chats and reschedule notes — it schedules around these. Remove any that shouldn't stick.
+                  Add your own (e.g. “I'm not a morning person”) — the assistant also saves rules you state in chats and reschedule notes. Remove any that shouldn't stick.
                 </p>
+
+                <div className="pref-add-row">
+                  <input
+                    className="pref-add-input"
+                    type="text"
+                    placeholder="e.g. I'm not a morning person"
+                    value={prefInput}
+                    maxLength={120}
+                    onChange={e => setPrefInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addPreference()}
+                    disabled={prefBusy}
+                  />
+                  <button className="pref-add-btn" onClick={addPreference} disabled={prefBusy || !prefInput.trim()}>
+                    <Plus size={13} /> {prefBusy ? 'Adding…' : 'Add'}
+                  </button>
+                </div>
+
                 {prefs.hard_constraints.length === 0 && prefs.soft_constraints.length === 0 ? (
-                  <p className="pref-empty">Nothing yet — tell the assistant things like “I never do weekday lunches” and they'll show up here.</p>
+                  <p className="pref-empty">Nothing yet — add one above, or tell the assistant things like “I never do weekday lunches”.</p>
                 ) : (
                   <ul className="pref-list">
                     {prefs.hard_constraints.map(c => (
@@ -231,24 +352,6 @@ const ProfilePage = () => {
                     ))}
                   </ul>
                 )}
-              </div>
-
-              <div className="field-group">
-                <label>Reply length</label>
-                <p className="field-hint">
-                  “Auto” learns from how you write; pinning Brief or Detailed overrides that.
-                </p>
-                <div className="style-row" role="radiogroup" aria-label="Assistant reply length">
-                  {[['brief', 'Brief'], ['neutral', 'Auto'], ['detailed', 'Detailed']].map(([val, label]) => (
-                    <button
-                      key={val}
-                      role="radio"
-                      aria-checked={prefs.reply_style === val}
-                      className={`style-btn${prefs.reply_style === val ? ' active' : ''}`}
-                      onClick={() => setReplyStyle(val)}
-                    >{label}</button>
-                  ))}
-                </div>
               </div>
             </div>
           )}

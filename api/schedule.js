@@ -5,9 +5,10 @@
 // POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location?, description? }
 //        description = short invite-only note: shown on invite + event cards, never sent to Google Calendar
 // POST { op:'respond', googleId, eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
-// POST { op:'raincheck', googleId, eventId }  → secret mutual cancel, two-person events only. One side's raincheck is
-//        invisible to the other (API exposes only iRainchecked, never the array); when BOTH raincheck, the event flips
-//        to 'rainchecked', the Google copy is cancelled, and both users get a notification
+// POST { op:'raincheck', googleId, eventId, undo? }  → secret mutual cancel, two-person CONFIRMED events only. One
+//        side's raincheck is invisible to the other (API exposes only iRainchecked, never the array) and can be
+//        retracted with undo:true until the other side completes it; when BOTH raincheck, the event flips to
+//        'rainchecked', the Google copy is cancelled, and both users get a notification
 // POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location?, description?, readdUserIds? }  → creator edits;
 //        material edits (time/duration/title/location or a re-invite) restart the invite cycle — a description-only edit does not.
 //        Users who declined stay OUT of the restarted cycle unless the creator re-adds them via readdUserIds (⊆ declines)
@@ -318,6 +319,19 @@ export default async function handler(req, res) {
       const { data: creator } = await client.from('users').select('id').eq('google_id', creatorGoogleId).single();
       if (!creator) return res.status(404).json({ error: 'Creator not found' });
 
+      // Quiet Time gate: someone with Quiet Time on can't be scheduled, by
+      // anyone, through any path (manual, assistant, group) — they all book
+      // here. Fails open on deployments without migration 013.
+      try {
+        const { data: invitedRows } = await client.from('users')
+          .select('id, name, display_name, quiet_time_since').in('id', invitedUserIds);
+        const quiet = (invitedRows ?? []).find(u => u.quiet_time_since);
+        if (quiet) {
+          const qName = quiet.display_name || quiet.name || 'This person';
+          return res.status(409).json({ error: `${qName} has Quiet Time enabled — try again later.` });
+        }
+      } catch {}
+
       const { data, error } = await client.from('pending_events')
         .insert({ creator_id: creator.id, invited_user_ids: invitedUserIds, event_time: eventTime, duration_hours: durationHours })
         .select('id,created_at').single();
@@ -449,13 +463,14 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, status: 'pending', allAccepted: false });
     }
 
-    // ── raincheck — secret mutual cancel for two-person events ──────────────
+    // ── raincheck — secret mutual cancel for two-person CONFIRMED events ────
     // Either participant (creator or the sole invitee) can raincheck. One
-    // side's raincheck changes nothing visible to the other; when both have
-    // rainchecked, the event is cancelled everywhere (status 'rainchecked',
-    // Google copy deleted) and both users get the notification.
+    // side's raincheck changes nothing visible to the other — and can be
+    // undone (undo:true) any time before the other side completes it. When
+    // both have rainchecked, the event is cancelled everywhere (status
+    // 'rainchecked', Google copy deleted) and both users get the notification.
     if (op === 'raincheck') {
-      const { googleId, eventId } = req.body;
+      const { googleId, eventId, undo } = req.body;
       if (!googleId || !eventId)
         return res.status(400).json({ error: 'googleId and eventId required' });
 
@@ -470,8 +485,23 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Not part of this event' });
       if (participants.length !== 2)
         return res.status(400).json({ error: 'Rain Check only works on two-person events' });
-      if (!['pending', 'accepted'].includes(ev.status))
-        return res.status(409).json({ error: 'This event can no longer be Rain Checked' });
+      if (ev.status !== 'accepted')
+        return res.status(409).json({
+          error: ev.status === 'rainchecked'
+            ? 'This event has already been Rain Checked'
+            : 'Rain Check is only available on confirmed events',
+        });
+
+      if (undo) {
+        // Retract my (still-secret) raincheck — possible right up until the
+        // other side completes the mutual cancel (then status is 'rainchecked'
+        // and the check above already said "too late").
+        const { error } = await client.from('pending_events')
+          .update({ rainchecks: (ev.rainchecks ?? []).filter(id => id !== me.id) })
+          .eq('id', eventId);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ ok: true, canceled: false, undone: true });
+      }
 
       const rainchecks = [...new Set([...(ev.rainchecks ?? []), me.id])];
       const both = participants.every(id => rainchecks.includes(id));

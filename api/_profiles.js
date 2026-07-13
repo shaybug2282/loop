@@ -214,35 +214,67 @@ export async function buildProfileForUser(client, user, notes = '') {
   if (existing?.profile?.comm_style)       profile.comm_style       = existing.profile.comm_style;
   if (existing?.profile?.reschedule_notes) profile.reschedule_notes = existing.profile.reschedule_notes;
 
+  // User-stated rules (Preferences input / chat `remember`) are pinned: the
+  // rebuild regenerates hard/soft lists from calendar signals, so re-apply
+  // each pinned rule that the fresh lists don't already contain.
+  const pinned = existing?.profile?.pinned_constraints;
+  if (pinned?.length) {
+    profile.pinned_constraints = pinned;
+    for (const p of pinned) {
+      const key  = p.kind === 'hard' ? 'hard_constraints' : 'soft_constraints';
+      const list = Array.isArray(profile[key]) ? profile[key] : [];
+      if (!list.some(c => String(c).toLowerCase() === String(p.text).toLowerCase()))
+        profile[key] = [...list, p.text];
+    }
+  }
+
   await saveProfile(client, user.id, profile, signals);
   return profile;
 }
 
-// mergeConstraint — pure: fold a chat-captured standing rule into a profile.
+// mergeConstraint — pure: fold a user-stated standing rule into a profile.
 // entry: { constraint, kind: 'hard'|'soft'|'forget' } from the assistant's
-// `remember` contract field. 'forget' removes any matching entry from both
-// lists (case-insensitive substring either way, so "no weekday lunches"
-// retracts "never schedules weekday lunches"). Adds dedupe case-insensitively
-// and cap each list at 12 so the profile can't grow unbounded.
+// `remember` contract field or the Profile page's Preferences input.
+// 'forget' removes any matching entry (case-insensitive substring either way,
+// so "no weekday lunches" retracts "never schedules weekday lunches"). Adds
+// dedupe case-insensitively and cap each list at 12.
+// Every add is also registered in pinned_constraints — the durable record of
+// USER-stated rules, which buildProfileForUser re-applies after each weekly
+// Haiku rebuild (the rebuild regenerates hard/soft lists from calendar
+// signals and would otherwise silently drop them).
 // out: a new profile object (input untouched), or the input when invalid.
 export function mergeConstraint(profile, entry) {
   const text = typeof entry?.constraint === 'string' ? entry.constraint.trim().slice(0, 120) : '';
   const kind = entry?.kind;
   if (!profile || !text || !['hard', 'soft', 'forget'].includes(kind)) return profile;
 
-  const lower = text.toLowerCase();
+  const lower  = text.toLowerCase();
+  const pinned = Array.isArray(profile.pinned_constraints) ? profile.pinned_constraints : [];
+
   if (kind === 'forget') {
     const keep = list => (list ?? []).filter(c => {
       const cl = String(c).toLowerCase();
       return !cl.includes(lower) && !lower.includes(cl);
     });
-    return { ...profile, hard_constraints: keep(profile.hard_constraints), soft_constraints: keep(profile.soft_constraints) };
+    return {
+      ...profile,
+      hard_constraints:   keep(profile.hard_constraints),
+      soft_constraints:   keep(profile.soft_constraints),
+      pinned_constraints: pinned.filter(p => {
+        const pl = String(p.text).toLowerCase();
+        return !pl.includes(lower) && !lower.includes(pl);
+      }),
+    };
   }
 
   const key  = kind === 'hard' ? 'hard_constraints' : 'soft_constraints';
   const list = Array.isArray(profile[key]) ? profile[key] : [];
-  if (list.some(c => String(c).toLowerCase() === lower)) return profile;
-  return { ...profile, [key]: [...list, text].slice(-12) };
+  const nextPinned = pinned.some(p => String(p.text).toLowerCase() === lower)
+    ? pinned
+    : [...pinned, { text, kind }].slice(-12);
+  if (list.some(c => String(c).toLowerCase() === lower))
+    return { ...profile, pinned_constraints: nextPinned };
+  return { ...profile, [key]: [...list, text].slice(-12), pinned_constraints: nextPinned };
 }
 
 // recordRescheduleNote — bank an invitee's "this doesn't work for me" note on

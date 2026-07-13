@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserPlus, MessageSquare, Mail, Phone } from 'lucide-react';
+import { Users, UserPlus, MessageSquare } from 'lucide-react';
 import { useMessages } from '../contexts/MessagesContext';
 import './FriendsWidget.css';
 
@@ -74,20 +74,10 @@ const FriendsWidget = () => {
                   ? <img src={f.picture_url} alt={displayName} className="fw-avatar" />
                   : <div className="fw-avatar placeholder">{displayName?.[0]?.toUpperCase()}</div>}
 
+                {/* Name + picture only — contact details live in the Friends
+                    page popup card. */}
                 <div className="fw-info">
                   <span className="fw-name">{displayName}</span>
-                  {f.show_email && f.email && (
-                    <span className="fw-detail">
-                      <Mail size={11} />
-                      {f.email}
-                    </span>
-                  )}
-                  {f.phone_number && (
-                    <span className="fw-detail">
-                      <Phone size={11} />
-                      {f.phone_number}
-                    </span>
-                  )}
                 </div>
 
                 <button

@@ -77,6 +77,7 @@ const NotificationCenter = () => {
   const [seen,         setSeen]         = useState(() => loadSet(LS_SEEN));
   const [dismissed,    setDismissed]    = useState(() => loadSet(LS_DISMISSED));
   const [popupEvent,   setPopupEvent]   = useState(null); // event open in the universal popup
+  const [quietSince,   setQuietSince]   = useState(null); // Quiet Time start (null = off)
   const wrapRef    = useRef(null);
   const fetchedRef = useRef(false); // true after the first successful fetch — gates pruning
   const syncedRef  = useRef(false); // true after server state is merged — gates pushes
@@ -128,12 +129,14 @@ const NotificationCenter = () => {
     if (!googleId) return;
     setLoading(true);
     try {
-      const [evtRes, grpRes] = await Promise.all([
+      const [evtRes, grpRes, profRes] = await Promise.all([
         fetch(`/api/schedule?op=pending-events&googleId=${encodeURIComponent(googleId)}`),
         fetch(`/api/groups?op=pending-invites&googleId=${encodeURIComponent(googleId)}`),
+        fetch(`/api/user?op=profile&googleId=${encodeURIComponent(googleId)}`),
       ]);
       if (evtRes.ok) setEvents((await evtRes.json()).events ?? []);
       if (grpRes.ok) setGroupInvites((await grpRes.json()).invites ?? []);
+      if (profRes.ok) setQuietSince((await profRes.json()).quiet_time_since ?? null);
       if (evtRes.ok && grpRes.ok) fetchedRef.current = true;
     } catch { /* silent */ }
     finally { setLoading(false); }
@@ -164,10 +167,25 @@ const NotificationCenter = () => {
     ...activities.map(a => ({ id: activityId(a), kind: 'activity', a })),
   ].filter(i => !dismissed.has(i.id)), [groupInvites, activities, dismissed]);
 
+  // Quiet Time on for 24+ hours → prompt the user to turn it off. Not part of
+  // the dismissable items list: it stays until Quiet Time is actually off.
+  const quietOverdue = quietSince && Date.now() - new Date(quietSince).getTime() > 24 * 60 * 60 * 1000;
+
+  const turnOffQuietTime = async () => {
+    try {
+      await fetch('/api/user', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ op: 'quiet-time', googleId, enabled: false }),
+      });
+      setQuietSince(null);
+    } catch {}
+  };
+
   const unseenCount = useMemo(
     () => items.filter(i => !seen.has(i.id)).length,
     [items, seen]
-  );
+  ) + (quietOverdue ? 1 : 0);
 
   // Opening the panel marks everything currently visible as seen.
   useEffect(() => {
@@ -260,10 +278,24 @@ const NotificationCenter = () => {
           </div>
 
           <div className="nc-scroll">
+            {/* Quiet Time 24h reminder — pinned above the list, not
+                dismissable: it clears only when Quiet Time turns off. */}
+            {quietOverdue && (
+              <div className="nc-item nc-quiet">
+                <span className="nc-dot nc-dot-blue" />
+                <div className="nc-item-body">
+                  <p className="nc-item-title">Quiet Time has been on for over 24 hours</p>
+                  <p className="nc-item-sub">Friends can't schedule anything with you while it's on.</p>
+                  <div className="nc-invite-btns">
+                    <button className="nc-btn-join" onClick={turnOffQuietTime}>Turn off Quiet Time</button>
+                  </div>
+                </div>
+              </div>
+            )}
             {loading && items.length === 0 ? (
               <p className="nc-empty">Loading…</p>
             ) : items.length === 0 ? (
-              <p className="nc-empty">No notifications yet</p>
+              !quietOverdue && <p className="nc-empty">No notifications yet</p>
             ) : (
               items.map(item => {
                 if (item.kind === 'group') {

@@ -1,10 +1,11 @@
 // User router — identity sync, profile updates, and ID lookup in one function.
 //
 // GET  ?op=my-id&googleId=                → internal Supabase UUID for the user
-// GET  ?op=profile&googleId=              → display_name, show_email, phone_number
+// GET  ?op=profile&googleId=              → display_name, show_email, show_phone, phone_number, friend_code, quiet_time_since
 // GET  ?op=notification-state&googleId=   → { seen[], dismissed[] } notification ids
 // POST { op:'sync',               ... }   → encrypt token + upsert user row (called on login / token refresh)
-// POST { op:'update-profile',     ... }   → update display_name, show_email, phone_number
+// POST { op:'update-profile',     ... }   → update display_name, show_email, show_phone, phone_number
+// POST { op:'quiet-time', googleId, enabled } → toggle Quiet Time (while on, nobody can schedule this user)
 // POST { op:'notification-state', ... }   → replace stored seen/dismissed arrays
 //
 // notification-state requires: db/migrations/005_notification_state.sql
@@ -33,11 +34,19 @@ export default async function handler(req, res) {
     if (op === 'profile') {
       if (!googleId) return res.status(400).json({ error: 'googleId required' });
 
-      const { data, error } = await db()
+      let { data, error } = await db()
         .from('users')
-        .select('display_name, show_email, phone_number')
+        .select('display_name, show_email, show_phone, phone_number, friend_code, quiet_time_since')
         .eq('google_id', googleId)
         .single();
+      // Graceful degrade for deployments that haven't run migration 013 yet.
+      if (error) {
+        ({ data, error } = await db()
+          .from('users')
+          .select('display_name, show_email, phone_number, friend_code')
+          .eq('google_id', googleId)
+          .single());
+      }
       if (error || !data) return res.status(404).json({ error: 'User not found' });
       return res.status(200).json(data);
     }
@@ -123,7 +132,7 @@ export default async function handler(req, res) {
     }
 
     if (op === 'update-profile') {
-      const { googleId, displayName, showEmail, phoneNumber } = req.body;
+      const { googleId, displayName, showEmail, showPhone, phoneNumber } = req.body;
       if (!googleId) return res.status(400).json({ error: 'googleId is required' });
 
       const { error } = await client
@@ -132,6 +141,7 @@ export default async function handler(req, res) {
           display_name: displayName  ?? null,
           show_email:   showEmail    ?? true,
           phone_number: phoneNumber  ?? null,
+          ...(showPhone !== undefined ? { show_phone: Boolean(showPhone) } : {}),
         })
         .eq('google_id', googleId);
 
@@ -140,6 +150,25 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: error.message });
       }
       return res.status(200).json({ ok: true });
+    }
+
+    // Quiet Time toggle — its own op (not part of update-profile) so the
+    // notification center's "turn it off" action can't clobber other fields.
+    // Turning it on when already on keeps the original timestamp, so the
+    // 24-hour reminder can't be reset by re-toggling.
+    if (op === 'quiet-time') {
+      const { googleId, enabled } = req.body;
+      if (!googleId || typeof enabled !== 'boolean')
+        return res.status(400).json({ error: 'googleId and enabled (boolean) required' });
+
+      const { data: me } = await client
+        .from('users').select('id, quiet_time_since').eq('google_id', googleId).single();
+      if (!me) return res.status(404).json({ error: 'User not found' });
+
+      const quiet_time_since = enabled ? (me.quiet_time_since ?? new Date().toISOString()) : null;
+      const { error } = await client.from('users').update({ quiet_time_since }).eq('id', me.id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true, quiet_time_since });
     }
 
     return res.status(400).json({ error: `Unknown op: ${op}` });

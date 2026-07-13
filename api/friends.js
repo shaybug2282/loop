@@ -21,33 +21,49 @@ export default async function handler(req, res) {
         .from('users').select('id, friend_code').eq('google_id', googleId).single();
       if (meErr || !me) return res.status(404).json({ error: 'User not found' });
 
-      const [
+      const friendCols = (withPhoneToggle) =>
+        `friend:friend_id(id, name, display_name, email, show_email, ${withPhoneToggle ? 'show_phone, ' : ''}phone_number, picture_url, friend_code)`;
+
+      let [
         { data: requests,    error: reqErr },
         { data: sentReqs,    error: sentErr },
         { data: friendships, error: friendErr },
       ] = await Promise.all([
         client.from('friend_requests')
-          .select('id, created_at, sender:sender_id(id, name, display_name, email, picture_url)')
+          .select('id, created_at, sender:sender_id(id, name, display_name, email, show_email, picture_url)')
           .eq('receiver_id', me.id).eq('status', 'pending').order('created_at', { ascending: false }),
         client.from('friend_requests')
-          .select('id, created_at, receiver:receiver_id(id, name, display_name, email, picture_url)')
+          .select('id, created_at, receiver:receiver_id(id, name, display_name, email, show_email, picture_url)')
           .eq('sender_id', me.id).eq('status', 'pending').order('created_at', { ascending: false }),
         client.from('friendships')
-          .select('friend:friend_id(id, name, display_name, email, show_email, phone_number, picture_url, friend_code)')
+          .select(friendCols(true))
           .eq('user_id', me.id).order('created_at', { ascending: true }),
       ]);
+
+      // Graceful degrade for deployments without migration 013 (no show_phone).
+      if (friendErr) {
+        ({ data: friendships, error: friendErr } = await client.from('friendships')
+          .select(friendCols(false))
+          .eq('user_id', me.id).order('created_at', { ascending: true }));
+      }
 
       if (reqErr)    return res.status(500).json({ error: reqErr.message });
       if (sentErr)   return res.status(500).json({ error: sentErr.message });
       if (friendErr) return res.status(500).json({ error: friendErr.message });
 
-      const decryptEmail = u => u ? { ...u, email: safeDecrypt(u.email) } : u;
+      // Privacy is enforced HERE, not in the client: email/phone leave the
+      // server only when the owner's visibility toggle allows it.
+      const mask = u => u ? {
+        ...u,
+        email:        u.show_email ? safeDecrypt(u.email) : null,
+        phone_number: (u.show_phone ?? true) ? (u.phone_number ?? null) : null,
+      } : u;
 
       return res.status(200).json({
         friendCode:   me.friend_code,
-        requests:     (requests   ?? []).map(r => ({ ...r, sender:   decryptEmail(r.sender) })),
-        sentRequests: (sentReqs   ?? []).map(r => ({ ...r, receiver: decryptEmail(r.receiver) })),
-        friends:      (friendships ?? []).map(f => decryptEmail(f.friend)),
+        requests:     (requests   ?? []).map(r => ({ ...r, sender:   mask(r.sender) })),
+        sentRequests: (sentReqs   ?? []).map(r => ({ ...r, receiver: mask(r.receiver) })),
+        friends:      (friendships ?? []).map(f => mask(f.friend)),
       });
     }
 

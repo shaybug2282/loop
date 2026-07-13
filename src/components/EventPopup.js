@@ -68,13 +68,12 @@ function normalize({ loopEvent, googleEvent }) {
         note: noteByUser[u.id] ?? null,
       })),
       iAskedReschedule: (e.reschedule_requests ?? []).includes(e.myId),
-      // Rain Check: two-person events only; iRainchecked is the viewer's own
-      // secret bit from the API (the other side's is never sent).
+      // Rain Check: two-person CONFIRMED events only; iRainchecked is the
+      // viewer's own secret bit from the API (the other side's is never sent).
       iRainchecked: Boolean(e.iRainchecked),
-      canRaincheck: ['pending', 'accepted'].includes(e.status) &&
+      canRaincheck: e.status === 'accepted' &&
         (e.invited_user_ids ?? []).length === 1 &&
-        (e.isCreator || (e.invited_user_ids ?? []).includes(e.myId)) &&
-        !e.iRainchecked,
+        (e.isCreator || (e.invited_user_ids ?? []).includes(e.myId)),
       participants: [
         { key: 'host', name: e.isCreator ? 'You' : nameOf(e.creator), status: 'host' },
         ...(e.invitedUsers ?? []).map(u => ({
@@ -171,9 +170,14 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
   const [reschedNote, setReschedNote] = useState('');
   const [responding,  setResponding]  = useState(false);
   const [respMsg,     setRespMsg]     = useState(null);  // post-response confirmation text
-  // Rain Check: null | 'sending' | 'sent' | 'canceled' ('sent' = mine recorded,
-  // still secret; 'canceled' = both sides rainchecked, event cancelled).
+  // Rain Check: null | 'sending' | 'sent' | 'undone' | 'canceled' ('sent' =
+  // mine recorded, still secret — retractable until the other side matches;
+  // 'undone' = retracted this session, overrides the server's iRainchecked;
+  // 'canceled' = both sides rainchecked, event cancelled).
   const [rcState, setRcState] = useState(null);
+  // Fixed-position coords for the Rain Check tooltip — rendered outside the
+  // modal's scroll clipping so it can overlay the popup border.
+  const [rcTip, setRcTip] = useState(null);
 
   const googleId = localStorage.getItem('googleUserId');
   const dirty    = JSON.stringify(draft) !== JSON.stringify(baseline) || readds.size > 0;
@@ -323,17 +327,19 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
     }
   };
 
-  // sendRaincheck — record this side's secret raincheck. If the other person
-  // already rainchecked too, the server cancels the event everywhere and we
-  // show the mutual-cancel message; otherwise nothing changes for them.
-  const sendRaincheck = async () => {
+  // sendRaincheck — record (or with undo=true retract) this side's secret
+  // raincheck. Retracting is possible right up until the other person matches
+  // it; once they do, the server cancels the event everywhere and we show the
+  // mutual-cancel message. One side alone changes nothing for the other.
+  const sendRaincheck = async (undo = false) => {
+    const prev = rcState;
     setRcState('sending');
     setError(null);
     try {
       const r = await fetch('/api/schedule', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ op: 'raincheck', googleId, eventId: norm.id }),
+        body:    JSON.stringify({ op: 'raincheck', googleId, eventId: norm.id, ...(undo ? { undo: true } : {}) }),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body.error || `Error ${r.status}`);
@@ -342,13 +348,24 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
         setRespMsg('This event has been Rain Checked!');
         onChanged?.();
       } else {
-        setRcState('sent');
+        setRcState(undo ? 'undone' : 'sent');
       }
     } catch (err) {
-      setRcState(null);
-      setError(err.message || 'Could not send your Rain Check.');
+      setRcState(prev);
+      setError(err.message || 'Could not update your Rain Check.');
     }
   };
+
+  // showRcTip / hideRcTip — the tooltip is position:fixed (anchored to the
+  // info icon's viewport rect, clamped to the screen) so the modal's
+  // overflow-y:auto can never clip it — it overlays the popup border instead.
+  const showRcTip = (e) => {
+    const rect  = e.currentTarget.getBoundingClientRect();
+    const width = 250;
+    const left  = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+    setRcTip({ left, bottom: window.innerHeight - rect.top + 8, width });
+  };
+  const hideRcTip = () => setRcTip(null);
 
   // deleteEvent — cancels and removes the event: Loop rows are deleted via
   // delete-event (which cancels any already-confirmed Google copy first,
@@ -620,20 +637,32 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
             <Sparkles size={13} /> Scheduling Assistant
           </button>
 
-          {rcState !== 'canceled' && (norm.canRaincheck || norm.iRainchecked) && (
+          {rcState !== 'canceled' && norm.canRaincheck && (
             <div className="ep-rc-wrap">
-              {(rcState === 'sent' || norm.iRainchecked) ? (
-                <span className="ep-rc-sent">Rain check sent — your secret is safe here :)</span>
+              {(rcState === 'sent' || (norm.iRainchecked && rcState !== 'undone' && rcState !== 'sending')) ? (
+                <>
+                  <span className="ep-rc-sent">Rain check sent — your secret is safe here :)</span>
+                  <button className="ep-rc-undo" onClick={() => sendRaincheck(true)}>Undo</button>
+                </>
               ) : (
-                <button className="ep-rc-btn" onClick={sendRaincheck} disabled={rcState === 'sending'}>
+                <button className="ep-rc-btn" onClick={() => sendRaincheck(false)} disabled={rcState === 'sending'}>
                   <Umbrella size={13} />
                   {rcState === 'sending' ? 'Sending…' : 'Rain Check?'}
                 </button>
               )}
-              <span className="ep-rc-info" tabIndex={0}>
+              <span
+                className="ep-rc-info"
+                tabIndex={0}
+                onMouseEnter={showRcTip}
+                onMouseLeave={hideRcTip}
+                onFocus={showRcTip}
+                onBlur={hideRcTip}
+              >
                 <Info size={13} />
-                <span className="ep-rc-tip" role="tooltip">{RAINCHECK_TIP}</span>
               </span>
+              {rcTip && (
+                <span className="ep-rc-tip" role="tooltip" style={rcTip}>{RAINCHECK_TIP}</span>
+              )}
             </div>
           )}
 

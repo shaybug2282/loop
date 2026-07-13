@@ -225,3 +225,9 @@
   transition: background 0.12s;
 }
 .nc-btn-decline:hover { background: #F9FAFB; }
+
+/* Quiet Time 24h reminder — pinned above the list, gently blue, no delete ✕ */
+.nc-quiet {
+  background: #F3F7FC;
+  border-bottom: 1px solid #DBEAFE;
+}

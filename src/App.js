@@ -10,7 +10,6 @@ import GroupChatPanel      from './components/GroupChatPanel';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
-import TodosPage from './pages/TodosPage';
 import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
 import PrivacyPage from './pages/PrivacyPage';
@@ -46,10 +45,8 @@ function App() {
                 path="/calendar"
                 element={<ProtectedRoute><CalendarPage /></ProtectedRoute>}
               />
-              <Route
-                path="/todos"
-                element={<ProtectedRoute><TodosPage /></ProtectedRoute>}
-              />
+              {/* To-Do page removed — old bookmarks land on the dashboard */}
+              <Route path="/todos" element={<Navigate to="/dashboard" />} />
               <Route path="/contacts" element={<Navigate to="/friends" />} />
               <Route
                 path="/friends"

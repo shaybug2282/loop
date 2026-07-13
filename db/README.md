@@ -19,6 +19,7 @@ file **in numeric order** by pasting it into the Supabase SQL editor
 | `010_event_outcomes.sql` | `event_outcomes` | `api/schedule.js` (invite responses logged at response time), `api/_profiles.js` (profiler outcome signals that survive purges) |
 | `011_reschedule_notes.sql` | `pending_events.reschedule_notes` column | `api/schedule.js` (requester constraint notes shown to the creator in the event popup while the event is locked) |
 | `012_rainchecks.sql` | `pending_events.rainchecks` column | `api/schedule.js` (Rain Check — secret mutual cancel for two-person events) |
+| `013_users_privacy_quiet_time.sql` | `users.show_phone` + `users.quiet_time_since` columns | `api/user.js`/`api/friends.js` (phone visibility toggle), `api/schedule.js` (Quiet Time blocks scheduling) |
 
 ## Base tables
 s

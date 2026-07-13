@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, CheckSquare, UserPlus, LogOut, X } from 'lucide-react';
+import { Home, Calendar, UserPlus, LogOut, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
 
@@ -16,7 +16,6 @@ const Sidebar = ({ isOpen, onClose }) => {
   const navItems = [
     { path: '/dashboard',  icon: Home,          label: 'Dashboard' },
     { path: '/calendar',   icon: Calendar,      label: 'Calendar' },
-    { path: '/todos',      icon: CheckSquare,   label: 'To-Do List' },
     { path: '/friends',    icon: UserPlus,      label: 'Friends' },
   ];
 

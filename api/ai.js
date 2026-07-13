@@ -6,9 +6,9 @@
 //
 // GET  ?op=conversations&googleId=      → { conversations } (open scheduling chats)
 // GET  ?op=conversation&googleId=&id=   → { conversation } (full message history)
-// GET  ?op=profile-prefs&googleId=      → { hard_constraints, soft_constraints, reply_style } (Profile page)
+// GET  ?op=profile-prefs&googleId=      → { hard_constraints, soft_constraints } (Profile page Preferences)
+// POST { op:'add-constraint', googleId, constraint }      → user-stated preference ("I'm not a morning person")
 // POST { op:'forget-constraint', googleId, constraint }   → remove a learned rule (chat pill Undo / Profile ✕)
-// POST { op:'set-reply-style', googleId, style }          → pin brief|detailed, or neutral to resume learning
 // POST { op:'build-profile', googleId, notes?, force? }        → { profile }
 // POST { op:'schedule', googleId, participantIds[], request }  → { plans }
 // POST { op:'chat', googleId, conversationId?, message, groupId? } → { conversationId, reply, plans }
@@ -195,7 +195,7 @@ const AUTHORED_PROMPT =
   '(A) {"reply":"...","plans":[...]} — reply is your short, natural conversational message; plans is up to 3 suggestions (or [] when not suggesting times). Each plan: {"title":"...","start":"ISO8601 with explicit UTC offset","end":"ISO8601 with explicit UTC offset","location":"only when the user named or asked for one — never invent a venue","description":"optional invite note ≤140 chars — only when the user asks to include a note or gives details invitees need; it appears on the invite and event card, never on the Google Calendar event","participantIds":["friend uuids from the roster, [] if for the user alone"]}. ' +
   'Form (A) may also carry "remember":{"constraint":"...","kind":"hard"|"soft"} — include ONLY when the user directly states a durable scheduling rule about themselves in THIS message ("I never do weekday lunches" → hard, "I prefer mornings" → soft); never inferred, never one already in their profile; acknowledge it in a few words in reply. Use kind "forget" when they retract one. ' +
   '(B) {"action":"check_availability","participantIds":["friend uuids"]} — returns those friends\' real calendar busy windows and full scheduling profiles as the next message. ' +
-  'You are a concise, friendly scheduling assistant helping one user coordinate events with friends. When the user names a friend, resolve them via the roster. Roster entries may include shared_history — events the user actually booked with that friend before; use it to default the event type, duration, day, and time instead of asking. BEFORE first proposing times for any event involving friends, you MUST issue check_availability for all involved friends so proposals rest on their real calendars and profiles — never guess someone else\'s availability. Do not repeat a lookup within the same turn. ' +
+  'You are a concise, friendly scheduling assistant helping one user coordinate events with friends. When the user names a friend, resolve them via the roster. Roster entries may include shared_history — events the user actually booked with that friend before; use it to default the event type, duration, day, and time instead of asking. A roster entry with quiet_time:true CANNOT be scheduled right now: never include them in plans — tell the user that friend has Quiet Time enabled and to try again later. BEFORE first proposing times for any event involving friends, you MUST issue check_availability for all involved friends so proposals rest on their real calendars and profiles — never guess someone else\'s availability. Do not repeat a lookup within the same turn. ' +
   'CALENDAR DATA FRESHNESS: your context may include participants\' calendars from an earlier lookup, labeled with when they were fetched. Reuse them for small revisions in the same timeframe, but if participants changed, the timeframe moved, or the data is more than a day old, issue check_availability again before proposing times. If no participant calendar data is in context, you do NOT have any — never propose times for friends from memory of a previous turn. ' +
   'CORRECTIONS: when the user rejects, corrects, or expresses doubt about a suggestion, treat that as a standing hard constraint for the rest of this conversation — never re-propose a slot (or anything materially similar) that the user turned down, and re-read their message for the specific day/time they actually asked for before revising. ' +
   SCHEDULING_RULES + ' ' +
@@ -340,15 +340,14 @@ export default async function handler(req, res) {
         return res.status(200).json({ conversation: convo });
       }
 
-      // The learned-profile surface for the Profile page: standing rules the
-      // assistant captured plus the current reply-style setting.
+      // The learned-profile surface for the Profile page Preferences section:
+      // standing rules the assistant captured plus ones the user typed in.
       if (op === 'profile-prefs') {
         const stored = await loadProfile(client, me.id);
         const p = stored?.profile ?? {};
         return res.status(200).json({
           hard_constraints: p.hard_constraints ?? [],
           soft_constraints: p.soft_constraints ?? [],
-          reply_style:      p.comm_style?.style ?? 'neutral',
         });
       }
 
@@ -378,7 +377,10 @@ export default async function handler(req, res) {
 
       if (!force && !notes) {
         const existing = await loadProfile(client, user.id);
-        if (existing?.profile) return res.status(200).json({ profile: existing.profile, cached: true });
+        // Only a profiler-built profile (marked by its `user` key) counts as
+        // cached — a constraints-only stub from add-constraint must not block
+        // the first real Haiku build (which preserves the pinned rules).
+        if (existing?.profile?.user) return res.status(200).json({ profile: existing.profile, cached: true });
       }
 
       const profile = await buildProfileForUser(client, user, notes);
@@ -475,10 +477,18 @@ export default async function handler(req, res) {
       // Friend roster — names + UUIDs so Sonnet can identify participants by
       // name, plus a compact profile digest per friend for early preference
       // inference (full profiles + busy windows arrive via check_availability).
-      const { data: friendships } = await client
+      // quiet_time_since marks friends who can't be scheduled right now;
+      // falls back to the legacy column set pre-migration-013.
+      let { data: friendships, error: fErr } = await client
         .from('friendships')
-        .select('friend:friend_id(id, name, display_name)')
+        .select('friend:friend_id(id, name, display_name, quiet_time_since)')
         .eq('user_id', user.id);
+      if (fErr) {
+        ({ data: friendships } = await client
+          .from('friendships')
+          .select('friend:friend_id(id, name, display_name)')
+          .eq('user_id', user.id));
+      }
       const friendRows   = (friendships ?? []).map(f => f.friend).filter(Boolean);
       const friendIds    = new Set(friendRows.map(f => f.id));
 
@@ -499,6 +509,7 @@ export default async function handler(req, res) {
         return {
           id:   f.id,
           name: f.display_name || f.name,
+          ...(f.quiet_time_since ? { quiet_time: true } : {}),
           ...(p ? { tags: p.tags, awake_hours: p.awake_hours, weekday_pattern: p.weekday_pattern } : {}),
           ...(sharedHist[f.id] ? { shared_history: sharedHist[f.id] } : {}),
         };
@@ -514,8 +525,9 @@ export default async function handler(req, res) {
       const tz  = user.timezone || 'UTC';
       const now = new Date();
       // comm_style is served to the model as the one-line reply-style hint
-      // below, not as raw profile JSON.
-      const { comm_style: commStyle, ...schedProfile } = stored?.profile ?? {};
+      // below, not as raw profile JSON; pinned_constraints only duplicates
+      // the hard/soft lists (it's the rebuild-survival registry).
+      const { comm_style: commStyle, pinned_constraints: _pins, ...schedProfile } = stored?.profile ?? {};
       const context = [
         `Current time: ${now.toLocaleString('en-US', { timeZone: tz, weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (user's timezone: ${tz})`,
         `Date table (next 14 days, ${tz}):\n${renderDateTable(tz)}`,
@@ -612,6 +624,39 @@ export default async function handler(req, res) {
       return res.status(200).json({ conversationId: convo.id, reply, plans, ...(remembered ? { remembered } : {}) });
     }
 
+    // ── add-constraint — user-typed preference from the Profile page ─────────
+    // Stored as a soft constraint (same list the assistant's `remember`
+    // capture feeds), so it flows into every scheduling prompt immediately.
+    if (op === 'add-constraint') {
+      const { googleId, constraint } = req.body;
+      if (!googleId || !constraint?.trim())
+        return res.status(400).json({ error: 'googleId and constraint required' });
+
+      const [user] = await resolveUsers(client, [googleId]);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const stored = await loadProfile(client, user.id);
+      // No profile row yet (first login race) — store a stub holding just
+      // this rule; the next Haiku build folds it in (pinned survives rebuilds
+      // and the stub, having no `user` key, doesn't count as a cached profile).
+      const text   = constraint.trim().slice(0, 120);
+      const base   = stored?.profile ?? null;
+      const merged = base
+        ? mergeConstraint(base, { constraint: text, kind: 'soft' })
+        : { soft_constraints: [text], pinned_constraints: [{ text, kind: 'soft' }] };
+
+      const { error } = base
+        ? await client.from('user_profiles').update({ profile: merged }).eq('user_id', user.id)
+        : await client.from('user_profiles').upsert({ user_id: user.id, profile: merged }, { onConflict: 'user_id' });
+      if (error) return res.status(500).json({ error: error.message });
+
+      return res.status(200).json({
+        ok: true,
+        hard_constraints: merged.hard_constraints ?? [],
+        soft_constraints: merged.soft_constraints ?? [],
+      });
+    }
+
     // ── forget-constraint — undo a learned standing rule (chat pill / Profile) ─
     if (op === 'forget-constraint') {
       const { googleId, constraint } = req.body;
@@ -632,26 +677,6 @@ export default async function handler(req, res) {
         hard_constraints: merged.hard_constraints ?? [],
         soft_constraints: merged.soft_constraints ?? [],
       });
-    }
-
-    // ── set-reply-style — explicit override from the Profile page ────────────
-    // brief/detailed pin the style (stored as `explicit`, which the per-turn
-    // learner never overrides); neutral clears the pin so the implicit
-    // word-count signal resumes learning.
-    if (op === 'set-reply-style') {
-      const { googleId, style } = req.body;
-      if (!googleId || !['brief', 'neutral', 'detailed'].includes(style))
-        return res.status(400).json({ error: 'googleId and style (brief|neutral|detailed) required' });
-
-      const [user] = await resolveUsers(client, [googleId]);
-      if (!user) return res.status(404).json({ error: 'User not found' });
-
-      const stored = await loadProfile(client, user.id);
-      if (!stored?.profile) return res.status(200).json({ ok: true });
-
-      const comm_style = { ...(stored.profile.comm_style ?? {}), style, explicit: style === 'neutral' ? null : style };
-      await client.from('user_profiles').update({ profile: { ...stored.profile, comm_style } }).eq('user_id', user.id);
-      return res.status(200).json({ ok: true });
     }
 
     // ── record-booking — link a chat to the pending event it produced ────────

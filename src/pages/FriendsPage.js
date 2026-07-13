@@ -330,11 +330,10 @@ const FriendsPage = () => {
                     {friend.picture_url && (
                       <img src={friend.picture_url} alt={friend.name} className="avatar" />
                     )}
+                    {/* List rows show ONLY name + picture — contact details
+                        live in the popup card, opened by clicking. */}
                     <div className="friend-info">
                       <span className="friend-name">{friend.display_name || friend.name}</span>
-                      {friend.show_email && (
-                        <span className="friend-email">{friend.email}</span>
-                      )}
                     </div>
                     <span className="friend-chevron">›</span>
                   </li>
