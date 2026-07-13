@@ -204,6 +204,12 @@
   color: #9CA3AF;
 }
 
+.ais-plan-desc {
+  font-size: 11px;
+  font-style: italic;
+  color: #9CA3AF;
+}
+
 .ais-plan-card.booked .ais-plan-time { color: #15803d; }
 
 .ais-plan-status {
@@ -214,6 +220,33 @@
 }
 
 .ais-plan-status.err { color: #dc2626; }
+
+/* "Saved to your profile" pill under an assistant bubble */
+.ais-remember-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid #F3D8E4;
+  border-radius: 999px;
+  background: #FDF5F7;
+  font-size: 11px;
+  color: #6B7280;
+}
+
+.ais-remember-undo {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #E8607A;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ais-remember-undo:hover { color: #C94D65; text-decoration: underline; }
 
 /* ── Group-mode banner (schedule popup) ── */
 

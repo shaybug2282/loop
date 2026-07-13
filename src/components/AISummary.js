@@ -55,12 +55,13 @@ function itemsFromMessages(messages) {
     try { parsed = JSON.parse(m.content); } catch {}
     const plans = Array.isArray(parsed?.plans) ? parsed.plans : [];
     return {
-      id:       `s${i}`,
-      role:     'ai',
-      text:     typeof parsed?.reply === 'string' ? parsed.reply : m.content,
+      id:         `s${i}`,
+      role:       'ai',
+      text:       typeof parsed?.reply === 'string' ? parsed.reply : m.content,
       plans,
-      bookings: plans.map(() => null),
-      booked:   parsed?.booked ?? null,
+      bookings:   plans.map(() => null),
+      booked:     parsed?.booked ?? null,
+      remembered: parsed?.remembered ?? null,
     };
   });
 
@@ -96,6 +97,7 @@ const PlanCard = ({ plan, booking, locked, onBook }) => {
         {plan.title && <span className="ais-plan-title">{plan.title}</span>}
         <span className="ais-plan-time">{fmt(plan.start)}</span>
         {plan.location && <span className="ais-plan-loc">{plan.location}</span>}
+        {plan.description && <span className="ais-plan-desc">{plan.description}</span>}
       </span>
       {done && <span className="ais-plan-status">Invited!</span>}
       {err  && <span className="ais-plan-status err">Failed</span>}
@@ -231,16 +233,17 @@ const AISummary = ({ group = null, onClose = null }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'AI error');
 
-      const { conversationId, reply, plans = [] } = data;
+      const { conversationId, reply, plans = [], remembered = null } = data;
       setActive(prev => prev?.id
         ? prev
         : { id: conversationId, title: text.slice(0, 60), pendingEventId: null });
       setItems(prev => [...prev, {
-        id:       Date.now() + 1,
-        role:     'ai',
-        text:     reply,
+        id:         Date.now() + 1,
+        role:       'ai',
+        text:       reply,
         plans,
-        bookings: plans.map(() => null),
+        bookings:   plans.map(() => null),
+        remembered,
       }]);
     } catch (err) {
       setItems(prev => [...prev, { id: Date.now() + 1, role: 'error', text: err.message }]);
@@ -273,6 +276,9 @@ const AISummary = ({ group = null, onClose = null }) => {
           durationHours:   durationHours(plan.start, plan.end),
           title:           plan.title,
           location:        plan.location,
+          // Invite-only note: rides on the invite + event card, never on the
+          // Google Calendar event.
+          description:     plan.description,
         }),
       });
       const body = await r.json().catch(() => ({}));
@@ -301,6 +307,27 @@ const AISummary = ({ group = null, onClose = null }) => {
       setBooking('error');
     }
   }, [googleId, active, loadConvos]);
+
+  // undoRemember — the Undo on a "saved to your profile" pill: removes the
+  // captured rule from the stored profile (op:'forget-constraint') and flips
+  // the pill to its undone state. Idempotent server-side, so undoing from a
+  // reopened old chat is safe even if the rule is already gone.
+  const undoRemember = useCallback(async (itemId) => {
+    let constraint = null;
+    setItems(prev => prev.map(it => {
+      if (it.id !== itemId || !it.remembered) return it;
+      constraint = it.remembered.constraint;
+      return { ...it, remembered: { ...it.remembered, undone: true } };
+    }));
+    if (!constraint) return;
+    try {
+      await fetch('/api/ai', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ op: 'forget-constraint', googleId, constraint }),
+      });
+    } catch {}
+  }, [googleId]);
 
   const locked = Boolean(active?.pendingEventId);
 
@@ -435,6 +462,16 @@ const AISummary = ({ group = null, onClose = null }) => {
                         onBook={() => bookPlan(item.id, i, p)}
                       />
                     ))}
+                  </div>
+                )}
+                {item.remembered && (
+                  <div className="ais-remember-pill">
+                    {item.remembered.undone
+                      ? <span>Removed from your profile.</span>
+                      : <>
+                          <span>Saved to your profile: “{item.remembered.constraint}”</span>
+                          <button className="ais-remember-undo" onClick={() => undoRemember(item.id)}>Undo</button>
+                        </>}
                   </div>
                 )}
               </div>

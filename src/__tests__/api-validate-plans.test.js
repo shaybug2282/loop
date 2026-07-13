@@ -63,6 +63,17 @@ describe('validatePlans', () => {
     expect(out[0].participantIds).toEqual([FRIEND]);
   });
 
+  it('passes through a trimmed description capped at 200 chars, drops empty/non-string ones', () => {
+    const out = validatePlans([
+      plan({ description: `  ${'x'.repeat(250)}  ` }),
+      plan({ start: '2026-07-14T10:00:00Z', end: '2026-07-14T11:00:00Z', description: '   ' }),
+      plan({ start: '2026-07-15T10:00:00Z', end: '2026-07-15T11:00:00Z', description: 42 }),
+    ], allowed, { now: NOW });
+    expect(out[0].description).toBe('x'.repeat(200));
+    expect(out[1].description).toBeUndefined();
+    expect(out[2].description).toBeUndefined();
+  });
+
   it('returns [] for non-array input', () => {
     expect(validatePlans(undefined, allowed, { now: NOW })).toEqual([]);
     expect(validatePlans({ plans: [] }, allowed, { now: NOW })).toEqual([]);

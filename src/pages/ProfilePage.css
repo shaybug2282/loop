@@ -210,3 +210,78 @@
 
 .spinner { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Scheduling Assistant preferences ── */
+.profile-card h2 svg { vertical-align: -2px; margin-right: 6px; color: #E8607A; }
+
+.pref-empty {
+  font-size: 0.8rem;
+  color: #9CA3AF;
+  font-style: italic;
+  margin: 0;
+}
+
+.pref-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.pref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid #F3D8E4;
+  border-radius: 999px;
+  background: #FDF5F7;
+  font-size: 0.78rem;
+  color: #374151;
+}
+
+.pref-chip.hard {
+  background: #F9EAF0;
+  font-weight: 600;
+}
+
+.pref-chip-x {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 0;
+  color: #9CA3AF;
+  cursor: pointer;
+}
+
+.pref-chip-x:hover { color: #C94D65; }
+
+.style-row {
+  display: inline-flex;
+  border: 1px solid #F3D8E4;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.style-btn {
+  border: none;
+  background: #fff;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  color: #6B7280;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.style-btn + .style-btn { border-left: 1px solid #F3D8E4; }
+
+.style-btn:hover:not(.active) { background: #FDF5F7; }
+
+.style-btn.active {
+  background: #E8607A;
+  color: #fff;
+  font-weight: 600;
+}

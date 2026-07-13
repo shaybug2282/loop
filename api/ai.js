@@ -6,6 +6,9 @@
 //
 // GET  ?op=conversations&googleId=      → { conversations } (open scheduling chats)
 // GET  ?op=conversation&googleId=&id=   → { conversation } (full message history)
+// GET  ?op=profile-prefs&googleId=      → { hard_constraints, soft_constraints, reply_style } (Profile page)
+// POST { op:'forget-constraint', googleId, constraint }   → remove a learned rule (chat pill Undo / Profile ✕)
+// POST { op:'set-reply-style', googleId, style }          → pin brief|detailed, or neutral to resume learning
 // POST { op:'build-profile', googleId, notes?, force? }        → { profile }
 // POST { op:'schedule', googleId, participantIds[], request }  → { plans }
 // POST { op:'chat', googleId, conversationId?, message, groupId? } → { conversationId, reply, plans }
@@ -26,7 +29,7 @@
 
 import { decrypt } from './_crypto.js';
 import { db, callModel, extractJson } from './_lib.js';
-import { buildProfileForUser, loadProfile } from './_profiles.js';
+import { buildProfileForUser, loadProfile, updateCommStyle, mergeConstraint } from './_profiles.js';
 
 // Re-exported so the existing unit tests (import from api/ai) keep resolving.
 export { extractJson };
@@ -170,7 +173,7 @@ const SCHEDULING_RULES =
   '(2) An empty weekday daytime on a calendar does NOT mean free — many people have work or school that never appears as events. Unless a participant\'s profile indicates a flexible daytime schedule, prefer weekday evenings (17:00–21:30) and weekends for social events; weekday 09:00–17:00 slots are acceptable only when profiles support daytime availability or the request demands it. ' +
   '(3) Never propose a time overlapping any participant\'s busy interval, and leave sensible travel/transition buffer around adjacent events. ' +
   '(4) Honor every hard_constraint absolutely; satisfy soft_constraints and stated preferences whenever possible, and use profile tags (occupation, frequented locations, active hours, social rhythm) to infer unstated preferences. ' +
-  '(5) Offer genuinely DISTINCT options as time/location pairs — vary the day and time-of-day across options (e.g. a weekday evening, a weekend afternoon), not three near-identical slots; suggest a location suited to the event type and participants\' frequented areas when you can, otherwise omit it. ' +
+  '(5) Offer genuinely DISTINCT options — vary the day and time-of-day across options (e.g. a weekday evening, a weekend afternoon), not three near-identical slots. Include a location ONLY when the user named one or asked for venue suggestions — never fill in a venue on your own. ' +
   '(6) All proposed times must be in the future, inside the availability window provided. ' +
   '(7) DATES: a date table (weekday → date, with UTC offset) is provided in your context. It is the ONLY source of truth for which date a weekday falls on — look dates up there, never compute them. When the user says "Monday"/"this weekend"/etc., resolve it against the table before anything else. ' +
   '(8) Every "start"/"end" you output must be ISO 8601 WITH the explicit UTC offset from the date table for that day (e.g. "2026-07-13T18:00:00-05:00") so the time means exactly what the participant\'s clock says — never output a bare local time or a bare "Z" time unless the timezone is UTC.';
@@ -181,7 +184,7 @@ const SCHEDULING_RULES =
 const SCHEDULER_SYSTEM =
   'You are a scheduling engine. You receive a request plus, for every participant, their scheduling profile (tags, hard/soft constraints, inferred rhythm, awake hours, weekday pattern) and their individual busy intervals rendered in that participant\'s own local timezone. Find times that are reasonable for ALL participants. ' +
   SCHEDULING_RULES + ' ' +
-  'You MUST respond with ONLY a raw JSON object — no prose, no markdown, no explanation. The object must have a "plans" array (up to 3 distinct time/location pairs, best first) where each entry has: "title" (string), "start" (ISO 8601 datetime with explicit UTC offset), "end" (ISO 8601 datetime with explicit UTC offset), "location" (optional string — a specific helpful venue or area suited to the event and participants; omit if unknown). Never include explanations for why a time was chosen. ' +
+  'You MUST respond with ONLY a raw JSON object — no prose, no markdown, no explanation. The object must have a "plans" array (up to 3 distinct options, best first) where each entry has: "title" (string), "start" (ISO 8601 datetime with explicit UTC offset), "end" (ISO 8601 datetime with explicit UTC offset), "location" (string — only when the request named or asked for one; omit otherwise). Never include explanations for why a time was chosen. ' +
   'If you need clarification before proposing times, return { "plans": [], "clarification_needed": "your question here" } — still as raw JSON only.';
 
 // Static system prompt for the conversational assistant (op:'chat'). Same
@@ -189,13 +192,45 @@ const SCHEDULER_SYSTEM =
 // lives in the dynamic context block, never here.
 const AUTHORED_PROMPT =
   'CRITICAL OUTPUT CONTRACT: you must ALWAYS respond with ONLY a raw JSON object — never plain text, never markdown, nothing before or after the JSON. The UI parses it directly. Valid responses are exactly one of: ' +
-  '(A) {"reply":"...","plans":[...]} — reply is your short, natural conversational message; plans is up to 3 suggestions (or [] when not suggesting times). Each plan: {"title":"...","start":"ISO8601 with explicit UTC offset","end":"ISO8601 with explicit UTC offset","location":"optional string","participantIds":["friend uuids from the roster, [] if for the user alone"]}. ' +
+  '(A) {"reply":"...","plans":[...]} — reply is your short, natural conversational message; plans is up to 3 suggestions (or [] when not suggesting times). Each plan: {"title":"...","start":"ISO8601 with explicit UTC offset","end":"ISO8601 with explicit UTC offset","location":"only when the user named or asked for one — never invent a venue","description":"optional invite note ≤140 chars — only when the user asks to include a note or gives details invitees need; it appears on the invite and event card, never on the Google Calendar event","participantIds":["friend uuids from the roster, [] if for the user alone"]}. ' +
+  'Form (A) may also carry "remember":{"constraint":"...","kind":"hard"|"soft"} — include ONLY when the user directly states a durable scheduling rule about themselves in THIS message ("I never do weekday lunches" → hard, "I prefer mornings" → soft); never inferred, never one already in their profile; acknowledge it in a few words in reply. Use kind "forget" when they retract one. ' +
   '(B) {"action":"check_availability","participantIds":["friend uuids"]} — returns those friends\' real calendar busy windows and full scheduling profiles as the next message. ' +
-  'You are a concise, friendly scheduling assistant helping one user coordinate events with friends. When the user names a friend, resolve them via the roster. BEFORE first proposing times for any event involving friends, you MUST issue check_availability for all involved friends so proposals rest on their real calendars and profiles — never guess someone else\'s availability. Do not repeat a lookup within the same turn. ' +
+  'You are a concise, friendly scheduling assistant helping one user coordinate events with friends. When the user names a friend, resolve them via the roster. Roster entries may include shared_history — events the user actually booked with that friend before; use it to default the event type, duration, day, and time instead of asking. BEFORE first proposing times for any event involving friends, you MUST issue check_availability for all involved friends so proposals rest on their real calendars and profiles — never guess someone else\'s availability. Do not repeat a lookup within the same turn. ' +
   'CALENDAR DATA FRESHNESS: your context may include participants\' calendars from an earlier lookup, labeled with when they were fetched. Reuse them for small revisions in the same timeframe, but if participants changed, the timeframe moved, or the data is more than a day old, issue check_availability again before proposing times. If no participant calendar data is in context, you do NOT have any — never propose times for friends from memory of a previous turn. ' +
   'CORRECTIONS: when the user rejects, corrects, or expresses doubt about a suggestion, treat that as a standing hard constraint for the rest of this conversation — never re-propose a slot (or anything materially similar) that the user turned down, and re-read their message for the specific day/time they actually asked for before revising. ' +
   SCHEDULING_RULES + ' ' +
-  'Keep replies short and warm — no bullet lists, no explanations of why times were chosen. When your reply mentions a day, name both weekday and date from the date table (e.g. "Monday the 13th") so mistakes are visible. If you lack essential information (duration, rough timeframe, who is coming), set plans to [] and ask in reply. If the user gives feedback on suggestions, revise (re-check availability if participants changed). After a booking is confirmed, acknowledge briefly with plans [].';
+  'PRIVACY: never remark on or characterize another participant\'s calendar or availability ("X is wide open", "Y has a busy week") — reference someone\'s schedule only when it explains a concrete tradeoff between options (e.g. "Friday 5:00 works but is a tight squeeze after Sam\'s prior event; Monday leaves more buffer"). ' +
+  'Be as concise as possible: replies are warm but minimal, no bullet lists, and NEVER restate what the plan cards already show (title, date, time, location, description) — add words only for a necessary tradeoff, caveat, or question. When your reply does mention a day, name both weekday and date from the date table (e.g. "Monday the 13th") so mistakes are visible. If the context includes a reply-style preference learned for this user, match it. ' +
+  'CLARIFICATION BUDGET: ask a question (plans []) ONLY when something essential is genuinely unresolvable from the request, profiles, and shared_history — like who is coming. Otherwise default sensibly — duration from the event type or shared_history (dinner ≈ 2h, coffee ≈ 1h), a vague timeframe means the next 7 days — and propose times immediately; a correction from the user costs less than a question. ' +
+  'If the user gives feedback on suggestions, revise (re-check availability if participants changed). After a booking is confirmed, acknowledge briefly with plans [].';
+
+// gatherSharedHistory — per-friend digest of events the user actually booked
+// with each friend through the app (status accepted), newest first. One query
+// for all ids, filtered in JS — never a query per friend. Rendered as compact
+// strings in the user's timezone so the model can default event type/day/
+// time/duration from real pairing habits instead of asking.
+// out: { [friendId]: ['Dinner Thu 19:00 (2h)', ...] } (≤3 each; ids with no
+// shared events are omitted entirely).
+async function gatherSharedHistory(client, userId, friendIds, tz) {
+  if (!friendIds.length) return {};
+  const { data } = await client
+    .from('pending_events')
+    .select('creator_id, invited_user_ids, event_time, duration_hours, title')
+    .eq('status', 'accepted')
+    .or(`creator_id.eq.${userId},invited_user_ids.cs.{${userId}}`)
+    .order('event_time', { ascending: false })
+    .limit(60);
+  if (!data?.length) return {};
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const out = {};
+  for (const fid of friendIds) {
+    const shared = data.filter(e => e.creator_id === fid || (e.invited_user_ids ?? []).includes(fid));
+    if (!shared.length) continue;
+    out[fid] = shared.slice(0, 3).map(e =>
+      `${e.title || 'Hangout'} ${fmt.format(new Date(e.event_time))} (${e.duration_hours ?? 1}h)`);
+  }
+  return out;
+}
 
 // loadGroupContext — groupId → { id, name, members: [{ id, name }] } for a
 // group-mode chat; members are the group's OTHER accepted members (requester
@@ -243,6 +278,8 @@ const ISO_WITH_OFFSET = /(?:Z|[+-]\d{2}:?\d{2})$/;
 // dates parse AND carry an explicit UTC offset, end after start, start in the
 // future (and inside the scheduling window when given), no overlap with the
 // requester's busy intervals, participantIds restricted to allowed ids.
+// location/description pass through only as trimmed non-empty strings
+// (description capped at 200 chars — it's an invite note, not a document).
 // Deterministic backstop for model time errors. Exported for unit tests.
 // opts: { busy?: [{start,end}], windowEnd?: ISO string, now?: ms epoch }
 export function validatePlans(plans, friendIds, { busy = [], windowEnd = null, now = Date.now() } = {}) {
@@ -265,6 +302,7 @@ export function validatePlans(plans, friendIds, { busy = [], windowEnd = null, n
       start:          new Date(p.start).toISOString(),
       end:            new Date(p.end).toISOString(),
       ...(typeof p.location === 'string' && p.location.trim() ? { location: p.location.trim() } : {}),
+      ...(typeof p.description === 'string' && p.description.trim() ? { description: p.description.trim().slice(0, 200) } : {}),
       participantIds: (Array.isArray(p.participantIds) ? p.participantIds : []).filter(id => friendIds.has(id)),
     }));
 }
@@ -300,6 +338,18 @@ export default async function handler(req, res) {
         const convo = await loadConversation(client, me.id, id);
         if (!convo) return res.status(404).json({ error: 'Conversation not found' });
         return res.status(200).json({ conversation: convo });
+      }
+
+      // The learned-profile surface for the Profile page: standing rules the
+      // assistant captured plus the current reply-style setting.
+      if (op === 'profile-prefs') {
+        const stored = await loadProfile(client, me.id);
+        const p = stored?.profile ?? {};
+        return res.status(200).json({
+          hard_constraints: p.hard_constraints ?? [],
+          soft_constraints: p.soft_constraints ?? [],
+          reply_style:      p.comm_style?.style ?? 'neutral',
+        });
       }
 
       return res.status(400).json({ error: `Unknown op: ${op}` });
@@ -431,23 +481,28 @@ export default async function handler(req, res) {
         .eq('user_id', user.id);
       const friendRows   = (friendships ?? []).map(f => f.friend).filter(Boolean);
       const friendIds    = new Set(friendRows.map(f => f.id));
-      const friendProfs  = await loadProfiles(client, [...friendIds]);
-      const friends      = friendRows.map(f => {
-        const p = friendProfs[f.id];
-        return {
-          id:   f.id,
-          name: f.display_name || f.name,
-          ...(p ? { tags: p.tags, awake_hours: p.awake_hours, weekday_pattern: p.weekday_pattern } : {}),
-        };
-      });
 
       // Group members may not all be friends of the requester, but they are
       // valid participants in a group-mode chat — widen the allowed set used
       // for availability lookups and plan validation.
       const allowedIds = new Set([...friendIds, ...(group?.members ?? []).map(m => m.id)]);
 
-      // User's own busy windows — gives Sonnet real availability context.
-      const availability = await gatherBusy([user]);
+      // Friend profile digests + per-friend booked-event history + the user's
+      // own busy windows, fetched in parallel (independent queries).
+      const [friendProfs, sharedHist, availability] = await Promise.all([
+        loadProfiles(client, [...friendIds]),
+        gatherSharedHistory(client, user.id, [...allowedIds], user.timezone || 'UTC'),
+        gatherBusy([user]),
+      ]);
+      const friends = friendRows.map(f => {
+        const p = friendProfs[f.id];
+        return {
+          id:   f.id,
+          name: f.display_name || f.name,
+          ...(p ? { tags: p.tags, awake_hours: p.awake_hours, weekday_pattern: p.weekday_pattern } : {}),
+          ...(sharedHist[f.id] ? { shared_history: sharedHist[f.id] } : {}),
+        };
+      });
 
       const persisted = Array.isArray(convo.messages) ? convo.messages : [];
 
@@ -458,16 +513,24 @@ export default async function handler(req, res) {
 
       const tz  = user.timezone || 'UTC';
       const now = new Date();
+      // comm_style is served to the model as the one-line reply-style hint
+      // below, not as raw profile JSON.
+      const { comm_style: commStyle, ...schedProfile } = stored?.profile ?? {};
       const context = [
         `Current time: ${now.toLocaleString('en-US', { timeZone: tz, weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (user's timezone: ${tz})`,
         `Date table (next 14 days, ${tz}):\n${renderDateTable(tz)}`,
         `User: ${user.display_name || user.name}`,
-        stored?.profile ? `User scheduling profile: ${JSON.stringify(stored.profile)}` : null,
+        Object.keys(schedProfile).length ? `User scheduling profile: ${JSON.stringify(schedProfile)}` : null,
+        commStyle?.style === 'brief'
+          ? 'Reply-style preference (learned): this user likes minimal replies — one short sentence, no elaboration.'
+          : commStyle?.style === 'detailed'
+            ? 'Reply-style preference (learned): this user appreciates a little more context — up to 2–3 sentences when there is something worth explaining.'
+            : null,
         friends.length
           ? `Friends roster (id, name, profile digest): ${JSON.stringify(friends)}`
           : 'Friends: none yet.',
         group
-          ? `GROUP SCHEDULING MODE: this conversation schedules ONE event for the group "${group.name}". The other group members (id, name): ${JSON.stringify(group.members)}. Every plan's participantIds MUST include ALL of these member ids — never ask who is attending, and run check_availability for all of them before first proposing times.`
+          ? `GROUP SCHEDULING MODE: this conversation schedules ONE event for the group "${group.name}". The other group members (id, name): ${JSON.stringify(group.members.map(m => ({ ...m, ...(sharedHist[m.id] ? { shared_history: sharedHist[m.id] } : {}) })))}. Every plan's participantIds MUST include ALL of these member ids — never ask who is attending, and run check_availability for all of them before first proposing times.`
           : null,
         `User's own busy windows (next 14 days, shown in ${tz}): ${renderBusy(availability.busy, tz)}`,
         prevAvail
@@ -511,20 +574,84 @@ export default async function handler(req, res) {
       const reply = typeof parsed?.reply === 'string' ? parsed.reply : (raw || 'Sorry — I had trouble with that. Could you rephrase?');
       const plans = validatePlans(parsed?.plans, allowedIds, { busy: availability.busy, windowEnd: availability.windowEnd });
 
+      // Standing-constraint capture: when the model flagged a directly stated
+      // durable rule ("I never do weekday lunches"), fold it into the profile
+      // in memory — updateCommStyle below performs the single profile write
+      // for this turn, so the two learners can't clobber each other. Actual
+      // additions are surfaced to the client as `remembered` so the chat can
+      // show a "saved to your profile" pill with an Undo (op:'forget-constraint').
+      let profileNow = stored?.profile ?? null;
+      let remembered = null;
+      if (profileNow && parsed?.remember) {
+        const merged = mergeConstraint(profileNow, parsed.remember);
+        if (merged !== profileNow && ['hard', 'soft'].includes(parsed.remember.kind)) {
+          remembered = { constraint: String(parsed.remember.constraint).trim().slice(0, 120), kind: parsed.remember.kind };
+        }
+        profileNow = merged;
+      }
+
       // Persist the exchange (assistant stored as its JSON contract string so
       // plan cards re-render when the chat is reopened). Lookup exchanges are
       // not replayed verbatim, but their digest rides along on the message.
       const assistantMsg = {
         role: 'assistant',
-        content: JSON.stringify({ reply, plans }),
+        content: JSON.stringify({ reply, plans, ...(remembered ? { remembered } : {}) }),
         ...(lastAvailability ? { availability: lastAvailability } : {}),
       };
-      await client
-        .from('ai_conversations')
-        .update({ messages: [...persisted, userMsg, assistantMsg], updated_at: new Date().toISOString() })
-        .eq('id', convo.id);
+      await Promise.all([
+        client
+          .from('ai_conversations')
+          .update({ messages: [...persisted, userMsg, assistantMsg], updated_at: new Date().toISOString() })
+          .eq('id', convo.id),
+        // Fold this turn into the user's learned reply-style preference
+        // (deterministic — no model call; errors swallowed inside). Writes
+        // profileNow, which already carries any `remember` constraint above.
+        updateCommStyle(client, user.id, profileNow, message.trim()),
+      ]);
 
-      return res.status(200).json({ conversationId: convo.id, reply, plans });
+      return res.status(200).json({ conversationId: convo.id, reply, plans, ...(remembered ? { remembered } : {}) });
+    }
+
+    // ── forget-constraint — undo a learned standing rule (chat pill / Profile) ─
+    if (op === 'forget-constraint') {
+      const { googleId, constraint } = req.body;
+      if (!googleId || !constraint?.trim())
+        return res.status(400).json({ error: 'googleId and constraint required' });
+
+      const [user] = await resolveUsers(client, [googleId]);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const stored = await loadProfile(client, user.id);
+      if (!stored?.profile)
+        return res.status(200).json({ ok: true, hard_constraints: [], soft_constraints: [] });
+
+      const merged = mergeConstraint(stored.profile, { constraint: constraint.trim(), kind: 'forget' });
+      await client.from('user_profiles').update({ profile: merged }).eq('user_id', user.id);
+      return res.status(200).json({
+        ok: true,
+        hard_constraints: merged.hard_constraints ?? [],
+        soft_constraints: merged.soft_constraints ?? [],
+      });
+    }
+
+    // ── set-reply-style — explicit override from the Profile page ────────────
+    // brief/detailed pin the style (stored as `explicit`, which the per-turn
+    // learner never overrides); neutral clears the pin so the implicit
+    // word-count signal resumes learning.
+    if (op === 'set-reply-style') {
+      const { googleId, style } = req.body;
+      if (!googleId || !['brief', 'neutral', 'detailed'].includes(style))
+        return res.status(400).json({ error: 'googleId and style (brief|neutral|detailed) required' });
+
+      const [user] = await resolveUsers(client, [googleId]);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const stored = await loadProfile(client, user.id);
+      if (!stored?.profile) return res.status(200).json({ ok: true });
+
+      const comm_style = { ...(stored.profile.comm_style ?? {}), style, explicit: style === 'neutral' ? null : style };
+      await client.from('user_profiles').update({ profile: { ...stored.profile, comm_style } }).eq('user_id', user.id);
+      return res.status(200).json({ ok: true });
     }
 
     // ── record-booking — link a chat to the pending event it produced ────────

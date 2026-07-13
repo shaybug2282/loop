@@ -2,9 +2,11 @@
 //
 // GET  ?op=pending-events&googleId=              → events/invites for this user
 //        (opportunistically purges declined/rescheduled rows older than 2 weeks)
-// POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location? }
+// POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location?, description? }
+//        description = short invite-only note: shown on invite + event cards, never sent to Google Calendar
 // POST { op:'respond', googleId, eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
-// POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location? }  → creator edits; restarts the invite cycle
+// POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location?, description? }  → creator edits;
+//        material edits (time/duration/title/location) restart the invite cycle — a description-only edit does not
 // POST { op:'delete-event', googleId, eventId }  → creator only; cancels the Google copy (if any) and removes the row
 // POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
 //
@@ -12,7 +14,7 @@
 
 import { decrypt } from './_crypto.js';
 import { db } from './_lib.js';
-import { refreshProfileIfStale } from './_profiles.js';
+import { refreshProfileIfStale, recordRescheduleNote, recordOutcome } from './_profiles.js';
 
 // Merge overlapping busy intervals, then find durationMs-length free slots.
 // Prefers daytime (9 AM – 6 PM) on first pass; any hour on second pass.
@@ -147,7 +149,8 @@ async function confirmEvent(client, ev, eventId, patch) {
   }).filter(Boolean);
 
   // Create one shared event on the creator's calendar; Google delivers
-  // invitations to every attendee automatically.
+  // invitations to every attendee automatically. ev.description is deliberately
+  // NOT passed: the invite note lives only on Loop's invite/event cards.
   let googleEventId = null;
   if (creatorUser?.access_token) {
     try {
@@ -281,7 +284,7 @@ export default async function handler(req, res) {
     const { op } = req.body ?? {};
 
     if (op === 'create-event') {
-      const { creatorGoogleId, invitedUserIds, eventTime, durationHours = 1, title, location } = req.body;
+      const { creatorGoogleId, invitedUserIds, eventTime, durationHours = 1, title, location, description } = req.body;
       if (!creatorGoogleId || !invitedUserIds?.length || !eventTime)
         return res.status(400).json({ error: 'creatorGoogleId, invitedUserIds, eventTime required' });
 
@@ -294,13 +297,22 @@ export default async function handler(req, res) {
 
       if (error) return res.status(500).json({ error: error.message });
 
-      // Stored separately so an unmigrated DB (missing title/location, see
-      // 007_ai_conversations.sql) can't fail the create above.
-      if (title || location) {
+      // Stored separately so an unmigrated DB (missing title/location/
+      // description, see 007/009) can't fail the create above. description is
+      // the invite-only note — shown on invite + event cards, never forwarded
+      // to the Google Calendar event (see confirmEvent).
+      if (title || location || description) {
         await client.from('pending_events')
-          .update({ ...(title ? { title } : {}), ...(location ? { location } : {}) })
+          .update({
+            ...(title ? { title } : {}),
+            ...(location ? { location } : {}),
+            ...(description ? { description: String(description).slice(0, 500) } : {}),
+          })
           .eq('id', data.id);
       }
+
+      // Log the creator's side into the durable outcome history.
+      await recordOutcome(client, creator.id, { id: data.id, title: title ?? null, event_time: eventTime, duration_hours: durationHours }, 'created');
 
       // Being invited to an event is the weekly trigger to refresh each
       // participant's Haiku scheduling profile. refreshProfileIfStale is a
@@ -332,6 +344,11 @@ export default async function handler(req, res) {
       // (or otherwise respond to) a time that is being moved.
       if (ev.status === 'rescheduled')
         return res.status(409).json({ error: 'Event is being rescheduled' });
+
+      // Durable outcome history — written at response time so it survives the
+      // purge of dead pending_events rows (feeds the weekly Haiku profiler).
+      await recordOutcome(client, me.id, ev,
+        action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'asked_to_reschedule');
 
       if (action === 'decline') {
         // The creator is notified either way via the declines array.
@@ -373,7 +390,13 @@ export default async function handler(req, res) {
         const requests = [...new Set([...(ev.reschedule_requests ?? []), me.id])];
         await client.from('pending_events').update({ reschedule_requests: requests }).eq('id', eventId);
 
-        await seedRescheduleConversation(client, ev, me.id, typeof note === 'string' ? note.slice(0, 500) : null);
+        const cleanNote = typeof note === 'string' && note.trim() ? note.trim().slice(0, 500) : null;
+        await seedRescheduleConversation(client, ev, me.id, cleanNote);
+        // The note is a first-party statement about the requester's own
+        // availability ("evenings after 6 work best") — bank it on THEIR
+        // profile so the weekly Haiku rebuild can mine it for durable
+        // constraints. Best-effort; never blocks the response.
+        if (cleanNote) await recordRescheduleNote(client, me.id, cleanNote);
         return res.status(200).json({ ok: true, status: 'rescheduled' });
       }
 
@@ -391,7 +414,7 @@ export default async function handler(req, res) {
     }
 
     if (op === 'update-event') {
-      const { googleId, eventId, title, eventTime, durationHours, location } = req.body;
+      const { googleId, eventId, title, eventTime, durationHours, location, description } = req.body;
       if (!googleId || !eventId)
         return res.status(400).json({ error: 'googleId and eventId required' });
 
@@ -404,9 +427,29 @@ export default async function handler(req, res) {
       if (ev.creator_id !== me.id)
         return res.status(403).json({ error: 'Only the event creator can edit it' });
 
-      // Any edit restarts the invite cycle: acceptances/declines are wiped and
-      // the event returns to 'pending', so every invitee gets a fresh invite
-      // card reflecting the updated details.
+      // Description is an invite-only note — changing it alone doesn't alter
+      // what anyone agreed to, so it must NOT restart the invite cycle. Only
+      // provided fields that actually differ from the stored row count as
+      // material (the client sends only changed fields, this is the backstop).
+      const materialChange =
+        (eventTime !== undefined && eventTime !== null && new Date(eventTime).getTime() !== new Date(ev.event_time).getTime()) ||
+        (durationHours !== undefined && durationHours !== null && Number(durationHours) !== Number(ev.duration_hours)) ||
+        (title !== undefined && (title ?? null) !== (ev.title ?? null)) ||
+        (location !== undefined && (location ?? null) !== (ev.location ?? null));
+
+      if (!materialChange) {
+        if (description !== undefined) {
+          const { error } = await client.from('pending_events')
+            .update({ description: description ? String(description).slice(0, 500) : null })
+            .eq('id', eventId);
+          if (error) return res.status(500).json({ error: error.message });
+        }
+        return res.status(200).json({ ok: true, inviteCycleRestarted: false });
+      }
+
+      // Any material edit restarts the invite cycle: acceptances/declines are
+      // wiped and the event returns to 'pending', so every invitee gets a
+      // fresh invite card reflecting the updated details.
       const { error } = await client.from('pending_events').update({
         ...(eventTime ? { event_time: eventTime } : {}),
         ...(durationHours ? { duration_hours: durationHours } : {}),
@@ -420,10 +463,11 @@ export default async function handler(req, res) {
       // Columns from later migrations — updated separately so an unmigrated DB
       // (missing title/location or reschedule_requests) can't fail the core
       // update above.
-      if (title !== undefined || location !== undefined) {
+      if (title !== undefined || location !== undefined || description !== undefined) {
         await client.from('pending_events').update({
           ...(title !== undefined ? { title } : {}),
           ...(location !== undefined ? { location } : {}),
+          ...(description !== undefined ? { description: description ? String(description).slice(0, 500) : null } : {}),
         }).eq('id', eventId);
       }
       await client.from('pending_events').update({ reschedule_requests: [] }).eq('id', eventId);

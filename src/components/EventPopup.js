@@ -47,7 +47,9 @@ function normalize({ loopEvent, googleEvent }) {
       allDay:        false,
       durationHours: e.duration_hours ?? 1,
       location:      e.location || '',
-      description:   '',
+      // Invite-only note (migration 009) — shown here and on the invite,
+      // never forwarded to the confirmed Google Calendar event.
+      description:   e.description || '',
       status:        e.status,
       canEdit:       Boolean(e.isCreator),
       // Invitees answer the invite right in the popup (the pending tiles and
@@ -136,6 +138,12 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
 
   const googleId = localStorage.getItem('googleUserId');
   const dirty    = JSON.stringify(draft) !== JSON.stringify(baseline);
+  const changed  = k => String(draft[k] ?? '') !== String(baseline[k] ?? '');
+  // Description is an invite-only note; editing it alone doesn't change what
+  // invitees agreed to, so Loop events skip the re-invite cycle for it (the
+  // server enforces the same rule) — the confirm copy must match.
+  const materialDirty = ['title', 'date', 'time', 'durationHours', 'location'].some(changed);
+  const noteOnlyEdit  = norm.source === 'loop' && dirty && !materialDirty;
 
   const set       = patch => { setDraft(prev => ({ ...prev, ...patch })); setSavedMsg(null); setError(null); };
   const startEdit = field => { if (norm.canEdit && !saving) setEditing(field); };
@@ -172,21 +180,27 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
     setError(null);
     try {
       if (norm.source === 'loop') {
-        const eventTime = new Date(`${draft.date}T${draft.time}`).toISOString();
+        // Send only the fields that changed — the server treats a
+        // description-only payload as non-material and keeps acceptances.
         const r = await fetch('/api/schedule', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
             op: 'update-event', googleId, eventId: norm.id,
-            title:         draft.title || null,
-            eventTime,
-            durationHours: Number(draft.durationHours) || 1,
-            location:      draft.location || null,
+            ...(changed('title') ? { title: draft.title || null } : {}),
+            ...((changed('date') || changed('time'))
+              ? { eventTime: new Date(`${draft.date}T${draft.time}`).toISOString() }
+              : {}),
+            ...(changed('durationHours') ? { durationHours: Number(draft.durationHours) || 1 } : {}),
+            ...(changed('location') ? { location: draft.location || null } : {}),
+            ...(changed('description') ? { description: draft.description || null } : {}),
           }),
         });
         const body = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(body.error || `Error ${r.status}`);
-        setSavedMsg('Saved — an updated invite was sent to all invitees.');
+        setSavedMsg(noteOnlyEdit
+          ? 'Saved — the note was updated for everyone; no new invites needed.'
+          : 'Saved — an updated invite was sent to all invitees.');
       } else {
         const patch = {
           summary:     draft.title,
@@ -377,7 +391,7 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
           </div>
         )}
 
-        {norm.source === 'google' && (draft.description || norm.canEdit) && (
+        {(draft.description || norm.canEdit) && (
           <div className="ep-row">
             <AlignLeft size={13} className="ep-row-ic" />
             {editing === 'description' ? (
@@ -386,7 +400,8 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
                 value={draft.description}
                 autoFocus
                 rows={3}
-                placeholder="Add description"
+                maxLength={norm.source === 'loop' ? 500 : undefined}
+                placeholder={norm.source === 'loop' ? 'Add invite note (stays off Google Calendar)' : 'Add description'}
                 onChange={e => set({ description: e.target.value })}
                 onBlur={() => setEditing(null)}
               />
@@ -394,7 +409,7 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
               <span
                 className={`ep-row-val${editableCls}${draft.description ? '' : ' ep-row-empty'}`}
                 onClick={() => startEdit('description')}
-              >{draft.description || 'Add description'}</span>
+              >{draft.description || (norm.source === 'loop' ? 'Add invite note' : 'Add description')}</span>
             )}
           </div>
         )}
@@ -451,9 +466,11 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
           <div className={`ep-confirm${nudge ? ' nudged' : ''}`}>
             <p className="ep-confirm-msg">
               {nudge ? 'You have unsaved edits. ' : ''}
-              {norm.source === 'loop'
-                ? 'Confirm edits? An updated invite will be sent to all invitees.'
-                : 'Confirm edits? Attendees will be sent the updated invite.'}
+              {noteOnlyEdit
+                ? 'Confirm edits? The note updates for everyone — no new invites are sent.'
+                : norm.source === 'loop'
+                  ? 'Confirm edits? An updated invite will be sent to all invitees.'
+                  : 'Confirm edits? Attendees will be sent the updated invite.'}
             </p>
             <div className="ep-confirm-btns">
               <button className="ep-btn-confirm" onClick={save} disabled={saving}>

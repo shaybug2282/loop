@@ -15,6 +15,8 @@ file **in numeric order** by pasting it into the Supabase SQL editor
 | `006_pending_events_google_event_id.sql` | `pending_events.google_event_id` column | `api/schedule.js` (calendar dedupe of the confirmed Google copy) |
 | `007_ai_conversations.sql` | `ai_conversations` + `pending_events.title`/`location` columns | `api/ai.js` (persistent Scheduling Assistant chats), `api/schedule.js` (event title/location) |
 | `008_reschedule_requests.sql` | `pending_events.reschedule_requests` column | `api/schedule.js` (invitee "Reschedule" action → AI-assisted rebooking) |
+| `009_pending_events_description.sql` | `pending_events.description` column | `api/schedule.js` (invite-only note on invite/event cards; never sent to Google Calendar) |
+| `010_event_outcomes.sql` | `event_outcomes` | `api/schedule.js` (invite responses logged at response time), `api/_profiles.js` (profiler outcome signals that survive purges) |
 
 ## Base tables
 s

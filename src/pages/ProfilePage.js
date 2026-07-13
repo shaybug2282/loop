@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Save, Loader, Home } from 'lucide-react';
+import { Menu, Save, Loader, Home, Sparkles, X } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../contexts/AuthContext';
 import './ProfilePage.css';
@@ -29,6 +29,11 @@ const ProfilePage = () => {
 
   const googleId = localStorage.getItem('googleUserId');
 
+  // Scheduling Assistant preferences — everything the assistant has learned
+  // about this user that they can audit here: standing rules (removable) and
+  // the reply-length style (pinnable). null until loaded; hidden on error.
+  const [prefs, setPrefs] = useState(null);
+
   // Load current profile values via the API on mount
   useEffect(() => {
     if (!googleId) { setLoading(false); return; }
@@ -43,6 +48,47 @@ const ProfilePage = () => {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, [googleId]);
+
+  // Load the assistant's learned preferences (independent of the form above).
+  useEffect(() => {
+    if (!googleId) return;
+    fetch(`/api/ai?op=profile-prefs&googleId=${encodeURIComponent(googleId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setPrefs(data); })
+      .catch(() => {});
+  }, [googleId]);
+
+  // removeConstraint — delete one learned rule; the server echoes the updated
+  // lists back so the UI never drifts from the stored profile.
+  const removeConstraint = useCallback(async (constraint) => {
+    setPrefs(prev => prev && {
+      ...prev,
+      hard_constraints: prev.hard_constraints.filter(c => c !== constraint),
+      soft_constraints: prev.soft_constraints.filter(c => c !== constraint),
+    });
+    try {
+      const r = await fetch('/api/ai', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ op: 'forget-constraint', googleId, constraint }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setPrefs(prev => prev && { ...prev, hard_constraints: data.hard_constraints, soft_constraints: data.soft_constraints });
+      }
+    } catch {}
+  }, [googleId]);
+
+  const setReplyStyle = useCallback(async (style) => {
+    setPrefs(prev => prev && { ...prev, reply_style: style });
+    try {
+      await fetch('/api/ai', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ op: 'set-reply-style', googleId, style }),
+      });
+    } catch {}
   }, [googleId]);
 
   const handleSave = async () => {
@@ -156,6 +202,56 @@ const ProfilePage = () => {
               </button>
             </div>
           </div>
+
+          {/* Scheduling Assistant — learned rules & reply style */}
+          {prefs && (
+            <div className="profile-card">
+              <h2><Sparkles size={15} /> Scheduling Assistant</h2>
+
+              <div className="field-group">
+                <label>Things it remembers about you</label>
+                <p className="field-hint">
+                  Rules the assistant saved from your chats and reschedule notes — it schedules around these. Remove any that shouldn't stick.
+                </p>
+                {prefs.hard_constraints.length === 0 && prefs.soft_constraints.length === 0 ? (
+                  <p className="pref-empty">Nothing yet — tell the assistant things like “I never do weekday lunches” and they'll show up here.</p>
+                ) : (
+                  <ul className="pref-list">
+                    {prefs.hard_constraints.map(c => (
+                      <li key={`h-${c}`} className="pref-chip hard">
+                        <span>{c}</span>
+                        <button className="pref-chip-x" title="Remove" onClick={() => removeConstraint(c)}><X size={11} /></button>
+                      </li>
+                    ))}
+                    {prefs.soft_constraints.map(c => (
+                      <li key={`s-${c}`} className="pref-chip">
+                        <span>{c}</span>
+                        <button className="pref-chip-x" title="Remove" onClick={() => removeConstraint(c)}><X size={11} /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="field-group">
+                <label>Reply length</label>
+                <p className="field-hint">
+                  “Auto” learns from how you write; pinning Brief or Detailed overrides that.
+                </p>
+                <div className="style-row" role="radiogroup" aria-label="Assistant reply length">
+                  {[['brief', 'Brief'], ['neutral', 'Auto'], ['detailed', 'Detailed']].map(([val, label]) => (
+                    <button
+                      key={val}
+                      role="radio"
+                      aria-checked={prefs.reply_style === val}
+                      className={`style-btn${prefs.reply_style === val ? ' active' : ''}`}
+                      onClick={() => setReplyStyle(val)}
+                    >{label}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       )}
