@@ -313,9 +313,9 @@ const ProfilePage = () => {
               <h2><Sparkles size={15} /> Preferences</h2>
 
               <div className="field-group">
-                <label>Things the assistant remembers about you</label>
+                <label>Anything to keep in mind about you?</label>
                 <p className="field-hint">
-                  Add your own (e.g. “I'm not a morning person”) — the assistant also saves rules you state in chats and reschedule notes. Remove any that shouldn't stick.
+                  Add your own (e.g. “I'm not a morning person”)
                 </p>
 
                 <div className="pref-add-row">
