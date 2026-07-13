@@ -2,15 +2,18 @@
 //
 // GET  ?op=pending-events&googleId=              → events/invites for this user
 //        (opportunistically purges declined/rescheduled rows older than 2 weeks)
-// POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location?, description? }
+// POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location?, description?, groupId? }
 //        description = short invite-only note: shown on invite + event cards, never sent to Google Calendar
+//        groupId = group tag (sent automatically by group-mode assistant bookings); stamped only if the creator
+//        is an accepted member of that group
 // POST { op:'respond', googleId, eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
 // POST { op:'raincheck', googleId, eventId, undo? }  → secret mutual cancel, two-person CONFIRMED events only. One
 //        side's raincheck is invisible to the other (API exposes only iRainchecked, never the array) and can be
 //        retracted with undo:true until the other side completes it; when BOTH raincheck, the event flips to
 //        'rainchecked', the Google copy is cancelled, and both users get a notification
-// POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location?, description?, readdUserIds? }  → creator edits;
-//        material edits (time/duration/title/location or a re-invite) restart the invite cycle — a description-only edit does not.
+// POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location?, description?, groupId?, readdUserIds? }  → creator edits;
+//        material edits (time/duration/title/location or a re-invite) restart the invite cycle — a description- or
+//        group-tag-only edit does not (groupId: uuid tags the event with a group, null removes the tag).
 //        Users who declined stay OUT of the restarted cycle unless the creator re-adds them via readdUserIds (⊆ declines)
 // POST { op:'delete-event', googleId, eventId }  → creator only; cancels the Google copy (if any) and removes the row
 // POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
@@ -103,6 +106,18 @@ export function applyReinvites(ev, readdUserIds = []) {
     ...readded,
   ])];
   return { invited, declines, readded };
+}
+
+// isAcceptedGroupMember — can this user tag events with this group? Only
+// accepted members may, so a leaked/guessed group id can't be attached to
+// events by outsiders. Errors (e.g. missing table) read as "no".
+async function isAcceptedGroupMember(client, groupId, userId) {
+  try {
+    const { data } = await client.from('group_members')
+      .select('user_id').eq('group_id', groupId).eq('user_id', userId)
+      .eq('status', 'accepted').maybeSingle();
+    return Boolean(data);
+  } catch { return false; }
 }
 
 // Creates a shared event on the organizer's calendar with all participants as attendees.
@@ -283,9 +298,18 @@ export default async function handler(req, res) {
 
       const allIds = [...new Set(events.flatMap(e =>
         [e.creator_id, ...e.invited_user_ids, ...(e.declines ?? []), ...(e.reschedule_requests ?? [])]))];
-      const { data: users } = await client
-        .from('users').select('id,name,display_name,picture_url').in('id', allIds);
+      // Group tags (migration 014): batch-resolve tagged events' groups so
+      // clients can render name/color/icon without a second fetch. group_id is
+      // simply absent pre-migration, so this is a no-op there.
+      const groupIds = [...new Set(events.map(e => e.group_id).filter(Boolean))];
+      const [{ data: users }, { data: groups }] = await Promise.all([
+        client.from('users').select('id,name,display_name,picture_url').in('id', allIds),
+        groupIds.length
+          ? client.from('groups').select('id,name,color,icon_url').in('id', groupIds)
+          : Promise.resolve({ data: [] }),
+      ]);
       const uMap = Object.fromEntries((users ?? []).map(u => [u.id, u]));
+      const gMap = Object.fromEntries((groups ?? []).map(g => [g.id, g]));
 
       // rainchecks is SECRET: a one-sided Rain Check must never be visible to
       // the other participant, so the raw array is stripped and each viewer
@@ -299,6 +323,7 @@ export default async function handler(req, res) {
         isCreator:     e.creator_id === me.id,
         myId:          me.id,
         iRainchecked:  (rainchecks ?? []).includes(me.id),
+        group:         e.group_id ? (gMap[e.group_id] ?? null) : null,
       }));
 
       return res.status(200).json({ events: enriched });
@@ -312,7 +337,7 @@ export default async function handler(req, res) {
     const { op } = req.body ?? {};
 
     if (op === 'create-event') {
-      const { creatorGoogleId, invitedUserIds, eventTime, durationHours = 1, title, location, description } = req.body;
+      const { creatorGoogleId, invitedUserIds, eventTime, durationHours = 1, title, location, description, groupId } = req.body;
       if (!creatorGoogleId || !invitedUserIds?.length || !eventTime)
         return res.status(400).json({ error: 'creatorGoogleId, invitedUserIds, eventTime required' });
 
@@ -350,6 +375,13 @@ export default async function handler(req, res) {
             ...(description ? { description: String(description).slice(0, 500) } : {}),
           })
           .eq('id', data.id);
+      }
+
+      // Group tag (migration 014) — best-effort: booking from a group chat
+      // stamps the group, but a failed stamp (unmigrated DB, non-member
+      // creator) never fails the create itself.
+      if (groupId && await isAcceptedGroupMember(client, groupId, creator.id)) {
+        try { await client.from('pending_events').update({ group_id: groupId }).eq('id', data.id); } catch {}
       }
 
       // Log the creator's side into the durable outcome history.
@@ -544,7 +576,7 @@ export default async function handler(req, res) {
     }
 
     if (op === 'update-event') {
-      const { googleId, eventId, title, eventTime, durationHours, location, description, readdUserIds } = req.body;
+      const { googleId, eventId, title, eventTime, durationHours, location, description, groupId, readdUserIds } = req.body;
       if (!googleId || !eventId)
         return res.status(400).json({ error: 'googleId and eventId required' });
 
@@ -556,6 +588,11 @@ export default async function handler(req, res) {
 
       if (ev.creator_id !== me.id)
         return res.status(403).json({ error: 'Only the event creator can edit it' });
+
+      // Group tag (migration 014): uuid tags, null removes. Only groups the
+      // creator actually belongs to can be attached.
+      if (groupId !== undefined && groupId !== null && !(await isAcceptedGroupMember(client, groupId, me.id)))
+        return res.status(403).json({ error: 'You can only tag events with groups you belong to' });
 
       // Declined users stay out of any restarted cycle unless explicitly
       // re-added here; re-inviting someone is itself a material change.
@@ -576,6 +613,15 @@ export default async function handler(req, res) {
         if (description !== undefined) {
           const { error } = await client.from('pending_events')
             .update({ description: description ? String(description).slice(0, 500) : null })
+            .eq('id', eventId);
+          if (error) return res.status(500).json({ error: error.message });
+        }
+        // The group tag is display metadata — adding/removing it never
+        // restarts the invite cycle. Separate update: a pre-014 DB fails only
+        // this field, loudly, without touching the description above.
+        if (groupId !== undefined) {
+          const { error } = await client.from('pending_events')
+            .update({ group_id: groupId ?? null })
             .eq('id', eventId);
           if (error) return res.status(500).json({ error: error.message });
         }
@@ -610,6 +656,9 @@ export default async function handler(req, res) {
           ...(location !== undefined ? { location } : {}),
           ...(description !== undefined ? { description: description ? String(description).slice(0, 500) : null } : {}),
         }).eq('id', eventId);
+      }
+      if (groupId !== undefined) {
+        await client.from('pending_events').update({ group_id: groupId ?? null }).eq('id', eventId);
       }
       // Confirming a material edit is the "host reviewed" moment: the
       // reschedule lock lifts, requests and their constraint notes are

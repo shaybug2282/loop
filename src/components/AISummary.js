@@ -279,6 +279,8 @@ const AISummary = ({ group = null, onClose = null }) => {
           // Invite-only note: rides on the invite + event card, never on the
           // Google Calendar event.
           description:     plan.description,
+          // Group-mode bookings carry the group so the event gets its tag.
+          groupId:         group?.id ?? undefined,
         }),
       });
       const body = await r.json().catch(() => ({}));
@@ -306,7 +308,7 @@ const AISummary = ({ group = null, onClose = null }) => {
     } catch {
       setBooking('error');
     }
-  }, [googleId, active, loadConvos]);
+  }, [googleId, active, loadConvos, group]);
 
   // undoRemember — the Undo on a "saved to your profile" pill: removes the
   // captured rule from the stored profile (op:'forget-constraint') and flips

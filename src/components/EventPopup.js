@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { X, Clock, MapPin, AlignLeft, Sparkles, Trash2, Info, Umbrella } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { X, Clock, MapPin, AlignLeft, Sparkles, Trash2, Info, Umbrella, Tag } from 'lucide-react';
 import AISummary from './AISummary';
 import { formatDuration } from '../utils/format';
 import { updateCalendarEvent, deleteCalendarEvent } from '../utils/googleCalendar';
@@ -54,6 +54,10 @@ function normalize({ loopEvent, googleEvent }) {
       // Invite-only note (migration 009) — shown here and on the invite,
       // never forwarded to the confirmed Google Calendar event.
       description:   e.description || '',
+      // Group tag (migration 014): the group this event was planned with —
+      // stamped by group-mode assistant bookings, editable by the creator.
+      groupId:       e.group_id ?? null,
+      group:         e.group ?? null,
       status:        e.status,
       canEdit:       Boolean(e.isCreator),
       // Invitees answer the invite right in the popup (the pending tiles and
@@ -102,6 +106,8 @@ function normalize({ loopEvent, googleEvent }) {
     durationHours: null,
     location:      g.location || '',
     description:   g.description || '',
+    groupId:       null,
+    group:         null,
     status:        null,
     canEdit:       !g.organizer || g.organizer.self === true,
     canRespond:    false,
@@ -129,6 +135,7 @@ function toDraft(n) {
     durationHours: n.durationHours,
     location:      n.location,
     description:   n.description,
+    groupId:       n.groupId ?? null,
   };
 }
 
@@ -178,14 +185,18 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
   // Fixed-position coords for the Rain Check tooltip — rendered outside the
   // modal's scroll clipping so it can overlay the popup border.
   const [rcTip, setRcTip] = useState(null);
+  // My accepted groups, for the group-tag picker. null = not fetched yet —
+  // loaded lazily the first time the creator opens the picker.
+  const [myGroups, setMyGroups] = useState(null);
 
   const googleId = localStorage.getItem('googleUserId');
   const dirty    = JSON.stringify(draft) !== JSON.stringify(baseline) || readds.size > 0;
   const changed  = k => String(draft[k] ?? '') !== String(baseline[k] ?? '');
-  // Description is an invite-only note; editing it alone doesn't change what
-  // invitees agreed to, so Loop events skip the re-invite cycle for it (the
-  // server enforces the same rule) — the confirm copy must match. Staged
-  // re-invites are material: they restart the cycle.
+  // Description (invite-only note) and the group tag are display metadata;
+  // editing them alone doesn't change what invitees agreed to, so Loop events
+  // skip the re-invite cycle for them (the server enforces the same rule) —
+  // the confirm copy must match. Staged re-invites are material: they
+  // restart the cycle.
   const materialDirty = ['title', 'date', 'time', 'durationHours', 'location'].some(changed) || readds.size > 0;
   const noteOnlyEdit  = norm.source === 'loop' && dirty && !materialDirty;
 
@@ -203,6 +214,26 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
 
   const set       = patch => { setDraft(prev => ({ ...prev, ...patch })); setSavedMsg(null); setError(null); };
   const startEdit = field => { if (norm.canEdit && !saving) setEditing(field); };
+
+  // Lazy-load my groups the first time the tag picker opens (one fetch per
+  // popup, and none at all if the picker is never touched).
+  useEffect(() => {
+    if (editing !== 'group' || myGroups !== null || !googleId) return;
+    let alive = true;
+    fetch(`/api/groups?op=list&googleId=${encodeURIComponent(googleId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (alive) setMyGroups((d?.groups ?? []).filter(g => g.myStatus === 'accepted')); })
+      .catch(() => { if (alive) setMyGroups([]); });
+    return () => { alive = false; };
+  }, [editing, myGroups, googleId]);
+
+  // groupInfo — {name,color} for the currently drafted tag: the event's own
+  // group when unchanged, otherwise looked up in the fetched picker list.
+  const groupInfo = draft.groupId
+    ? ((draft.groupId === norm.groupId ? norm.group : null) ??
+       (myGroups ?? []).find(g => g.id === draft.groupId) ??
+       { name: 'Group', color: '#E8607A' })
+    : null;
 
   // whenLabel — human date & time built from the draft so header edits show live.
   const whenLabel = () => {
@@ -251,6 +282,7 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
             ...(changed('durationHours') ? { durationHours: Number(draft.durationHours) || 1 } : {}),
             ...(changed('location') ? { location: draft.location || null } : {}),
             ...(changed('description') ? { description: draft.description || null } : {}),
+            ...(changed('groupId') ? { groupId: draft.groupId || null } : {}),
             ...(readds.size ? { readdUserIds: [...readds] } : {}),
           }),
         });
@@ -261,7 +293,7 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
           setReadds(new Set());
         }
         setSavedMsg(noteOnlyEdit
-          ? 'Saved — the note was updated for everyone; no new invites needed.'
+          ? 'Saved — details updated for everyone; no new invites needed.'
           : 'Saved — an updated invite was sent to all invitees.');
       } else {
         const patch = {
@@ -541,6 +573,51 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
           </div>
         )}
 
+        {/* ── Group tag (Loop events): which group this was planned with.
+            Creator can click to tag/untag — a non-material edit, so it never
+            restarts the invite cycle. ── */}
+        {norm.source === 'loop' && (draft.groupId || norm.canEdit) && (
+          <div className="ep-row">
+            <Tag size={13} className="ep-row-ic" />
+            {editing === 'group' ? (
+              <div className="ep-group-pick">
+                {myGroups === null ? (
+                  <span className="ep-row-empty">Loading your groups…</span>
+                ) : myGroups.length === 0 ? (
+                  <span className="ep-row-empty">You're not in any groups yet.</span>
+                ) : (
+                  <>
+                    <button
+                      className={`ep-group-opt${!draft.groupId ? ' active' : ''}`}
+                      onClick={() => { set({ groupId: null }); setEditing(null); }}
+                    >No tag</button>
+                    {myGroups.map(g => (
+                      <button
+                        key={g.id}
+                        className={`ep-group-opt${draft.groupId === g.id ? ' active' : ''}`}
+                        style={{ borderColor: g.color, color: g.color }}
+                        onClick={() => { set({ groupId: g.id }); setEditing(null); }}
+                      >{g.name}</button>
+                    ))}
+                  </>
+                )}
+              </div>
+            ) : groupInfo ? (
+              <span
+                className={`ep-group-tag${editableCls}`}
+                style={{ borderColor: groupInfo.color, color: groupInfo.color }}
+                onClick={() => startEdit('group')}
+                title={norm.canEdit ? 'Click to change the group tag' : undefined}
+              >{groupInfo.name}</span>
+            ) : (
+              <span
+                className={`ep-row-val ep-row-empty${editableCls}`}
+                onClick={() => startEdit('group')}
+              >Add group tag</span>
+            )}
+          </div>
+        )}
+
         {/* ── Reschedule lock ── */}
         {/* Creator: review the requester's constraints; a confirmed edit is
             what lifts the lock and sends fresh invites. */}
@@ -617,7 +694,7 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
             <p className="ep-confirm-msg">
               {nudge ? 'You have unsaved edits. ' : ''}
               {noteOnlyEdit
-                ? 'Confirm edits? The note updates for everyone — no new invites are sent.'
+                ? 'Confirm edits? These details update for everyone — no new invites are sent.'
                 : norm.source === 'loop'
                   ? 'Confirm edits? An updated invite will be sent to all invitees.'
                   : 'Confirm edits? Attendees will be sent the updated invite.'}

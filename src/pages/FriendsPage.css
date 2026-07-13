@@ -438,3 +438,47 @@
 .unfriend-btn { color: #C0392B; }
 .unfriend-btn:hover:not(:disabled) { background: #fee2e2; border-color: #fca5a5; }
 .unfriend-btn.confirm { background: #fee2e2; border-color: #f87171; }
+
+/* ── Group Tags — shared groups on the contact card ── */
+.popup-groups {
+  margin: 2px 0 14px;
+}
+
+.popup-groups-label {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9CA3AF;
+}
+
+.popup-groups-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Border/text color come inline from the group's own color. */
+.popup-group-tag {
+  border: 1.5px solid;
+  background: #fff;
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+.popup-group-tag:hover { filter: brightness(0.92); transform: translateY(-1px); }
+
+/* Nested group-scheduling modal (AISummary in group mode) */
+.popup-schedule-modal {
+  width: min(440px, 95vw);
+}
+
+.popup-schedule-modal .ais-wrap {
+  margin-top: 0;
+  height: min(640px, 85vh);
+}

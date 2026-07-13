@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, UserPlus, Check, X, Copy, ChevronDown, ChevronUp, Clock, Tag, MessageSquare, UserMinus, Home } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import AISummary from '../components/AISummary';
 import { useMessages } from '../contexts/MessagesContext';
 import './FriendsPage.css';
 
@@ -10,9 +11,30 @@ const FriendPopup = ({ friend, onClose, onUnfriend }) => {
   const { openMessages } = useMessages();
   const [unfriendConfirm, setUnfriendConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Group Tags: groups the viewer and this friend are BOTH accepted members
+  // of. Clicking one opens the group-mode Scheduling Assistant (same popup
+  // GroupsWidget's Schedule button uses). null = still loading (renders nothing).
+  const [sharedGroups,  setSharedGroups]  = useState(null);
+  const [scheduleGroup, setScheduleGroup] = useState(null);
 
   const googleId = localStorage.getItem('googleUserId');
   const displayName = friend.display_name || friend.name;
+
+  useEffect(() => {
+    if (!googleId) return;
+    let alive = true;
+    fetch(`/api/groups?op=list&googleId=${encodeURIComponent(googleId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!alive || !d) return;
+        setSharedGroups((d.groups ?? []).filter(g =>
+          g.myStatus === 'accepted' &&
+          (g.members ?? []).some(m => m.id === friend.id && m.status === 'accepted')
+        ));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [googleId, friend.id]);
 
   const handleUnfriend = async () => {
     if (!unfriendConfirm) { setUnfriendConfirm(true); return; }
@@ -56,6 +78,26 @@ const FriendPopup = ({ friend, onClose, onUnfriend }) => {
           </div>
         </div>
 
+        {/* Group Tags — shared groups; click one to schedule with that group */}
+        {sharedGroups?.length > 0 && (
+          <div className="popup-groups">
+            <p className="popup-groups-label">Groups together</p>
+            <div className="popup-groups-list">
+              {sharedGroups.map(g => (
+                <button
+                  key={g.id}
+                  className="popup-group-tag"
+                  style={{ borderColor: g.color, color: g.color }}
+                  title={`Schedule with ${g.name}`}
+                  onClick={() => setScheduleGroup(g)}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="popup-actions">
           <button className="popup-btn tag-btn" disabled title="Coming soon">
@@ -82,6 +124,15 @@ const FriendPopup = ({ friend, onClose, onUnfriend }) => {
           </button>
         </div>
       </div>
+
+      {/* Group scheduling popup — AI chat scoped to the clicked group */}
+      {scheduleGroup && (
+        <div className="popup-backdrop" onClick={e => { e.stopPropagation(); setScheduleGroup(null); }}>
+          <div className="popup-schedule-modal" onClick={e => e.stopPropagation()}>
+            <AISummary group={scheduleGroup} onClose={() => setScheduleGroup(null)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

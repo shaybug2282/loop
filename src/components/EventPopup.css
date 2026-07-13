@@ -587,3 +587,41 @@
   margin-top: 0;
   height: min(640px, 85vh);
 }
+
+/* ── Group tag row ── */
+.ep-group-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.ep-group-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.ep-group-opt {
+  padding: 2px 10px;
+  border: 1.5px solid #F3D8E4;
+  border-radius: 999px;
+  background: #fff;
+  color: #9A6B7C;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ep-group-opt:hover {
+  background: #FDF5F7;
+}
+
+.ep-group-opt.active {
+  background: #F9EAF0;
+}

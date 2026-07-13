@@ -13,6 +13,23 @@ const readSeenConfirmed = () => {
   catch { return new Set(); }
 };
 
+// GroupTag — the group marker on a tagged event block: the group's name in
+// its color when it's short enough to fit the narrow day column, otherwise
+// the group's picture (falling back to a truncated name pill if it has none).
+const GroupTag = ({ group }) => {
+  const fits = (group.name ?? '').length <= 12;
+  if (!fits && group.icon_url) {
+    return <img className="event-group-icon" src={group.icon_url} alt={group.name} title={group.name} />;
+  }
+  return (
+    <span
+      className="event-group-tag"
+      style={{ borderColor: group.color, color: group.color }}
+      title={group.name}
+    >{group.name}</span>
+  );
+};
+
 const WeekView = () => {
   const [events,        setEvents]        = useState([]);
   const [pendingEvents, setPendingEvents] = useState([]);
@@ -157,6 +174,7 @@ const WeekView = () => {
         pending:     e.status === 'pending',
         confirmed:   e.status === 'accepted',
         isNew:       newlyConfirmed.has(e.id),
+        group:       e.group ?? null, // group tag ({name,color,icon_url}) if the event is tagged
         appEvent:    e, // enriched Loop event for the universal popup
       }));
 
@@ -274,6 +292,7 @@ const WeekView = () => {
                         </div>
                       )}
                       <div className="event-title">{item.title}</div>
+                      {item.group && <GroupTag group={item.group} />}
                       {item.location && (
                         <div className="event-location">📍 {item.location}</div>
                       )}

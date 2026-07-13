@@ -310,3 +310,35 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Group tag on tagged event blocks: name pill in the group's color, or the
+   group picture when the name is too long for the narrow day column. */
+.event-group-tag {
+  display: inline-block;
+  max-width: 100%;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.event-group-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.week-event-rainchecked .event-group-tag,
+.week-event-rainchecked .event-group-icon {
+  opacity: 0.55;
+}
