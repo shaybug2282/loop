@@ -76,7 +76,9 @@ export async function callModel({ model, system, messages, maxTokens = 1024 }) {
     throw new Error(`AI error (${r.status}): ${err.error?.message ?? 'unknown'}`);
   }
   const data = await r.json();
-  return data.content?.[0]?.text ?? '';
+  // Models with adaptive reasoning (Sonnet 5+) may prepend a `thinking` block,
+  // so the reply text is the first block of type "text", not content[0].
+  return data.content?.find(b => b.type === 'text')?.text ?? '';
 }
 
 // extractJson — tolerant JSON extraction from model replies (handles fences and prose).
