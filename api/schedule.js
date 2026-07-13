@@ -5,8 +5,9 @@
 // POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location?, description? }
 //        description = short invite-only note: shown on invite + event cards, never sent to Google Calendar
 // POST { op:'respond', googleId, eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
-// POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location?, description? }  → creator edits;
-//        material edits (time/duration/title/location) restart the invite cycle — a description-only edit does not
+// POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location?, description?, readdUserIds? }  → creator edits;
+//        material edits (time/duration/title/location or a re-invite) restart the invite cycle — a description-only edit does not.
+//        Users who declined stay OUT of the restarted cycle unless the creator re-adds them via readdUserIds (⊆ declines)
 // POST { op:'delete-event', googleId, eventId }  → creator only; cancels the Google copy (if any) and removes the row
 // POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
 //
@@ -79,6 +80,25 @@ export function findFreeSlots(busySlots, windowStart, windowEnd, durationMs) {
   }
 
   return selected.map(ts => new Date(ts).toISOString());
+}
+
+// applyReinvites — who is in the NEW invite cycle after a material edit.
+// Declining is a standing answer: decliners stay excluded from restarted
+// cycles unless the creator explicitly re-adds them (readdUserIds, validated
+// against the declines list — nobody else can be injected through it).
+// Re-added users leave declines and rejoin invited_user_ids.
+// Exported for unit tests. out: { invited, declines, readded }
+export function applyReinvites(ev, readdUserIds = []) {
+  const declinesPrev = ev.declines ?? [];
+  const readded  = [...new Set(
+    (Array.isArray(readdUserIds) ? readdUserIds : []).filter(id => declinesPrev.includes(id))
+  )];
+  const declines = declinesPrev.filter(id => !readded.includes(id));
+  const invited  = [...new Set([
+    ...(ev.invited_user_ids ?? []).filter(id => !declines.includes(id)),
+    ...readded,
+  ])];
+  return { invited, declines, readded };
 }
 
 // Creates a shared event on the organizer's calendar with all participants as attendees.
@@ -414,7 +434,7 @@ export default async function handler(req, res) {
     }
 
     if (op === 'update-event') {
-      const { googleId, eventId, title, eventTime, durationHours, location, description } = req.body;
+      const { googleId, eventId, title, eventTime, durationHours, location, description, readdUserIds } = req.body;
       if (!googleId || !eventId)
         return res.status(400).json({ error: 'googleId and eventId required' });
 
@@ -427,11 +447,16 @@ export default async function handler(req, res) {
       if (ev.creator_id !== me.id)
         return res.status(403).json({ error: 'Only the event creator can edit it' });
 
+      // Declined users stay out of any restarted cycle unless explicitly
+      // re-added here; re-inviting someone is itself a material change.
+      const { invited, declines, readded } = applyReinvites(ev, readdUserIds);
+
       // Description is an invite-only note — changing it alone doesn't alter
       // what anyone agreed to, so it must NOT restart the invite cycle. Only
       // provided fields that actually differ from the stored row count as
       // material (the client sends only changed fields, this is the backstop).
       const materialChange =
+        readded.length > 0 ||
         (eventTime !== undefined && eventTime !== null && new Date(eventTime).getTime() !== new Date(ev.event_time).getTime()) ||
         (durationHours !== undefined && durationHours !== null && Number(durationHours) !== Number(ev.duration_hours)) ||
         (title !== undefined && (title ?? null) !== (ev.title ?? null)) ||
@@ -447,14 +472,20 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, inviteCycleRestarted: false });
       }
 
-      // Any material edit restarts the invite cycle: acceptances/declines are
-      // wiped and the event returns to 'pending', so every invitee gets a
-      // fresh invite card reflecting the updated details.
+      // Any material edit restarts the invite cycle: acceptances are wiped and
+      // the event returns to 'pending', so every remaining invitee gets a
+      // fresh invite card. Declines are KEPT (minus re-added users) — a
+      // decliner is excluded from the new cycle and stays visible on the
+      // event card so the creator can re-invite them later.
+      if (!invited.length)
+        return res.status(400).json({ error: 'Everyone has declined — re-invite at least one person before rescheduling.' });
+
       const { error } = await client.from('pending_events').update({
         ...(eventTime ? { event_time: eventTime } : {}),
         ...(durationHours ? { duration_hours: durationHours } : {}),
+        invited_user_ids: invited,
         acceptances: [],
-        declines: [],
+        declines,
         status: 'pending',
         google_event_created: false,
       }).eq('id', eventId);

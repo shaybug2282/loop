@@ -173,6 +173,28 @@
 .ep-part.pending  { background: #FEF3C7; color: #B45309; }
 .ep-part.declined { background: #E5E7EB; color: #6B7280; }
 
+/* Creator-clickable declined chip: click to stage a re-invite */
+.ep-readd {
+  border: 1px dashed #9CA3AF;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.ep-readd:hover { background: #FDF5F7; color: #C94D65; border-color: #E8607A; }
+
+.ep-readd.staged {
+  background: #F9EAF0;
+  color: #C94D65;
+  border: 1px solid #E8607A;
+}
+
+.ep-readd-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
 .ep-legend {
   display: flex;
   gap: 10px;

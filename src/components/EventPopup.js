@@ -60,11 +60,12 @@ function normalize({ loopEvent, googleEvent }) {
         { key: 'host', name: e.isCreator ? 'You' : nameOf(e.creator), status: 'host' },
         ...(e.invitedUsers ?? []).map(u => ({
           key:    u.id,
+          userId: u.id,
           name:   u.id === e.myId ? 'You' : nameOf(u),
           status: accepted.has(u.id) ? 'accepted' : 'pending',
         })),
         ...(e.declinedUsers ?? []).map(u => ({
-          key: `d-${u.id}`, name: u.id === e.myId ? 'You' : nameOf(u), status: 'declined',
+          key: `d-${u.id}`, userId: u.id, name: u.id === e.myId ? 'You' : nameOf(u), status: 'declined',
         })),
       ],
     };
@@ -130,6 +131,11 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
   const [delConfirm, setDelConfirm] = useState(false); // "Delete event" clicked, awaiting confirm
   const [deleting,   setDeleting]   = useState(false);
   // Invite-response state (invitees on pending Loop events only)
+  // Re-invite staging (creator on Loop events): declined chips toggle into
+  // `readds`; confirming the edit sends them as readdUserIds. `reinvited`
+  // remembers successful re-adds so chips read as pending until a refetch.
+  const [readds,    setReadds]    = useState(() => new Set());
+  const [reinvited, setReinvited] = useState(() => new Set());
   const [noWork,      setNoWork]      = useState(false); // "This doesn't work for me." expanded
   const [reschedOpen, setReschedOpen] = useState(false); // constraint-note input visible
   const [reschedNote, setReschedNote] = useState('');
@@ -137,13 +143,26 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
   const [respMsg,     setRespMsg]     = useState(null);  // post-response confirmation text
 
   const googleId = localStorage.getItem('googleUserId');
-  const dirty    = JSON.stringify(draft) !== JSON.stringify(baseline);
+  const dirty    = JSON.stringify(draft) !== JSON.stringify(baseline) || readds.size > 0;
   const changed  = k => String(draft[k] ?? '') !== String(baseline[k] ?? '');
   // Description is an invite-only note; editing it alone doesn't change what
   // invitees agreed to, so Loop events skip the re-invite cycle for it (the
-  // server enforces the same rule) — the confirm copy must match.
-  const materialDirty = ['title', 'date', 'time', 'durationHours', 'location'].some(changed);
+  // server enforces the same rule) — the confirm copy must match. Staged
+  // re-invites are material: they restart the cycle.
+  const materialDirty = ['title', 'date', 'time', 'durationHours', 'location'].some(changed) || readds.size > 0;
   const noteOnlyEdit  = norm.source === 'loop' && dirty && !materialDirty;
+
+  // toggleReadd — stage/unstage a declined user for re-inviting on save.
+  const toggleReadd = (userId) => {
+    if (saving) return;
+    setReadds(prev => {
+      const next = new Set(prev);
+      next.has(userId) ? next.delete(userId) : next.add(userId);
+      return next;
+    });
+    setSavedMsg(null);
+    setError(null);
+  };
 
   const set       = patch => { setDraft(prev => ({ ...prev, ...patch })); setSavedMsg(null); setError(null); };
   const startEdit = field => { if (norm.canEdit && !saving) setEditing(field); };
@@ -166,6 +185,7 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
 
   const discard = () => {
     setDraft(baseline);
+    setReadds(new Set());
     setEditing(null);
     setError(null);
     if (nudge) { onClose(); return; }
@@ -194,10 +214,15 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
             ...(changed('durationHours') ? { durationHours: Number(draft.durationHours) || 1 } : {}),
             ...(changed('location') ? { location: draft.location || null } : {}),
             ...(changed('description') ? { description: draft.description || null } : {}),
+            ...(readds.size ? { readdUserIds: [...readds] } : {}),
           }),
         });
         const body = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(body.error || `Error ${r.status}`);
+        if (readds.size) {
+          setReinvited(prev => new Set([...prev, ...readds]));
+          setReadds(new Set());
+        }
         setSavedMsg(noteOnlyEdit
           ? 'Saved — the note was updated for everyone; no new invites needed.'
           : 'Saved — an updated invite was sent to all invitees.');
@@ -355,9 +380,29 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
         {norm.participants.length > 0 && (
           <div className="ep-participants">
             <div className="ep-part-list">
-              {norm.participants.map(p => (
-                <span key={p.key} className={`ep-part ${p.status}`}>{p.name}</span>
-              ))}
+              {norm.participants.map(p => {
+                // A saved re-invite shows as pending until the parent refetches.
+                if (p.status === 'declined' && reinvited.has(p.userId)) {
+                  return <span key={p.key} className="ep-part pending">{p.name}</span>;
+                }
+                // Creator can click a declined invitee to stage a re-invite;
+                // declined users are otherwise left out when the event is
+                // rescheduled or edited.
+                if (p.status === 'declined' && norm.source === 'loop' && norm.canEdit) {
+                  const staged = readds.has(p.userId);
+                  return (
+                    <button
+                      key={p.key}
+                      className={`ep-part declined ep-readd${staged ? ' staged' : ''}`}
+                      title={staged ? 'Will be re-invited on save — click to cancel' : 'Click to re-invite'}
+                      onClick={() => toggleReadd(p.userId)}
+                    >
+                      {p.name}{staged ? ' · re-inviting' : ' +'}
+                    </button>
+                  );
+                }
+                return <span key={p.key} className={`ep-part ${p.status}`}>{p.name}</span>;
+              })}
             </div>
             <div className="ep-legend">
               <span className="ep-legend-item host">Host</span>
@@ -365,6 +410,11 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
               <span className="ep-legend-item pending">Pending</span>
               <span className="ep-legend-item declined">Declined</span>
             </div>
+            {norm.source === 'loop' && norm.canEdit && norm.participants.some(p => p.status === 'declined' && !reinvited.has(p.userId)) && (
+              <p className="ep-readd-hint">
+                Declined people aren't re-invited when you reschedule — click their name to include them again.
+              </p>
+            )}
           </div>
         )}
 
