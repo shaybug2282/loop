@@ -144,19 +144,20 @@ const WeekView = () => {
         gEvent:   ev, // raw Google event for the universal popup
       }));
 
+    // Calendar blocks stay minimal by design: time, title, and a
+    // pending/confirmed flag. Participants and every other detail live in
+    // the EventPopup, opened by clicking the block.
     const app = visibleAppEvents
       .filter(e => inDay(new Date(e.event_time)))
       .map(e => ({
-        key:       `p-${e.id}`,
-        start:     e.event_time,
-        title:     e.title || 'Hangout',
-        with:      e.isCreator
-          ? (e.invitedUsers ?? []).map(u => u.display_name || u.name).filter(Boolean).join(', ')
-          : e.creator?.display_name || e.creator?.name || '',
-        pending:   e.status !== 'accepted',
-        confirmed: e.status === 'accepted',
-        isNew:     newlyConfirmed.has(e.id),
-        appEvent:  e, // enriched Loop event for the universal popup
+        key:         `p-${e.id}`,
+        start:       e.event_time,
+        title:       e.title || 'Hangout',
+        rainchecked: e.status === 'rainchecked',
+        pending:     e.status === 'pending',
+        confirmed:   e.status === 'accepted',
+        isNew:       newlyConfirmed.has(e.id),
+        appEvent:    e, // enriched Loop event for the universal popup
       }));
 
     return [...gcal, ...app].sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -256,6 +257,7 @@ const WeekView = () => {
                         'week-event' +
                         (item.pending ? ' week-event-pending' : '') +
                         (item.confirmed ? ' week-event-confirmed' : '') +
+                        (item.rainchecked ? ' week-event-rainchecked' : '') +
                         (item.isNew ? ' week-event-new' : '')
                       }
                       onClick={() => setSelected(item)}
@@ -275,12 +277,9 @@ const WeekView = () => {
                       {item.location && (
                         <div className="event-location">📍 {item.location}</div>
                       )}
-                      {item.with && (
-                        <div className="event-location">with {item.with}</div>
-                      )}
-                      {(item.pending || item.confirmed) && (
-                        <div className={`event-badge ${item.pending ? 'pending' : 'confirmed'}`}>
-                          {item.pending ? 'Pending' : item.isNew ? 'Just confirmed' : 'Confirmed'}
+                      {(item.pending || item.confirmed || item.rainchecked) && (
+                        <div className={`event-badge ${item.rainchecked ? 'rainchecked' : item.pending ? 'pending' : 'confirmed'}`}>
+                          {item.rainchecked ? 'Rain Checked' : item.pending ? 'Pending' : item.isNew ? 'Just confirmed' : 'Confirmed'}
                         </div>
                       )}
                     </div>

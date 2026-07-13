@@ -141,10 +141,12 @@
   flex-shrink: 0;
 }
 
-/* Color semantics: yellow = pending invite, red = declined, green = confirmed */
+/* Color semantics: yellow = pending invite, red = declined, green = confirmed,
+   blue = rain checked (mutual cancel) */
 .nc-dot-yellow { background: #EAB308; }
 .nc-dot-red    { background: #EF4444; }
 .nc-dot-green  { background: #10B981; }
+.nc-dot-blue   { background: #7396C4; }
 
 .nc-item-body { min-width: 0; flex: 1; }
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Clock, MapPin, AlignLeft, Sparkles, Trash2 } from 'lucide-react';
+import { X, Clock, MapPin, AlignLeft, Sparkles, Trash2, Info, Umbrella } from 'lucide-react';
 import AISummary from './AISummary';
 import { formatDuration } from '../utils/format';
 import { updateCalendarEvent, deleteCalendarEvent } from '../utils/googleCalendar';
@@ -38,6 +38,10 @@ function normalize({ loopEvent, googleEvent }) {
   if (loopEvent) {
     const e = loopEvent;
     const accepted = new Set(e.acceptances ?? []);
+    // Latest constraint note per reschedule requester (migration 011) — the
+    // creator reviews these in the popup while the event is locked.
+    const noteByUser = {};
+    for (const n of (e.reschedule_notes ?? [])) noteByUser[n.user_id] = n.note;
     return {
       source:        'loop',
       id:            e.id,
@@ -56,6 +60,21 @@ function normalize({ loopEvent, googleEvent }) {
       // notification center are now the only surfaces that show invites).
       canRespond:    !e.isCreator && e.status === 'pending' && (e.invited_user_ids ?? []).includes(e.myId),
       iAccepted:     accepted.has(e.myId),
+      // Reschedule lock context: who asked (with their constraint note, for
+      // the creator to review) and whether the viewer is a requester.
+      rescheduleRequests: (e.rescheduleUsers ?? []).map(u => ({
+        key:  u.id,
+        name: u.id === e.myId ? 'You' : nameOf(u),
+        note: noteByUser[u.id] ?? null,
+      })),
+      iAskedReschedule: (e.reschedule_requests ?? []).includes(e.myId),
+      // Rain Check: two-person events only; iRainchecked is the viewer's own
+      // secret bit from the API (the other side's is never sent).
+      iRainchecked: Boolean(e.iRainchecked),
+      canRaincheck: ['pending', 'accepted'].includes(e.status) &&
+        (e.invited_user_ids ?? []).length === 1 &&
+        (e.isCreator || (e.invited_user_ids ?? []).includes(e.myId)) &&
+        !e.iRainchecked,
       participants: [
         { key: 'host', name: e.isCreator ? 'You' : nameOf(e.creator), status: 'host' },
         ...(e.invitedUsers ?? []).map(u => ({
@@ -88,6 +107,10 @@ function normalize({ loopEvent, googleEvent }) {
     canEdit:       !g.organizer || g.organizer.self === true,
     canRespond:    false,
     iAccepted:     false,
+    rescheduleRequests: [],
+    iAskedReschedule:   false,
+    iRainchecked:       false,
+    canRaincheck:       false,
     participants: [
       ...(g.organizer ? [{ key: 'host', name: gName(g.organizer), status: 'host' }] : []),
       ...(g.attendees ?? []).filter(a => !a.organizer).map(a => ({
@@ -115,7 +138,14 @@ const STATUS_LABEL = {
   accepted:    'Confirmed',
   rescheduled: 'Being rescheduled',
   declined:    'Declined',
+  rainchecked: 'Rain Checked',
 };
+
+// The Rain Check explainer, shown when hovering the info symbol.
+const RAINCHECK_TIP =
+  "Rain Check allows you to tentatively cancel an event. If you choose to Rain Check, " +
+  "your friend won't be notified unless they Rain Check too! If you both independently " +
+  "choose to cancel, the event will be canceled. Otherwise, your secret is safe here :)";
 
 const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged = null }) => {
   const norm = useMemo(() => normalize({ loopEvent, googleEvent }), [loopEvent, googleEvent]);
@@ -141,6 +171,9 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
   const [reschedNote, setReschedNote] = useState('');
   const [responding,  setResponding]  = useState(false);
   const [respMsg,     setRespMsg]     = useState(null);  // post-response confirmation text
+  // Rain Check: null | 'sending' | 'sent' | 'canceled' ('sent' = mine recorded,
+  // still secret; 'canceled' = both sides rainchecked, event cancelled).
+  const [rcState, setRcState] = useState(null);
 
   const googleId = localStorage.getItem('googleUserId');
   const dirty    = JSON.stringify(draft) !== JSON.stringify(baseline) || readds.size > 0;
@@ -287,6 +320,33 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
       setError(err.message || 'Could not send your response.');
     } finally {
       setResponding(false);
+    }
+  };
+
+  // sendRaincheck — record this side's secret raincheck. If the other person
+  // already rainchecked too, the server cancels the event everywhere and we
+  // show the mutual-cancel message; otherwise nothing changes for them.
+  const sendRaincheck = async () => {
+    setRcState('sending');
+    setError(null);
+    try {
+      const r = await fetch('/api/schedule', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ op: 'raincheck', googleId, eventId: norm.id }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || `Error ${r.status}`);
+      if (body.canceled) {
+        setRcState('canceled');
+        setRespMsg('This event has been Rain Checked!');
+        onChanged?.();
+      } else {
+        setRcState('sent');
+      }
+    } catch (err) {
+      setRcState(null);
+      setError(err.message || 'Could not send your Rain Check.');
     }
   };
 
@@ -464,9 +524,32 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
           </div>
         )}
 
+        {/* ── Reschedule lock ── */}
+        {/* Creator: review the requester's constraints; a confirmed edit is
+            what lifts the lock and sends fresh invites. */}
+        {norm.source === 'loop' && norm.canEdit && norm.status === 'rescheduled' && norm.rescheduleRequests.length > 0 && (
+          <div className="ep-resched-review">
+            {norm.rescheduleRequests.map(r => (
+              <p key={r.key} className="ep-resched-req">
+                <strong>{r.name}</strong> asked to reschedule{r.note ? <> — “{r.note}”</> : '.'}
+              </p>
+            ))}
+            <p className="ep-resched-review-hint">
+              Responses are locked while you review. Pick a new time above and confirm to send everyone a fresh invite.
+            </p>
+          </div>
+        )}
+
         {/* ── Invite response (invitee on a pending Loop event) ── */}
         {norm.source === 'loop' && !norm.canEdit && norm.status === 'rescheduled' && (
-          <p className="ep-resched-notice">Pending: Event is being rescheduled.</p>
+          norm.iAskedReschedule ? (
+            <p className="ep-resched-notice">
+              You asked to reschedule — {norm.participants.find(p => p.status === 'host')?.name || 'the host'} is
+              reviewing your note. Responses are locked until they send an updated invite.
+            </p>
+          ) : (
+            <p className="ep-resched-notice">Pending: Event is being rescheduled.</p>
+          )
         )}
         {respMsg && <p className="ep-saved">{respMsg}</p>}
         {norm.canRespond && !respMsg && (
@@ -531,11 +614,28 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
           </div>
         )}
 
-        {/* ── Footer: assistant access + delete ── */}
+        {/* ── Footer: assistant access + rain check + delete ── */}
         <div className="ep-footer">
           <button className="ep-ai-btn" onClick={() => setShowAI(true)}>
             <Sparkles size={13} /> Scheduling Assistant
           </button>
+
+          {rcState !== 'canceled' && (norm.canRaincheck || norm.iRainchecked) && (
+            <div className="ep-rc-wrap">
+              {(rcState === 'sent' || norm.iRainchecked) ? (
+                <span className="ep-rc-sent">Rain check sent — your secret is safe here :)</span>
+              ) : (
+                <button className="ep-rc-btn" onClick={sendRaincheck} disabled={rcState === 'sending'}>
+                  <Umbrella size={13} />
+                  {rcState === 'sending' ? 'Sending…' : 'Rain Check?'}
+                </button>
+              )}
+              <span className="ep-rc-info" tabIndex={0}>
+                <Info size={13} />
+                <span className="ep-rc-tip" role="tooltip">{RAINCHECK_TIP}</span>
+              </span>
+            </div>
+          )}
 
           {norm.canEdit && (
             delConfirm ? (

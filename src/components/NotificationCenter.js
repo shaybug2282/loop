@@ -28,6 +28,12 @@ function fmtTime(iso) {
 function buildActivities(events) {
   const activities = [];
   events.forEach(e => {
+    // Mutual cancel — both participants get the same notification. This is
+    // the ONLY way a raincheck ever surfaces: one-sided ones stay secret.
+    if (e.status === 'rainchecked') {
+      activities.push({ type: 'rainchecked', event: e });
+      return;
+    }
     if (e.isCreator) {
       (e.declinedUsers ?? []).forEach(u =>
         activities.push({ type: 'decline', user: u, event: e }));
@@ -228,6 +234,7 @@ const NotificationCenter = () => {
       case 'reschedule': return { color: 'yellow', title: `${n(a.user)} asked to reschedule`, sub: `${t} — see Scheduling Assistant` };
       case 'accept':     return { color: 'green',  title: `${n(a.user)} confirmed`, sub: t };
       case 'confirmed':  return { color: 'green',  title: 'All confirmed', sub: t };
+      case 'rainchecked': return { color: 'blue',  title: 'This event has been Rain Checked!', sub: t };
       default:          return null;
     }
   };

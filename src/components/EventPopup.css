@@ -122,6 +122,64 @@
 .ep-status-accepted    { background: #DCFCE7; color: #15803D; }
 .ep-status-rescheduled { background: #FEF3C7; color: #B45309; }
 .ep-status-declined    { background: #E5E7EB; color: #6B7280; }
+.ep-status-rainchecked { background: #E0EAF8; color: #7396C4; }
+
+/* ── Rain Check (two-person events): gentle blue accent + info tooltip ── */
+.ep-rc-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.ep-rc-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #BFDBFE;
+  background: #EFF6FF;
+  color: #3B82F6;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ep-rc-btn:hover:not(:disabled) { background: #DBEAFE; }
+.ep-rc-btn:disabled { opacity: 0.6; cursor: default; }
+
+.ep-rc-sent {
+  font-size: 12px;
+  color: #3B82F6;
+}
+
+.ep-rc-info {
+  position: relative;
+  display: inline-flex;
+  color: #93C5FD;
+  cursor: help;
+}
+
+.ep-rc-info .ep-rc-tip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: -6px;
+  width: 240px;
+  background: #1F2937;
+  color: #F9FAFB;
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.ep-rc-info:hover .ep-rc-tip,
+.ep-rc-info:focus .ep-rc-tip { display: block; }
 
 .ep-close {
   display: flex;
@@ -248,6 +306,27 @@
 .ep-desc-input { resize: vertical; font-family: inherit; }
 
 /* ── Invite response ── */
+
+/* Creator's reschedule-review panel: requester constraints + lock hint */
+.ep-resched-review {
+  margin: 12px 16px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #FDF5F7;
+  border: 1px solid #F3D8E4;
+}
+
+.ep-resched-req {
+  margin: 0 0 4px;
+  font-size: 12.5px;
+  color: #374151;
+}
+
+.ep-resched-review-hint {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  color: #9CA3AF;
+}
 
 .ep-resched-notice {
   margin: 12px 16px 0;

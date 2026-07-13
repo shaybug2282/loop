@@ -199,6 +199,27 @@
   background: #DCFCE7;
 }
 
+.event-badge.rainchecked {
+  color: #7396C4;
+  background: #DBE6F5;
+}
+
+/* Mutually cancelled (Rain Checked) events: greyed-out blue, crossed out */
+.week-event-rainchecked {
+  background: #EDF2F9;
+  border-left-color: #A8C0DE;
+  opacity: 0.8;
+}
+
+.week-event-rainchecked:hover { background: #E2EAF6; }
+
+.week-event-rainchecked .event-title,
+.week-event-rainchecked .event-time,
+.week-event-rainchecked .event-location {
+  color: #7396C4;
+  text-decoration: line-through;
+}
+
 .event-time {
   display: flex;
   align-items: center;

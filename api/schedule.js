@@ -5,6 +5,9 @@
 // POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location?, description? }
 //        description = short invite-only note: shown on invite + event cards, never sent to Google Calendar
 // POST { op:'respond', googleId, eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
+// POST { op:'raincheck', googleId, eventId }  → secret mutual cancel, two-person events only. One side's raincheck is
+//        invisible to the other (API exposes only iRainchecked, never the array); when BOTH raincheck, the event flips
+//        to 'rainchecked', the Google copy is cancelled, and both users get a notification
 // POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location?, description?, readdUserIds? }  → creator edits;
 //        material edits (time/duration/title/location or a re-invite) restart the invite cycle — a description-only edit does not.
 //        Users who declined stay OUT of the restarted cycle unless the creator re-adds them via readdUserIds (⊆ declines)
@@ -143,7 +146,7 @@ async function purgeStaleEvents(client) {
   try {
     const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
     const { data: stale } = await client.from('pending_events')
-      .select('id').in('status', ['declined', 'rescheduled']).lt('created_at', cutoff);
+      .select('id').in('status', ['declined', 'rescheduled', 'rainchecked']).lt('created_at', cutoff);
     if (!stale?.length) return;
     await client.from('pending_events').delete().in('id', stale.map(e => e.id));
     await Promise.allSettled(stale.map(e => deleteLinkedConversations(client, e.id)));
@@ -262,11 +265,11 @@ export default async function handler(req, res) {
         client.from('pending_events')
           .select('*')
           .eq('creator_id', me.id)
-          .in('status', ['pending', 'accepted', 'declined', 'rescheduled']),
+          .in('status', ['pending', 'accepted', 'declined', 'rescheduled', 'rainchecked']),
         client.from('pending_events')
           .select('*')
           .contains('invited_user_ids', [me.id])
-          .in('status', ['pending', 'accepted', 'declined', 'rescheduled']),
+          .in('status', ['pending', 'accepted', 'declined', 'rescheduled', 'rainchecked']),
       ]);
 
       const seen   = new Set();
@@ -283,7 +286,10 @@ export default async function handler(req, res) {
         .from('users').select('id,name,display_name,picture_url').in('id', allIds);
       const uMap = Object.fromEntries((users ?? []).map(u => [u.id, u]));
 
-      const enriched = events.map(e => ({
+      // rainchecks is SECRET: a one-sided Rain Check must never be visible to
+      // the other participant, so the raw array is stripped and each viewer
+      // gets only their own bit (iRainchecked).
+      const enriched = events.map(({ rainchecks, ...e }) => ({
         ...e,
         creator:         uMap[e.creator_id] ?? null,
         invitedUsers:    e.invited_user_ids.map(id => uMap[id] ?? { id }),
@@ -291,6 +297,7 @@ export default async function handler(req, res) {
         rescheduleUsers: (e.reschedule_requests ?? []).map(id => uMap[id] ?? { id }),
         isCreator:     e.creator_id === me.id,
         myId:          me.id,
+        iRainchecked:  (rainchecks ?? []).includes(me.id),
       }));
 
       return res.status(200).json({ events: enriched });
@@ -400,10 +407,12 @@ export default async function handler(req, res) {
       }
 
       if (action === 'reschedule') {
-        // Requester can't make this time: park the event as 'rescheduled'
-        // (off everyone's calendars/invites, creator keeps a notification) and
-        // hand the creator's Scheduling Assistant chat the context to find new
-        // times. A replacement event is booked from that chat as usual.
+        // Requester can't make this time: park the event as 'rescheduled'.
+        // That status is the LOCK — respond() above rejects every response
+        // (including the requester changing their mind) until the creator
+        // reviews the constraints and confirms an edit, which restarts the
+        // invite cycle. The creator's Scheduling Assistant chat also gets the
+        // context to find new times; a replacement can be booked from there.
         await client.from('pending_events').update({ status: 'rescheduled' }).eq('id', eventId);
         // Stored separately so an unmigrated DB (missing reschedule_requests,
         // see 008_reschedule_requests.sql) can't fail the status change above.
@@ -411,6 +420,13 @@ export default async function handler(req, res) {
         await client.from('pending_events').update({ reschedule_requests: requests }).eq('id', eventId);
 
         const cleanNote = typeof note === 'string' && note.trim() ? note.trim().slice(0, 500) : null;
+        // Persist the constraint note ON the event so the creator can review
+        // it in the event popup (separate update — unmigrated DBs without 011
+        // just skip it; the assistant chat below still gets the note).
+        if (cleanNote) {
+          const notes = [...(ev.reschedule_notes ?? []), { user_id: me.id, note: cleanNote, at: new Date().toISOString() }];
+          await client.from('pending_events').update({ reschedule_notes: notes }).eq('id', eventId);
+        }
         await seedRescheduleConversation(client, ev, me.id, cleanNote);
         // The note is a first-party statement about the requester's own
         // availability ("evenings after 6 work best") — bank it on THEIR
@@ -431,6 +447,70 @@ export default async function handler(req, res) {
 
       await client.from('pending_events').update({ acceptances }).eq('id', eventId);
       return res.status(200).json({ ok: true, status: 'pending', allAccepted: false });
+    }
+
+    // ── raincheck — secret mutual cancel for two-person events ──────────────
+    // Either participant (creator or the sole invitee) can raincheck. One
+    // side's raincheck changes nothing visible to the other; when both have
+    // rainchecked, the event is cancelled everywhere (status 'rainchecked',
+    // Google copy deleted) and both users get the notification.
+    if (op === 'raincheck') {
+      const { googleId, eventId } = req.body;
+      if (!googleId || !eventId)
+        return res.status(400).json({ error: 'googleId and eventId required' });
+
+      const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
+      if (!me) return res.status(404).json({ error: 'User not found' });
+
+      const { data: ev } = await client.from('pending_events').select('*').eq('id', eventId).single();
+      if (!ev) return res.status(404).json({ error: 'Event not found' });
+
+      const participants = [ev.creator_id, ...ev.invited_user_ids];
+      if (!participants.includes(me.id))
+        return res.status(403).json({ error: 'Not part of this event' });
+      if (participants.length !== 2)
+        return res.status(400).json({ error: 'Rain Check only works on two-person events' });
+      if (!['pending', 'accepted'].includes(ev.status))
+        return res.status(409).json({ error: 'This event can no longer be Rain Checked' });
+
+      const rainchecks = [...new Set([...(ev.rainchecks ?? []), me.id])];
+      const both = participants.every(id => rainchecks.includes(id));
+
+      if (!both) {
+        // Just this side so far — record it and keep the secret.
+        const { error } = await client.from('pending_events').update({ rainchecks }).eq('id', eventId);
+        if (error) return res.status(500).json({ error: error.message }); // e.g. migration 012 not applied
+        return res.status(200).json({ ok: true, canceled: false });
+      }
+
+      // Both sides rainchecked independently — cancel everywhere. If the
+      // event was confirmed onto Google Calendar, delete the creator's copy
+      // with sendUpdates=all so both calendars drop it.
+      if (ev.google_event_id) {
+        try {
+          const { data: creatorUser } = await client.from('users')
+            .select('access_token').eq('id', ev.creator_id).single();
+          if (creatorUser?.access_token) {
+            const token = decrypt(creatorUser.access_token);
+            await fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(ev.google_event_id)}?sendUpdates=all`,
+              { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+            );
+          }
+        } catch {}
+      }
+
+      const { error } = await client.from('pending_events')
+        .update({ rainchecks, status: 'rainchecked' })
+        .eq('id', eventId);
+      if (error) return res.status(500).json({ error: error.message });
+
+      // The chat that produced the event is done; both sides' outcome history
+      // gets the mutual cancel (a real avoidance signal for the profiler).
+      await deleteLinkedConversations(client, eventId);
+      await Promise.allSettled(participants.map(id => recordOutcome(client, id, ev, 'rainchecked')));
+
+      return res.status(200).json({ ok: true, canceled: true });
     }
 
     if (op === 'update-event') {
@@ -501,7 +581,15 @@ export default async function handler(req, res) {
           ...(description !== undefined ? { description: description ? String(description).slice(0, 500) : null } : {}),
         }).eq('id', eventId);
       }
+      // Confirming a material edit is the "host reviewed" moment: the
+      // reschedule lock lifts, requests and their constraint notes are
+      // consumed, and fresh invites go out. (Two calls — each column is from
+      // a different migration, 008 and 011, and must fail independently.)
       await client.from('pending_events').update({ reschedule_requests: [] }).eq('id', eventId);
+      await client.from('pending_events').update({ reschedule_notes: [] }).eq('id', eventId);
+      // A material edit also revives a (half- or fully-) rainchecked event:
+      // the plan changed, so both sides get a fresh choice.
+      await client.from('pending_events').update({ rainchecks: [] }).eq('id', eventId);
 
       // If the old version was already confirmed onto Google Calendar, cancel
       // that copy (attendees are notified) — the edited event books a fresh

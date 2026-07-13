@@ -17,6 +17,8 @@ file **in numeric order** by pasting it into the Supabase SQL editor
 | `008_reschedule_requests.sql` | `pending_events.reschedule_requests` column | `api/schedule.js` (invitee "Reschedule" action → AI-assisted rebooking) |
 | `009_pending_events_description.sql` | `pending_events.description` column | `api/schedule.js` (invite-only note on invite/event cards; never sent to Google Calendar) |
 | `010_event_outcomes.sql` | `event_outcomes` | `api/schedule.js` (invite responses logged at response time), `api/_profiles.js` (profiler outcome signals that survive purges) |
+| `011_reschedule_notes.sql` | `pending_events.reschedule_notes` column | `api/schedule.js` (requester constraint notes shown to the creator in the event popup while the event is locked) |
+| `012_rainchecks.sql` | `pending_events.rainchecks` column | `api/schedule.js` (Rain Check — secret mutual cancel for two-person events) |
 
 ## Base tables
 s
