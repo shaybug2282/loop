@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDuration } from '../utils/format';
+import { getPrefs } from '../utils/prefs';
 import EventPopup from './EventPopup';
 import './NotificationCenter.css';
 
@@ -70,9 +72,11 @@ const activityId = (a) => `ev-${a.type}-${a.event.id}${a.user ? `-${a.user.id}` 
 // Each notification can be deleted (✕ on hover) — deletions persist locally.
 const NotificationCenter = () => {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [isOpen,       setIsOpen]       = useState(false);
   const [events,       setEvents]       = useState([]);
   const [groupInvites, setGroupInvites] = useState([]);
+  const [friendReqs,   setFriendReqs]   = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [seen,         setSeen]         = useState(() => loadSet(LS_SEEN));
   const [dismissed,    setDismissed]    = useState(() => loadSet(LS_DISMISSED));
@@ -129,14 +133,16 @@ const NotificationCenter = () => {
     if (!googleId) return;
     setLoading(true);
     try {
-      const [evtRes, grpRes, profRes] = await Promise.all([
+      const [evtRes, grpRes, profRes, frRes] = await Promise.all([
         fetch(`/api/schedule?op=pending-events&googleId=${encodeURIComponent(googleId)}`),
         fetch(`/api/groups?op=pending-invites&googleId=${encodeURIComponent(googleId)}`),
         fetch(`/api/user?op=profile&googleId=${encodeURIComponent(googleId)}`),
+        fetch(`/api/friends?op=data&googleId=${encodeURIComponent(googleId)}`),
       ]);
       if (evtRes.ok) setEvents((await evtRes.json()).events ?? []);
       if (grpRes.ok) setGroupInvites((await grpRes.json()).invites ?? []);
       if (profRes.ok) setQuietSince((await profRes.json()).quiet_time_since ?? null);
+      if (frRes.ok)  setFriendReqs((await frRes.json()).requests ?? []);
       if (evtRes.ok && grpRes.ok) fetchedRef.current = true;
     } catch { /* silent */ }
     finally { setLoading(false); }
@@ -161,11 +167,16 @@ const NotificationCenter = () => {
 
   const activities = useMemo(() => buildActivities(events), [events]);
 
-  // Unified display list with stable ids; deleted items are filtered out.
-  const items = useMemo(() => [
-    ...groupInvites.map(inv => ({ id: `group-${inv.groupId}`, kind: 'group', inv })),
-    ...activities.map(a => ({ id: activityId(a), kind: 'activity', a })),
-  ].filter(i => !dismissed.has(i.id)), [groupInvites, activities, dismissed]);
+  // Unified display list with stable ids; deleted items are filtered out and
+  // whole categories can be muted from Profile → Notifications.
+  const items = useMemo(() => {
+    const on = getPrefs().notifications;
+    return [
+      ...(on.friendRequests ? friendReqs.map(req => ({ id: `freq-${req.id}`, kind: 'friend', req })) : []),
+      ...(on.groupInvites ? groupInvites.map(inv => ({ id: `group-${inv.groupId}`, kind: 'group', inv })) : []),
+      ...(on.events ? activities.map(a => ({ id: activityId(a), kind: 'activity', a })) : []),
+    ].filter(i => !dismissed.has(i.id));
+  }, [friendReqs, groupInvites, activities, dismissed]);
 
   // Quiet Time on for 24+ hours → prompt the user to turn it off. Not part of
   // the dismissable items list: it stays until Quiet Time is actually off.
@@ -206,6 +217,7 @@ const NotificationCenter = () => {
   useEffect(() => {
     if (!fetchedRef.current) return;
     const valid = new Set([
+      ...friendReqs.map(req => `freq-${req.id}`),
       ...groupInvites.map(inv => `group-${inv.groupId}`),
       ...activities.map(activityId),
     ]);
@@ -217,7 +229,7 @@ const NotificationCenter = () => {
     });
     prune(setSeen, LS_SEEN);
     prune(setDismissed, LS_DISMISSED);
-  }, [groupInvites, activities]);
+  }, [friendReqs, groupInvites, activities]);
 
   // Delete a notification from the panel (persists across reloads).
   const dismiss = (id) => {
@@ -234,6 +246,16 @@ const NotificationCenter = () => {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ op: 'respond', googleId, groupId, accept }),
+    });
+    fetchAll();
+  };
+
+  // Accept/decline a friend request straight from the bell.
+  const respondFriend = async (requestId, action) => {
+    await fetch('/api/friends', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ op: 'respond', googleId, requestId, action }),
     });
     fetchAll();
   };
@@ -298,6 +320,31 @@ const NotificationCenter = () => {
               !quietOverdue && <p className="nc-empty">No notifications yet</p>
             ) : (
               items.map(item => {
+                if (item.kind === 'friend') {
+                  const { req } = item;
+                  const name = req.sender?.display_name || req.sender?.name || 'Someone';
+                  return (
+                    <div key={item.id} className="nc-item">
+                      <span className="nc-dot nc-dot-yellow" />
+                      <div
+                        className="nc-item-body nc-item-click"
+                        onClick={() => { setIsOpen(false); navigate('/friends?tab=requests'); }}
+                        role="button"
+                        tabIndex={0}
+                        title="Open Friends page"
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setIsOpen(false); navigate('/friends?tab=requests'); } }}
+                      >
+                        <p className="nc-item-title">Friend request from <strong>{name}</strong></p>
+                        <div className="nc-invite-btns" onClick={e => e.stopPropagation()}>
+                          <button className="nc-btn-join"    onClick={() => respondFriend(req.id, 'accept')}>Accept</button>
+                          <button className="nc-btn-decline" onClick={() => respondFriend(req.id, 'reject')}>Decline</button>
+                        </div>
+                      </div>
+                      <button className="nc-item-x" title="Delete notification"
+                        onClick={() => dismiss(item.id)}>✕</button>
+                    </div>
+                  );
+                }
                 if (item.kind === 'group') {
                   const { inv } = item;
                   return (

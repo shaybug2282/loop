@@ -1,34 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, Pencil, Users, Calendar, MessageSquare, X, Check, Trash2, UserPlus, UserMinus } from 'lucide-react';
+import { Plus, Pencil, Users, Calendar, MessageSquare, X, Check, Trash2, UserPlus, UserMinus, LogOut } from 'lucide-react';
 import { useGroupChat } from '../contexts/GroupChatContext';
 import { useMessages } from '../contexts/MessagesContext';
-import { sendDm } from '../utils/messageCrypto';
-import AISummary from './AISummary';
+import { resizeImage } from '../utils/image';
+import SchedulingAssistant from './SchedulingAssistant';
 import './GroupsWidget.css';
 
 const PRESET_COLORS = ['#E8607A','#6366F1','#10B981','#F59E0B','#3B82F6','#EC4899','#14B8A6','#8B5CF6'];
-
-// Resize an image File to a small thumbnail and return a data URL.
-function resizeImage(file, maxPx = 96) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width  = Math.round(img.width  * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 // Renders a stack of up to 4 accepted-member avatars.
 const AvatarCluster = ({ members }) => {
@@ -169,6 +147,8 @@ export default function GroupsWidget() {
     if (!createName.trim() || !googleId || creating) return;
     setCreating(true);
     try {
+      // Invitees are notified through the notification bell (pending-invites)
+      // — no automated DM, so the invite isn't double-delivered.
       await fetch('/api/groups', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,11 +161,6 @@ export default function GroupsWidget() {
           memberUserIds: [...createSelected],
         }),
       });
-      // Send invite messages to each invited member
-      const inviteText = `You've been invited to join the group "${createName.trim()}" on Loop. Check your notifications to accept or decline!`;
-      await Promise.allSettled(
-        [...createSelected].map(uid => sendDm(googleId, uid, inviteText))
-      );
 
       setShowCreate(false);
       setCreateName(''); setCreateDesc(''); setCreateColor(PRESET_COLORS[0]);
@@ -268,6 +243,7 @@ export default function GroupsWidget() {
         }),
       });
       if (editAddSelected.size > 0) {
+        // Invitees get the notification-bell invite only — no automated DM.
         await fetch('/api/groups', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -276,10 +252,6 @@ export default function GroupsWidget() {
             memberUserIds: [...editAddSelected],
           }),
         });
-        const inviteText = `You've been invited to join the group "${editName.trim() || editGroup.name}" on Loop. Check your notifications to accept or decline!`;
-        await Promise.allSettled(
-          [...editAddSelected].map(uid => sendDm(googleId, uid, inviteText))
-        );
       }
       setEditGroup(null);
       await loadGroups();
@@ -295,6 +267,21 @@ export default function GroupsWidget() {
     });
     await loadGroups();
     setEditGroup(g => g ? { ...g, members: (g.members ?? []).filter(m => m.id !== userId) } : g);
+  };
+
+  // handleLeave — first-class "leave group": removes ONLY yourself (the API
+  // restricts removing anyone else to the creator).
+  const handleLeave = async group => {
+    if (!myIdRef.current) return;
+    if (!window.confirm(`Leave "${group.name}"? You'll need a new invite to rejoin.`)) return;
+    await fetch('/api/groups', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ op: 'remove-member', googleId, groupId: group.id, userId: myIdRef.current }),
+    });
+    setExpandedId(null);
+    setEditGroup(null);
+    await loadGroups();
   };
 
   const handleDeleteGroup = async () => {
@@ -468,6 +455,11 @@ export default function GroupsWidget() {
                     <button className="gw-action-btn" onClick={() => openEdit(g)}>
                       <Pencil size={14} /> Edit
                     </button>
+                    {!g.isCreator && (
+                      <button className="gw-action-btn gw-action-leave" onClick={() => handleLeave(g)}>
+                        <LogOut size={14} /> Leave
+                      </button>
+                    )}
                   </div>
                 )}
               </li>
@@ -522,7 +514,9 @@ export default function GroupsWidget() {
                       : <div className="gw-member-av gw-member-av-ph">{(m.display_name || m.name)?.[0]}</div>}
                     <span className="gw-member-name">{m.display_name || m.name}</span>
                     <span className={`gw-member-status gw-status-${m.status}`}>{m.status}</span>
-                    {m.id !== myIdRef.current && (
+                    {/* Removing OTHERS is creator-only (server-enforced too);
+                        leaving yourself is the footer's Leave button. */}
+                    {m.id !== myIdRef.current && editGroup.isCreator && (
                       <button
                         className="gw-remove-btn"
                         title="Remove"
@@ -558,9 +552,15 @@ export default function GroupsWidget() {
             </div>
 
             <div className="gw-modal-footer">
-              <button className="gw-btn-danger" onClick={handleDeleteGroup}>
-                <Trash2 size={14} /> Delete group
-              </button>
+              {editGroup.isCreator ? (
+                <button className="gw-btn-danger" onClick={handleDeleteGroup}>
+                  <Trash2 size={14} /> Delete group
+                </button>
+              ) : (
+                <button className="gw-btn-danger" onClick={() => handleLeave(editGroup)}>
+                  <LogOut size={14} /> Leave group
+                </button>
+              )}
               <div className="gw-modal-footer-right">
                 <button className="gw-btn-ghost" onClick={() => setEditGroup(null)}>Cancel</button>
                 <button className="gw-btn-primary" onClick={handleEditSave} disabled={editSaving}>
@@ -576,7 +576,7 @@ export default function GroupsWidget() {
       {scheduleGroup && (
         <div className="gw-modal-backdrop" onClick={() => setScheduleGroup(null)}>
           <div className="gw-schedule-modal" onClick={e => e.stopPropagation()}>
-            <AISummary group={scheduleGroup} onClose={() => setScheduleGroup(null)} />
+            <SchedulingAssistant group={scheduleGroup} onClose={() => setScheduleGroup(null)} />
           </div>
         </div>
       )}

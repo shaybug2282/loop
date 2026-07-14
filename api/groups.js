@@ -290,9 +290,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'googleId, groupId, userId required' });
     const me = await resolveUser(supabase, googleId);
     if (!me) return res.status(404).json({ error: 'user not found' });
-    // Members may remove others (matches the edit-modal UX) or leave themselves.
+    // Anyone may remove THEMSELVES (leave group); removing someone else is
+    // creator-only — a member shouldn't be able to eject other members.
     if (!(await isAcceptedMember(supabase, groupId, me.id)))
       return res.status(403).json({ error: 'not a member' });
+    if (userId !== me.id) {
+      const { data: g } = await supabase
+        .from('groups').select('created_by').eq('id', groupId).single();
+      if (!g || g.created_by !== me.id)
+        return res.status(403).json({ error: 'only the group creator can remove other members' });
+    }
 
     await supabase.from('group_members')
       .delete()

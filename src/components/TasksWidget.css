@@ -1,0 +1,150 @@
+.tw-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tw-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.tw-icon-btn {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+.tw-icon-btn:hover { background: var(--surface-tint); color: var(--accent); }
+
+.tw-add-row {
+  display: flex;
+  gap: 6px;
+}
+
+.tw-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  background: var(--card);
+  color: var(--text);
+}
+.tw-input:focus { outline: none; border-color: var(--accent); }
+
+.tw-add-btn {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.tw-add-btn:hover:not(:disabled) { background: var(--accent-hover); }
+.tw-add-btn:disabled { opacity: 0.5; cursor: default; }
+
+.tw-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tw-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 8px;
+}
+.tw-item:hover { background: var(--surface); }
+.tw-item .tw-del { opacity: 0; }
+.tw-item:hover .tw-del { opacity: 1; }
+
+.tw-check { accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+
+.tw-text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tw-item.done .tw-text {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+
+.tw-due {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border-radius: 6px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+.tw-due.today   { background: #fef3c7; color: #b45309; }
+.tw-due.overdue { background: #fee2e2; color: #dc2626; }
+
+.tw-del {
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  transition: opacity 0.12s;
+}
+.tw-del:hover { color: #dc2626; background: #fee2e2; }
+
+.tw-done-toggle {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  padding: 2px 4px;
+}
+.tw-done-toggle:hover { color: var(--accent); }
+
+.tw-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 4px 0;
+}
+
+.tw-error {
+  font-size: 12px;
+  color: #dc2626;
+  margin: 0;
+}

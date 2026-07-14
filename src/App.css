@@ -18,7 +18,7 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: #E8607A;
+  background: var(--accent);
   color: white;
 }
 

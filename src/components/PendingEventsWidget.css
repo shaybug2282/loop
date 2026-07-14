@@ -1,7 +1,7 @@
 /* ── In the Works (pending events) widget ── */
 
 .pe-widget {
-  background: #fff;
+  background: var(--card);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   display: flex;
@@ -15,16 +15,16 @@
   align-items: center;
   gap: 8px;
   padding: 13px 16px 11px;
-  border-bottom: 1px solid #F3D8E4;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  color: #E8607A;
+  color: var(--accent);
 }
 
 .pe-header h2 {
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  color: #1A1A1A;
+  color: var(--text);
 }
 
 /* "New event" — opens the creation popup (friends → time → invites out). */
@@ -33,9 +33,9 @@
   align-items: center;
   gap: 5px;
   margin-left: auto;
-  border: 1px solid #E8607A;
+  border: 1px solid var(--accent);
   border-radius: 14px;
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   font-size: 11.5px;
   font-weight: 600;
@@ -44,17 +44,17 @@
   transition: background 0.14s;
 }
 
-.pe-new-btn:hover { background: #C94D65; }
+.pe-new-btn:hover { background: var(--accent-hover); }
 
 /* "Dismissed" toggle — flips the body to the restorable hidden-events list. */
 .pe-dismissed-btn {
   display: flex;
   align-items: center;
   gap: 5px;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  background: #fff;
-  color: #E8607A;
+  background: var(--card);
+  color: var(--accent);
   font-size: 11.5px;
   font-weight: 600;
   padding: 4px 10px;
@@ -63,7 +63,7 @@
 }
 
 .pe-dismissed-btn:hover,
-.pe-dismissed-btn.active { background: #FDE8EF; border-color: #E8607A; }
+.pe-dismissed-btn.active { background: var(--surface-tint); border-color: var(--accent); }
 
 .pe-body {
   flex: 1;
@@ -74,11 +74,11 @@
 }
 
 .pe-body::-webkit-scrollbar { width: 4px; }
-.pe-body::-webkit-scrollbar-thumb { background: #F3D8E4; border-radius: 4px; }
+.pe-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 .pe-hint {
   text-align: center;
-  color: #A3A8B0;
+  color: var(--text-faint);
   font-size: 13px;
   margin: auto;
   padding: 1rem;
@@ -102,9 +102,9 @@
   gap: 4px;
   padding: 10px 11px;
   width: 100%;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #FDF5F7;
+  background: var(--surface);
   cursor: pointer;
   text-align: left;
   transition: background 0.14s, border-color 0.14s;
@@ -136,14 +136,14 @@
 .pe-tile-x:hover { background: rgba(0, 0, 0, 0.38); }
 
 .pe-tile:hover {
-  background: #FDE8EF;
-  border-color: #E8607A;
+  background: var(--surface-tint);
+  border-color: var(--accent);
 }
 
 .pe-tile-title {
   font-size: 12.5px;
   font-weight: 700;
-  color: #1A1A1A;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -156,14 +156,14 @@
   gap: 4px;
   font-size: 11.5px;
   font-weight: 600;
-  color: #4A4A52;
+  color: var(--text-soft);
 }
 
-.pe-tile-time svg { color: #E8607A; }
+.pe-tile-time svg { color: var(--accent); }
 
 .pe-tile-people {
   font-size: 11px;
-  color: #9CA3AF;
+  color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -181,8 +181,8 @@
 }
 
 .pe-tile-badge.resched {
-  color: #6B7280;
-  background: #E5E7EB;
+  color: var(--text-muted);
+  background: var(--border-soft);
 }
 
 .pe-more-btn {
@@ -190,7 +190,7 @@
   align-self: center;
   border: none;
   background: none;
-  color: #E8607A;
+  color: var(--accent);
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
@@ -199,7 +199,7 @@
   transition: background 0.12s;
 }
 
-.pe-more-btn:hover { background: #FDE8EF; }
+.pe-more-btn:hover { background: var(--surface-tint); }
 
 /* ── Dismissed events list ── */
 
@@ -214,7 +214,7 @@
   align-items: center;
   gap: 8px;
   padding: 9px 2px;
-  border-bottom: 1px solid #FDF5F7;
+  border-bottom: 1px solid var(--surface);
 }
 
 .pe-dm-item:last-child { border-bottom: none; }
@@ -228,12 +228,12 @@
   cursor: pointer;
 }
 
-.pe-dm-info:hover .pe-dm-title { color: #E8607A; }
+.pe-dm-info:hover .pe-dm-title { color: var(--accent); }
 
 .pe-dm-title {
   font-size: 12.5px;
   font-weight: 600;
-  color: #1A1A1A;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -242,16 +242,16 @@
 
 .pe-dm-time {
   font-size: 11.5px;
-  color: #6B7280;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
 .pe-dm-restore {
   flex-shrink: 0;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fff;
-  color: #E8607A;
+  background: var(--card);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 600;
   padding: 3px 9px;
@@ -259,4 +259,4 @@
   transition: background 0.12s;
 }
 
-.pe-dm-restore:hover { background: #FDE8EF; }
+.pe-dm-restore:hover { background: var(--surface-tint); }

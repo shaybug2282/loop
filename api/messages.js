@@ -114,6 +114,17 @@ export default async function handler(req, res) {
         .from('users').select('id').eq('google_id', senderGoogleId).single();
       if (senderErr || !sender) return res.status(404).json({ error: 'Sender not found' });
 
+      // Blocks (migration 015) stop DMs in both directions. Missing table
+      // reads as "not blocked" so pre-015 deployments keep working.
+      try {
+        const { data: blockRows } = await client.from('blocks')
+          .select('blocker_id')
+          .or(`and(blocker_id.eq.${sender.id},blocked_id.eq.${receiverId}),` +
+              `and(blocker_id.eq.${receiverId},blocked_id.eq.${sender.id})`);
+        if ((blockRows ?? []).length)
+          return res.status(403).json({ error: 'You can no longer message this user' });
+      } catch {}
+
       const { data, error } = await client
         .from('messages')
         .insert({ sender_id: sender.id, receiver_id: receiverId, ciphertext, iv })

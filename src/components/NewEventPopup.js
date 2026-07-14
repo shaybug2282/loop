@@ -1,30 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ArrowRight, Calendar, Sparkles, Send } from 'lucide-react';
-import { formatEventTime as formatTime } from '../utils/format';
+import { ChevronLeft, ArrowRight, Sparkles } from 'lucide-react';
+import SchedulingAssistant from './SchedulingAssistant';
 import './NewEventPopup.css';
 
 // Previous step for the header back button.
-const BACK = { timing: 'friends', pick: 'timing', ai: 'timing', proposed: 'ai' };
+const BACK = { timing: 'friends', pick: 'timing', assistant: 'timing' };
 
-// NewEventPopup — modal flow for scheduling a brand-new event (the old
-// Schedule! widget's creation flow, popup-sized): select friends, then either
-// pick a date/time/duration manually or describe the event and let the AI
-// propose times. Creating posts op:'create-event', which sends every selected
-// friend a pending invite; onCreated fires afterward so the parent (the
-// In the Works widget) can refetch and show the new tile.
-export default function NewEventPopup({ onClose, onCreated }) {
-  const [step,      setStep]      = useState('friends'); // friends | timing | pick | ai | proposed | done
+// NewEventPopup — modal flow for scheduling a brand-new event: select
+// friends, then either pick a date/time/duration manually or hand off to the
+// conversational Scheduling Assistant (the same persistent chat used
+// everywhere else), pre-seeded with the selected friends. Manual creation
+// posts op:'create-event'; assistant bookings go through its own plan cards.
+// onCreated fires after either path books, so the parent can refetch.
+export default function NewEventPopup({ onClose, onCreated, initialDate = null }) {
+  const [step,      setStep]      = useState('friends'); // friends | timing | pick | assistant | done
   const [friends,   setFriends]   = useState(null);      // null until fetched
   const [selected,  setSelected]  = useState(new Set());
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState(null);
-  // Manual pick
-  const [date,     setDate]     = useState('');
+  // Manual pick — initialDate (from a calendar empty-slot click) prefills it.
+  const [date,     setDate]     = useState(initialDate ?? '');
   const [time,     setTime]     = useState('10:00');
   const [duration, setDuration] = useState(1);
-  // AI find-a-time
-  const [aiRequest, setAiRequest] = useState('');
-  const [aiPlans,   setAiPlans]   = useState([]);
 
   const googleId = localStorage.getItem('googleUserId');
   const today = new Date().toISOString().split('T')[0];
@@ -73,40 +70,16 @@ export default function NewEventPopup({ onClose, onCreated }) {
     create(when.toISOString(), Number(duration) || 1);
   };
 
-  // askAI — natural-language request → Sonnet proposes times for everyone.
-  const askAI = async () => {
-    if (!aiRequest.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const r = await fetch('/api/ai', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ op: 'schedule', googleId, participantIds: [...selected], request: aiRequest }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'AI error');
-      if (data.clarification_needed) {
-        setError(data.clarification_needed);
-      } else if (!data.plans?.length) {
-        setError('No available time found — try a different request.');
-      } else {
-        setAiPlans(data.plans);
-        setStep('proposed');
-      }
-    } catch (err) {
-      setError(err.message || 'Could not find times. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // choosePlan — book an AI-proposed slot; duration derived from the plan.
-  const choosePlan = (plan) => {
-    const dur = plan.end && plan.start
-      ? Math.max(0.5, +((new Date(plan.end) - new Date(plan.start)) / 3.6e6).toFixed(1))
-      : 1;
-    create(plan.start, dur);
+  // seedMessage — the first chat turn for the assistant hand-off: names the
+  // selected friends (and the clicked date, if any) so the roster resolves
+  // them and availability checks start immediately.
+  const seedMessage = () => {
+    const names = (friends ?? [])
+      .filter(f => selected.has(f.id))
+      .map(f => f.display_name || f.name)
+      .filter(Boolean);
+    const datePart = date ? ` on ${date}` : '';
+    return `I'd like to schedule something with ${names.join(', ')}${datePart}. Can you find times that work for all of us?`;
   };
 
   const body = () => {
@@ -147,7 +120,7 @@ export default function NewEventPopup({ onClose, onCreated }) {
           <p className="ne-sublabel">How would you like to choose a time?</p>
           <div className="ne-choices">
             <button className="ne-choice" onClick={() => setStep('pick')}>Pick a time</button>
-            <button className="ne-choice primary" onClick={() => setStep('ai')}>
+            <button className="ne-choice primary" onClick={() => setStep('assistant')}>
               <Sparkles size={13} /> Find a time
             </button>
           </div>
@@ -178,44 +151,15 @@ export default function NewEventPopup({ onClose, onCreated }) {
         </>
       );
 
-      case 'ai': return (
-        <>
-          <p className="ne-sublabel">Describe the event and I'll suggest times:</p>
-          <div className="ne-ai-row">
-            <input
-              className="ne-input ne-ai-input"
-              type="text"
-              placeholder="e.g. Dinner next week, about 2 hours…"
-              value={aiRequest}
-              autoFocus
-              onChange={e => setAiRequest(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && aiRequest.trim() && !loading) askAI(); }}
-              disabled={loading}
-            />
-            <button className="ne-ai-send" onClick={askAI} disabled={!aiRequest.trim() || loading} title="Get suggestions">
-              <Send size={14} />
-            </button>
-          </div>
-          {loading && <p className="ne-hint">Finding the best times…</p>}
-        </>
-      );
-
-      case 'proposed': return (
-        <>
-          <p className="ne-sublabel">Choose a time that works:</p>
-          <div className="ne-plan-list">
-            {aiPlans.map((p, i) => (
-              <button key={i} className="ne-plan" disabled={loading} onClick={() => choosePlan(p)}>
-                <Calendar size={14} style={{ flexShrink: 0 }} />
-                <span className="ne-plan-body">
-                  <span>{formatTime(p.start)}</span>
-                  {p.location && <span className="ne-plan-loc">{p.location}</span>}
-                </span>
-              </button>
-            ))}
-          </div>
-          {loading && <p className="ne-hint">Scheduling…</p>}
-        </>
+      // Full conversational assistant, seeded with the picked friends — the
+      // same persistent chat as everywhere else (constraints, memory, cards).
+      case 'assistant': return (
+        <div className="ne-assistant">
+          <SchedulingAssistant
+            initialMessage={seedMessage()}
+            onBooked={() => { onCreated?.(); }}
+          />
+        </div>
       );
 
       case 'done': return (
@@ -233,7 +177,7 @@ export default function NewEventPopup({ onClose, onCreated }) {
 
   return (
     <div className="ne-backdrop" onClick={onClose}>
-      <div className="ne-modal" onClick={e => e.stopPropagation()}>
+      <div className={`ne-modal${step === 'assistant' ? ' ne-modal-lg' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="ne-header">
           {step in BACK && (
             <button className="ne-back" onClick={() => { setStep(BACK[step]); setError(null); }} title="Back">

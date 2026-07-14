@@ -28,7 +28,7 @@
 // Requires the user_profiles table: db/migrations/003_user_profiles.sql
 
 import { decrypt } from './_crypto.js';
-import { db, callModel, extractJson } from './_lib.js';
+import { db, callModel, extractJson, isQuietNow } from './_lib.js';
 import { buildProfileForUser, loadProfile, updateCommStyle, mergeConstraint } from './_profiles.js';
 
 // Re-exported so the existing unit tests (import from api/ai) keep resolving.
@@ -80,7 +80,9 @@ function renderBusy(busy, tz) {
 // busy windows pre-rendered in each participant's own timezone.
 const renderParticipants = (participants) => participants.map(p => ({
   id: p.id, name: p.name, timezone: p.timezone, profile: p.profile,
-  busy: renderBusy(p.busy, p.timezone),
+  busy: p.shared === false
+    ? 'not shared — this participant keeps their calendar private; rely on their profile and note the times are unverified'
+    : renderBusy(p.busy, p.timezone),
 }));
 
 // resolveUsers — google IDs → user rows (includes encrypted token for calendar reads).
@@ -94,14 +96,26 @@ async function resolveUsers(client, googleIds) {
 
 // resolveUsersByIds — Supabase UUIDs → user rows (used when participant list comes
 // from ScheduleWidget's `selected` Set, which stores internal UUIDs, not googleIds).
+// preferences (migration 015) carries availabilitySharing; absent pre-015.
 async function resolveUsersByIds(client, ids) {
   if (!ids.length) return [];
-  const { data } = await client
+  let { data, error } = await client
     .from('users')
-    .select('id, google_id, name, display_name, timezone, access_token')
+    .select('id, google_id, name, display_name, timezone, access_token, preferences')
     .in('id', ids);
+  if (error) {
+    ({ data } = await client
+      .from('users')
+      .select('id, google_id, name, display_name, timezone, access_token')
+      .in('id', ids));
+  }
   return data ?? [];
 }
+
+// sharesCalendarWithAI — availabilitySharing 'off' means the assistant must
+// not read this user's calendar at all (the strictest privacy setting);
+// 'ai' (the default) and 'friends' both allow assistant lookups.
+const sharesCalendarWithAI = u => (u.preferences?.availabilitySharing ?? 'ai') !== 'off';
 
 // loadProfiles — batch: user UUIDs → { [userId]: profile }. One query, not N.
 async function loadProfiles(client, userIds) {
@@ -161,7 +175,8 @@ async function gatherParticipantContext(client, userIds, days = 14) {
     name:     u.display_name || u.name || 'User',
     timezone: u.timezone || 'UTC',
     profile:  profiles[u.id] ?? null,
-    busy:     await fetchUserBusy(u, windowStart, windowEnd),
+    shared:   sharesCalendarWithAI(u),
+    busy:     sharesCalendarWithAI(u) ? await fetchUserBusy(u, windowStart, windowEnd) : [],
   })));
 }
 
@@ -195,7 +210,7 @@ const AUTHORED_PROMPT =
   '(A) {"reply":"...","plans":[...]} — reply is your short, natural conversational message; plans is up to 3 suggestions (or [] when not suggesting times). Each plan: {"title":"...","start":"ISO8601 with explicit UTC offset","end":"ISO8601 with explicit UTC offset","location":"only when the user named or asked for one — never invent a venue","description":"optional invite note ≤140 chars — only when the user asks to include a note or gives details invitees need; it appears on the invite and event card, never on the Google Calendar event","participantIds":["friend uuids from the roster, [] if for the user alone"]}. ' +
   'Form (A) may also carry "remember":{"constraint":"...","kind":"hard"|"soft"} — include ONLY when the user directly states a durable scheduling rule about themselves in THIS message ("I never do weekday lunches" → hard, "I prefer mornings" → soft); never inferred, never one already in their profile; acknowledge it in a few words in reply. Use kind "forget" when they retract one. ' +
   '(B) {"action":"check_availability","participantIds":["friend uuids"]} — returns those friends\' real calendar busy windows and full scheduling profiles as the next message. ' +
-  'You are a concise, friendly scheduling assistant helping one user coordinate events with friends. When the user names a friend, resolve them via the roster. Roster entries may include shared_history — events the user actually booked with that friend before; use it to default the event type, duration, day, and time instead of asking. A roster entry with quiet_time:true CANNOT be scheduled right now: never include them in plans — tell the user that friend has Quiet Time enabled and to try again later. BEFORE first proposing times for any event involving friends, you MUST issue check_availability for all involved friends so proposals rest on their real calendars and profiles — never guess someone else\'s availability. Do not repeat a lookup within the same turn. ' +
+  'You are a concise, friendly scheduling assistant helping one user coordinate events with friends. When the user names a friend, resolve them via the roster. Roster entries may include shared_history — events the user actually booked with that friend before; use it to default the event type, duration, day, and time instead of asking. A roster entry with quiet_time:true CANNOT be scheduled right now: never include them in plans — tell the user that friend has Quiet Time enabled and to try again later. A roster entry with quiet_hours (a daily window in that friend\'s local time) must never receive plans that START inside that window. BEFORE first proposing times for any event involving friends, you MUST issue check_availability for all involved friends so proposals rest on their real calendars and profiles — never guess someone else\'s availability. Do not repeat a lookup within the same turn. ' +
   'CALENDAR DATA FRESHNESS: your context may include participants\' calendars from an earlier lookup, labeled with when they were fetched. Reuse them for small revisions in the same timeframe, but if participants changed, the timeframe moved, or the data is more than a day old, issue check_availability again before proposing times. If no participant calendar data is in context, you do NOT have any — never propose times for friends from memory of a previous turn. ' +
   'CORRECTIONS: when the user rejects, corrects, or expresses doubt about a suggestion, treat that as a standing hard constraint for the rest of this conversation — never re-propose a slot (or anything materially similar) that the user turned down, and re-read their message for the specific day/time they actually asked for before revising. ' +
   SCHEDULING_RULES + ' ' +
@@ -481,8 +496,14 @@ export default async function handler(req, res) {
       // falls back to the legacy column set pre-migration-013.
       let { data: friendships, error: fErr } = await client
         .from('friendships')
-        .select('friend:friend_id(id, name, display_name, quiet_time_since)')
+        .select('friend:friend_id(id, name, display_name, quiet_time_since, quiet_time_until, preferences, timezone)')
         .eq('user_id', user.id);
+      if (fErr) {
+        ({ data: friendships, error: fErr } = await client
+          .from('friendships')
+          .select('friend:friend_id(id, name, display_name, quiet_time_since)')
+          .eq('user_id', user.id));
+      }
       if (fErr) {
         ({ data: friendships } = await client
           .from('friendships')
@@ -506,10 +527,14 @@ export default async function handler(req, res) {
       ]);
       const friends = friendRows.map(f => {
         const p = friendProfs[f.id];
+        const qh = f.preferences?.quietHours;
         return {
           id:   f.id,
           name: f.display_name || f.name,
-          ...(f.quiet_time_since ? { quiet_time: true } : {}),
+          ...(isQuietNow(f) ? { quiet_time: true } : {}),
+          ...(qh?.enabled && qh.start && qh.end
+            ? { quiet_hours: `${qh.start}–${qh.end} daily (${f.timezone || 'their local time'})` }
+            : {}),
           ...(p ? { tags: p.tags, awake_hours: p.awake_hours, weekday_pattern: p.weekday_pattern } : {}),
           ...(sharedHist[f.id] ? { shared_history: sharedHist[f.id] } : {}),
         };

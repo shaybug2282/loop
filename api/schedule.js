@@ -21,7 +21,7 @@
 // Requires the pending_events table: db/migrations/002_pending_events.sql
 
 import { decrypt } from './_crypto.js';
-import { db } from './_lib.js';
+import { db, isQuietNow, inQuietHours } from './_lib.js';
 import { refreshProfileIfStale, recordRescheduleNote, recordOutcome } from './_profiles.js';
 
 // Merge overlapping busy intervals, then find durationMs-length free slots.
@@ -346,14 +346,25 @@ export default async function handler(req, res) {
 
       // Quiet Time gate: someone with Quiet Time on can't be scheduled, by
       // anyone, through any path (manual, assistant, group) — they all book
-      // here. Fails open on deployments without migration 013.
+      // here. An expired quiet_time_until reads as off (015); daily quiet
+      // hours additionally block events STARTING inside the window, evaluated
+      // in the invitee's timezone. Fails open on deployments without 013/015.
       try {
-        const { data: invitedRows } = await client.from('users')
-          .select('id, name, display_name, quiet_time_since').in('id', invitedUserIds);
-        const quiet = (invitedRows ?? []).find(u => u.quiet_time_since);
+        let { data: invitedRows, error: qErr } = await client.from('users')
+          .select('id, name, display_name, quiet_time_since, quiet_time_until, preferences, timezone').in('id', invitedUserIds);
+        if (qErr) {
+          ({ data: invitedRows } = await client.from('users')
+            .select('id, name, display_name, quiet_time_since').in('id', invitedUserIds));
+        }
+        const quiet = (invitedRows ?? []).find(isQuietNow);
         if (quiet) {
           const qName = quiet.display_name || quiet.name || 'This person';
           return res.status(409).json({ error: `${qName} has Quiet Time enabled — try again later.` });
+        }
+        const inQuiet = (invitedRows ?? []).find(u => inQuietHours(eventTime, u.preferences, u.timezone));
+        if (inQuiet) {
+          const qName = inQuiet.display_name || inQuiet.name || 'This person';
+          return res.status(409).json({ error: `That time falls inside ${qName}'s quiet hours — pick a different time.` });
         }
       } catch {}
 

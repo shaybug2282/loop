@@ -208,6 +208,40 @@ export const fetchGoogleTasks = async () => {
   }
 };
 
+// Create a Google Task on the user's default list ('@default').
+// in: title string. out: the created task mapped to the widget shape.
+export const createGoogleTask = async (title) => {
+  const accessToken = await getValidToken();
+
+  const response = await fetch(
+    `${TASKS_API_URL}/lists/@default/tasks`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to create Google Task');
+  }
+
+  const task = await response.json();
+  return {
+    id: task.id,
+    text: task.title,
+    completed: false,
+    listId: '@default',
+    listName: 'My Tasks',
+    due: task.due,
+    notes: task.notes,
+    fromGoogle: true,
+  };
+};
+
 // Update a Google Task
 export const updateGoogleTask = async (listId, taskId, updates) => {
   const accessToken = await getValidToken();

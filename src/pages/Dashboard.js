@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import CalendarComponent from '../components/CalendarComponent';
+import TasksWidget from '../components/TasksWidget';
 import PendingEventsWidget from '../components/PendingEventsWidget';
 import GroupsWidget from '../components/GroupsWidget';
 import FriendsWidget from '../components/FriendsWidget';
@@ -76,8 +77,9 @@ const Dashboard = () => {
       </div>
 
       <div className="dashboard-grid">
-        <div className="dashboard-item">
+        <div className="dashboard-item dashboard-col-stack">
           <CalendarComponent />
+          <TasksWidget />
         </div>
         <div className="dashboard-item dashboard-col-stack">
           <GroupsWidget />

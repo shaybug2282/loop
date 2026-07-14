@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Clock, MapPin, AlignLeft, Sparkles, Trash2, Info, Umbrella, Tag } from 'lucide-react';
-import AISummary from './AISummary';
+import { X, Clock, MapPin, AlignLeft, Sparkles, Trash2, Info, Umbrella, Tag, MessageSquare } from 'lucide-react';
+import SchedulingAssistant from './SchedulingAssistant';
+import { useGroupChat } from '../contexts/GroupChatContext';
 import { formatDuration } from '../utils/format';
 import { updateCalendarEvent, deleteCalendarEvent } from '../utils/googleCalendar';
 import './EventPopup.css';
@@ -155,6 +156,7 @@ const RAINCHECK_TIP =
 
 const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged = null }) => {
   const norm = useMemo(() => normalize({ loopEvent, googleEvent }), [loopEvent, googleEvent]);
+  const { openGroupChat } = useGroupChat();
 
   const [draft,    setDraft]    = useState(() => toDraft(norm));
   const [baseline, setBaseline] = useState(() => toDraft(norm));
@@ -234,6 +236,20 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
        (myGroups ?? []).find(g => g.id === draft.groupId) ??
        { name: 'Group', color: '#E8607A' })
     : null;
+
+  // openTagChat — jump from the event's group tag into that group's chat
+  // ("discuss this event"). The tag payload lacks the member list, so the
+  // full group is fetched on click; falls back to the tag info alone.
+  const openTagChat = async () => {
+    const gid = draft.groupId || norm.groupId;
+    if (!gid || !googleId) return;
+    let full = null;
+    try {
+      const r = await fetch(`/api/groups?op=list&googleId=${encodeURIComponent(googleId)}`);
+      if (r.ok) full = ((await r.json()).groups ?? []).find(g => g.id === gid) ?? null;
+    } catch {}
+    openGroupChat(full ?? { id: gid, ...groupInfo });
+  };
 
   // whenLabel — human date & time built from the draft so header edits show live.
   const whenLabel = () => {
@@ -603,12 +619,21 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
                 )}
               </div>
             ) : groupInfo ? (
-              <span
-                className={`ep-group-tag${editableCls}`}
-                style={{ borderColor: groupInfo.color, color: groupInfo.color }}
-                onClick={() => startEdit('group')}
-                title={norm.canEdit ? 'Click to change the group tag' : undefined}
-              >{groupInfo.name}</span>
+              <>
+                <span
+                  className={`ep-group-tag${editableCls}`}
+                  style={{ borderColor: groupInfo.color, color: groupInfo.color }}
+                  onClick={() => startEdit('group')}
+                  title={norm.canEdit ? 'Click to change the group tag' : undefined}
+                >{groupInfo.name}</span>
+                <button
+                  className="ep-group-chat-btn"
+                  title={`Chat with ${groupInfo.name}`}
+                  onClick={openTagChat}
+                >
+                  <MessageSquare size={12} />
+                </button>
+              </>
             ) : (
               <span
                 className={`ep-row-val ep-row-empty${editableCls}`}
@@ -772,7 +797,7 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
       {showAI && (
         <div className="ep-backdrop ep-ai-backdrop" onClick={e => { e.stopPropagation(); setShowAI(false); }}>
           <div className="ep-ai-modal" onClick={e => e.stopPropagation()}>
-            <AISummary onClose={() => setShowAI(false)} />
+            <SchedulingAssistant onClose={() => setShowAI(false)} />
           </div>
         </div>
       )}

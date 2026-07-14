@@ -1281,7 +1281,9 @@ const PrivacyPage = () => (
     <Link to="/dashboard" className="privacy-back">← Back</Link>
     <h1>Privacy Policy</h1>
     <style>{privacyStyles}</style>
-    <div dangerouslySetInnerHTML={{ __html: privacyHTML }} />
+    {/* privacy-doc: the generated legal text hard-codes dark-on-transparent
+        colors, so dark mode gives it a light card to stay readable. */}
+    <div className="privacy-doc" dangerouslySetInnerHTML={{ __html: privacyHTML }} />
   </div>
 );
 

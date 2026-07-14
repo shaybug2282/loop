@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchCalendarEvents } from '../utils/googleCalendar';
 import EventPopup from './EventPopup';
+import NewEventPopup from './NewEventPopup';
 import './WeekView.css';
 
 const SEEN_CONFIRMED_KEY = 'wv-confirmed-seen';
@@ -30,6 +31,13 @@ const GroupTag = ({ group }) => {
   );
 };
 
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+// WeekView — the /calendar page body: a week grid or a month grid (toggle in
+// the header) merging Google events with Loop app events. Clicking an event
+// opens the universal EventPopup; clicking an empty day area opens the
+// New event flow prefilled with that date.
 const WeekView = () => {
   const [events,        setEvents]        = useState([]);
   const [pendingEvents, setPendingEvents] = useState([]);
@@ -38,7 +46,10 @@ const WeekView = () => {
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState(null);
   const [selected,      setSelected]      = useState(null); // display item open in the popup
-  const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
+  const [viewMode,      setViewMode]      = useState('week'); // 'week' | 'month'
+  // Anchor date: the week's Sunday in week mode; any day inside the month in month mode.
+  const [anchor,        setAnchor]        = useState(getStartOfWeek(new Date()));
+  const [newEventDate,  setNewEventDate]  = useState(null); // 'YYYY-MM-DD' opens NewEventPopup prefilled
   const googleId = localStorage.getItem('googleUserId');
 
   function getStartOfWeek(date) {
@@ -49,16 +60,32 @@ const WeekView = () => {
     return new Date(d.setDate(diff));
   }
 
+  // visibleRange — [start, end) of days the current view shows. Month mode
+  // covers a 6-week grid aligned to the week start, so leading/trailing days
+  // from neighbor months render with their events too.
+  const visibleRange = useCallback(() => {
+    if (viewMode === 'week') {
+      const start = getStartOfWeek(anchor);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      return [start, end];
+    }
+    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const start = getStartOfWeek(first);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 42);
+    return [start, end];
+  }, [viewMode, anchor]);
+
   const loadEvents = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const weekEnd = new Date(currentWeekStart);
-      weekEnd.setDate(weekEnd.getDate() + 7);
+      const [rangeStart, rangeEnd] = visibleRange();
 
       const [weekEvents, pendingRes] = await Promise.all([
-        fetchCalendarEvents(currentWeekStart.toISOString(), weekEnd.toISOString()),
+        fetchCalendarEvents(rangeStart.toISOString(), rangeEnd.toISOString()),
         googleId
           ? fetch(`/api/schedule?op=pending-events&googleId=${encodeURIComponent(googleId)}`)
               .then(r => r.ok ? r.json() : { events: [] })
@@ -86,33 +113,30 @@ const WeekView = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentWeekStart, googleId]);
+  }, [visibleRange, googleId]);
 
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
 
-  const previousWeek = () => {
-    const newDate = new Date(currentWeekStart);
-    newDate.setDate(currentWeekStart.getDate() - 7);
-    setCurrentWeekStart(newDate);
-  };
-
-  const nextWeek = () => {
-    const newDate = new Date(currentWeekStart);
-    newDate.setDate(currentWeekStart.getDate() + 7);
-    setCurrentWeekStart(newDate);
+  // navigate — move the anchor one step back/forward in the current view unit.
+  const navigate = (dir) => {
+    const d = new Date(anchor);
+    if (viewMode === 'week') d.setDate(d.getDate() + dir * 7);
+    else d.setMonth(d.getMonth() + dir, 1);
+    setAnchor(viewMode === 'week' ? getStartOfWeek(d) : d);
   };
 
   const goToToday = () => {
-    setCurrentWeekStart(getStartOfWeek(new Date()));
+    setAnchor(viewMode === 'week' ? getStartOfWeek(new Date()) : new Date());
   };
 
   const getWeekDays = () => {
+    const start = getStartOfWeek(anchor);
     const days = [];
     for (let i = 0; i < 7; i++) {
-      const date = new Date(currentWeekStart);
-      date.setDate(currentWeekStart.getDate() + i);
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
       days.push(date);
     }
     return days;
@@ -195,19 +219,36 @@ const WeekView = () => {
     return date.toDateString() === today.toDateString();
   };
 
+  // openNewEvent — empty-space click: schedule something on that day (past
+  // days are ignored — you can't invite people to yesterday).
+  const openNewEvent = (date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (date < today) return;
+    setNewEventDate(ymd(date));
+  };
+
   const weekDays = getWeekDays();
-  const monthYear = currentWeekStart.toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric'
-  });
+  const headerLabel = (viewMode === 'week' ? getStartOfWeek(anchor) : anchor)
+    .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // monthCells — 6 weeks of days for the month grid.
+  const monthCells = () => {
+    const [start] = visibleRange();
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+  };
 
   if (loading) {
     return (
       <div className="week-view">
         <div className="week-header">
-          <h2>Week View</h2>
+          <h2>Calendar</h2>
         </div>
-        <div className="loading">Loading week events...</div>
+        <div className="loading">Loading events...</div>
       </div>
     );
   }
@@ -216,7 +257,7 @@ const WeekView = () => {
     return (
       <div className="week-view">
         <div className="week-header">
-          <h2>Week View</h2>
+          <h2>Calendar</h2>
         </div>
         <div className="error-state">
           <p>{error}</p>
@@ -233,15 +274,25 @@ const WeekView = () => {
     <div className="week-view">
       <div className="week-header">
         <div className="week-nav">
-          <button onClick={previousWeek} className="nav-btn">
+          <button onClick={() => navigate(-1)} className="nav-btn">
             <ChevronLeft size={20} />
           </button>
-          <h2>{monthYear}</h2>
-          <button onClick={nextWeek} className="nav-btn">
+          <h2>{headerLabel}</h2>
+          <button onClick={() => navigate(1)} className="nav-btn">
             <ChevronRight size={20} />
           </button>
         </div>
         <div className="week-actions">
+          <div className="view-toggle">
+            <button
+              className={`view-toggle-btn${viewMode === 'week' ? ' active' : ''}`}
+              onClick={() => setViewMode('week')}
+            >Week</button>
+            <button
+              className={`view-toggle-btn${viewMode === 'month' ? ' active' : ''}`}
+              onClick={() => setViewMode('month')}
+            >Month</button>
+          </div>
           <button onClick={goToToday} className="today-btn">Today</button>
           <button onClick={loadEvents} className="refresh-btn">
             <RefreshCw size={18} />
@@ -249,66 +300,116 @@ const WeekView = () => {
         </div>
       </div>
 
-      <div className="week-grid">
-        {weekDays.map((day, index) => {
-          const dayEvents  = getEventsForDay(day);
-          const todayClass = isToday(day) ? 'today' : '';
+      {viewMode === 'week' ? (
+        <div className="week-grid">
+          {weekDays.map((day, index) => {
+            const dayEvents  = getEventsForDay(day);
+            const todayClass = isToday(day) ? 'today' : '';
 
-          return (
-            <div key={index} className={`day-column ${todayClass}`}>
-              <div className="day-header">
-                <div className="day-name">
-                  {day.toLocaleDateString('en-US', { weekday: 'short' })}
+            return (
+              <div key={index} className={`day-column ${todayClass}`}>
+                <div className="day-header">
+                  <div className="day-name">
+                    {day.toLocaleDateString('en-US', { weekday: 'short' })}
+                  </div>
+                  <div className="day-number">
+                    {day.getDate()}
+                  </div>
                 </div>
-                <div className="day-number">
-                  {day.getDate()}
-                </div>
-              </div>
-              <div className="day-events">
-                {dayEvents.length === 0 ? (
-                  <div className="no-events">No events</div>
-                ) : (
-                  dayEvents.map(item => (
+                <div
+                  className="day-events"
+                  onClick={e => { if (e.target === e.currentTarget) openNewEvent(day); }}
+                  title="Click an empty spot to schedule something"
+                >
+                  {dayEvents.length === 0 ? (
                     <div
-                      key={item.key}
-                      className={
-                        'week-event' +
-                        (item.pending ? ' week-event-pending' : '') +
-                        (item.confirmed ? ' week-event-confirmed' : '') +
-                        (item.rainchecked ? ' week-event-rainchecked' : '') +
-                        (item.isNew ? ' week-event-new' : '')
-                      }
-                      onClick={() => setSelected(item)}
+                      className="no-events"
+                      onClick={() => openNewEvent(day)}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setSelected(item); }}
-                    >
-                      {item.allDay ? (
-                        <div className="event-time all-day">All Day</div>
-                      ) : (
-                        <div className="event-time">
-                          <Clock size={12} />
-                          {formatTime(item.start)}
-                        </div>
-                      )}
-                      <div className="event-title">{item.title}</div>
-                      {item.group && <GroupTag group={item.group} />}
-                      {item.location && (
-                        <div className="event-location">📍 {item.location}</div>
-                      )}
-                      {(item.pending || item.confirmed || item.rainchecked) && (
-                        <div className={`event-badge ${item.rainchecked ? 'rainchecked' : item.pending ? 'pending' : 'confirmed'}`}>
-                          {item.rainchecked ? 'Rain Checked' : item.pending ? 'Pending' : item.isNew ? 'Just confirmed' : 'Confirmed'}
-                        </div>
-                      )}
-                    </div>
-                  ))
+                      onKeyDown={e => { if (e.key === 'Enter') openNewEvent(day); }}
+                    >No events<span className="no-events-add">+ Add</span></div>
+                  ) : (
+                    dayEvents.map(item => (
+                      <div
+                        key={item.key}
+                        className={
+                          'week-event' +
+                          (item.pending ? ' week-event-pending' : '') +
+                          (item.confirmed ? ' week-event-confirmed' : '') +
+                          (item.rainchecked ? ' week-event-rainchecked' : '') +
+                          (item.isNew ? ' week-event-new' : '')
+                        }
+                        onClick={() => setSelected(item)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setSelected(item); }}
+                      >
+                        {item.allDay ? (
+                          <div className="event-time all-day">All Day</div>
+                        ) : (
+                          <div className="event-time">
+                            <Clock size={12} />
+                            {formatTime(item.start)}
+                          </div>
+                        )}
+                        <div className="event-title">{item.title}</div>
+                        {item.group && <GroupTag group={item.group} />}
+                        {item.location && (
+                          <div className="event-location">📍 {item.location}</div>
+                        )}
+                        {(item.pending || item.confirmed || item.rainchecked) && (
+                          <div className={`event-badge ${item.rainchecked ? 'rainchecked' : item.pending ? 'pending' : 'confirmed'}`}>
+                            {item.rainchecked ? 'Rain Checked' : item.pending ? 'Pending' : item.isNew ? 'Just confirmed' : 'Confirmed'}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="month-grid">
+          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+            <div key={d} className="month-dow">{d}</div>
+          ))}
+          {monthCells().map((day, i) => {
+            const dayEvents = getEventsForDay(day);
+            const inMonth   = day.getMonth() === anchor.getMonth();
+            const shown     = dayEvents.slice(0, 3);
+            return (
+              <div
+                key={i}
+                className={`month-cell${inMonth ? '' : ' outside'}${isToday(day) ? ' today' : ''}`}
+                onClick={e => { if (e.target === e.currentTarget) openNewEvent(day); }}
+              >
+                <span className="month-daynum" onClick={() => openNewEvent(day)}>{day.getDate()}</span>
+                {shown.map(item => (
+                  <button
+                    key={item.key}
+                    className={
+                      'month-chip' +
+                      (item.pending ? ' pending' : '') +
+                      (item.confirmed ? ' confirmed' : '') +
+                      (item.rainchecked ? ' rainchecked' : '')
+                    }
+                    title={`${item.allDay ? 'All day' : formatTime(item.start)} · ${item.title}`}
+                    onClick={() => setSelected(item)}
+                  >
+                    {item.title || '(no title)'}
+                  </button>
+                ))}
+                {dayEvents.length > 3 && (
+                  <span className="month-more">+{dayEvents.length - 3} more</span>
                 )}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {selected && (
         <EventPopup
@@ -316,6 +417,14 @@ const WeekView = () => {
           loopEvent={selected.appEvent ?? null}
           onClose={() => setSelected(null)}
           onChanged={loadEvents}
+        />
+      )}
+
+      {newEventDate && (
+        <NewEventPopup
+          initialDate={newEventDate}
+          onClose={() => setNewEventDate(null)}
+          onCreated={loadEvents}
         />
       )}
     </div>

@@ -2,10 +2,11 @@ import React, {
   useState, useEffect, useRef, useCallback,
 } from 'react';
 import {
-  X, Minus, ArrowLeft, Send, MessageSquare, Lock,
+  X, Minus, ArrowLeft, Send, MessageSquare, Lock, PenSquare,
 } from 'lucide-react';
 import { useMessages } from '../contexts/MessagesContext';
 import { useAuth } from '../contexts/AuthContext';
+import { markRead, isUnread } from '../utils/unread';
 import {
   getOrCreateKeyPair,
   importPublicKey,
@@ -64,7 +65,7 @@ const CtxMenu = ({ menu, onUndoSend, onEdit, onClose }) => {
 
 // ── Conversation ──────────────────────────────────────────────────────────────
 
-const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
+const Conversation = ({ friend, myId, myPrivateKey, isMinimized, onRead }) => {
   const [messages,  setMessages]  = useState([]);
   const [input,     setInput]     = useState('');
   const [sending,   setSending]   = useState(false);
@@ -128,7 +129,11 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
         edited_at: m.edited_at ?? localEdits.get(m.id) ?? null,
       }));
     });
-  }, [sharedKey, googleId, friend.id]);
+
+    // Viewing the conversation reads it — clears the unread dot/badge.
+    markRead(friend.id);
+    onRead?.();
+  }, [sharedKey, googleId, friend.id, onRead]);
 
   // Initial load
   useEffect(() => {
@@ -296,8 +301,10 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized }) => {
 // ── Conversation List ─────────────────────────────────────────────────────────
 
 const ConversationList = ({ onSelect }) => {
-  const [convos,  setConvos]  = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [convos,    setConvos]    = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [composing, setComposing] = useState(false);
+  const [friends,   setFriends]   = useState(null); // null = not fetched yet
   const googleId = localStorage.getItem('googleUserId');
 
   useEffect(() => {
@@ -307,44 +314,96 @@ const ConversationList = ({ onSelect }) => {
       .catch(() => setLoading(false));
   }, [googleId]);
 
+  // Compose: lazy-load the friend list the first time the picker opens, so a
+  // conversation can start with any friend — not only existing threads.
+  useEffect(() => {
+    if (!composing || friends !== null || !googleId) return;
+    fetch(`/api/friends?op=data&googleId=${encodeURIComponent(googleId)}`)
+      .then(r => r.json())
+      .then(d => setFriends(d.friends ?? []))
+      .catch(() => setFriends([]));
+  }, [composing, friends, googleId]);
+
   if (loading) return <p className="mp-status">Loading…</p>;
+
+  if (composing) {
+    return (
+      <div className="mp-compose">
+        <div className="mp-compose-head">
+          <span>New message</span>
+          <button className="mp-header-btn" onClick={() => setComposing(false)} title="Back">
+            <ArrowLeft size={14} />
+          </button>
+        </div>
+        {friends === null ? (
+          <p className="mp-status">Loading friends…</p>
+        ) : friends.length === 0 ? (
+          <p className="mp-status">No friends yet — add some from the Friends page first.</p>
+        ) : (
+          <ul className="mp-convo-list">
+            {friends.map(f => (
+              <li key={f.id} className="mp-convo-item" onClick={() => onSelect({ userId: f.id, ...f })}
+                role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onSelect({ userId: f.id, ...f })}>
+                {f.picture_url
+                  ? <img src={f.picture_url} alt={f.display_name || f.name} className="mp-convo-avatar" />
+                  : <div className="mp-convo-avatar placeholder">{(f.display_name || f.name)?.[0]}</div>}
+                <div className="mp-convo-info">
+                  <span className="mp-convo-name">{f.display_name || f.name}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
 
   if (!convos.length) return (
     <div className="mp-list-empty">
       <MessageSquare size={32} strokeWidth={1.2} />
       <p>No conversations yet</p>
-      <p className="mp-list-sub">Open a friend's card and tap Message</p>
+      <button className="mp-compose-btn" onClick={() => setComposing(true)}>
+        <PenSquare size={13} /> New message
+      </button>
     </div>
   );
 
   return (
-    <ul className="mp-convo-list">
-      {convos.map(c => (
-        <li
-          key={c.userId}
-          className="mp-convo-item"
-          onClick={() => onSelect(c)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={e => e.key === 'Enter' && onSelect(c)}
-        >
-          {c.picture_url
-            ? <img src={c.picture_url} alt={c.display_name || c.name} className="mp-convo-avatar" />
-            : <div className="mp-convo-avatar placeholder">{(c.display_name || c.name)?.[0]}</div>}
-          <div className="mp-convo-info">
-            <span className="mp-convo-name">{c.display_name || c.name}</span>
-            <span className="mp-convo-time">{formatMsgTime(c.lastMessageAt)}</span>
-          </div>
-        </li>
-      ))}
-    </ul>
+    <>
+      <div className="mp-list-toolbar">
+        <button className="mp-compose-btn" onClick={() => setComposing(true)} title="Start a new conversation">
+          <PenSquare size={13} /> New message
+        </button>
+      </div>
+      <ul className="mp-convo-list">
+        {convos.map(c => (
+          <li
+            key={c.userId}
+            className="mp-convo-item"
+            onClick={() => onSelect(c)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => e.key === 'Enter' && onSelect(c)}
+          >
+            {c.picture_url
+              ? <img src={c.picture_url} alt={c.display_name || c.name} className="mp-convo-avatar" />
+              : <div className="mp-convo-avatar placeholder">{(c.display_name || c.name)?.[0]}</div>}
+            <div className="mp-convo-info">
+              <span className="mp-convo-name">{c.display_name || c.name}</span>
+              <span className="mp-convo-time">{formatMsgTime(c.lastMessageAt)}</span>
+            </div>
+            {isUnread(c) && <span className="mp-unread-dot" title="New messages" />}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 };
 
 // ── Panel Shell ───────────────────────────────────────────────────────────────
 
 const MessagesPanel = () => {
-  const { isOpen, isMinimized, friend, openMessages, closeMessages, toggleMinimize, goToList } =
+  const { isOpen, isMinimized, friend, openMessages, closeMessages, toggleMinimize, goToList, recalcUnread } =
     useMessages();
 
   const { isAuthenticated } = useAuth();
@@ -412,6 +471,7 @@ const MessagesPanel = () => {
               myId={myId}
               myPrivateKey={myPrivKey}
               isMinimized={isMinimized}
+              onRead={recalcUnread}
             />
           ) : (
             <ConversationList

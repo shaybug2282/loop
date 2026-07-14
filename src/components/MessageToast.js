@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useMessages } from '../contexts/MessagesContext';
 import { useAuth } from '../contexts/AuthContext';
+import { countUnread, getMutedSet } from '../utils/unread';
+import { getPrefs } from '../utils/prefs';
 import './MessageToast.css';
 
 const POLL_MS = 15_000;
 const TOAST_MS = 20_000;
 
 // Polls for new messages in the background and shows a toast when a message
-// arrives in a conversation that is not currently open.
+// arrives in a conversation that is not currently open. The same poll also
+// keeps the shared unread-conversation count (sidebar badge) current.
 const MessageToast = () => {
-  const { isOpen, friend, openMessages } = useMessages();
+  const { isOpen, friend, openMessages, setUnreadCount, registerUnreadRecalc } = useMessages();
   const { isAuthenticated } = useAuth();
   const [toast, setToast] = useState(null);
 
@@ -18,9 +21,16 @@ const MessageToast = () => {
   const isOpenRef  = useRef(isOpen);
   const lastSeenRef = useRef({}); // { userId: ISO timestamp of last known message }
   const seededRef  = useRef(false); // true after the first poll seeds timestamps
+  const convosRef  = useRef([]);   // last fetched conversations, for instant recounts
 
   useEffect(() => { friendRef.current = friend; },  [friend]);
   useEffect(() => { isOpenRef.current = isOpen; },  [isOpen]);
+
+  // Let the panel trigger an instant badge recount when a conversation is
+  // opened (marked read) — no waiting for the next poll.
+  useEffect(() => {
+    registerUnreadRecalc(() => setUnreadCount(countUnread(convosRef.current)));
+  }, [registerUnreadRecalc, setUnreadCount]);
 
   const poll = useCallback(async () => {
     const googleId = localStorage.getItem('googleUserId');
@@ -30,6 +40,10 @@ const MessageToast = () => {
       if (!res.ok) return;
       const { conversations } = await res.json();
 
+      convosRef.current = conversations ?? [];
+      setUnreadCount(countUnread(conversations));
+
+      const muted = getMutedSet();
       let newest = null;
       for (const c of (conversations ?? [])) {
         const prev = lastSeenRef.current[c.userId];
@@ -39,8 +53,10 @@ const MessageToast = () => {
         if (!prev) continue;
         if (new Date(c.lastMessageAt) <= new Date(prev)) continue;
 
-        // New message — show toast only when this conversation isn't currently open.
+        // New message — show toast only when this conversation isn't currently
+        // open, the sender isn't muted, and DM toasts are enabled.
         const activeConvo = isOpenRef.current && friendRef.current?.id === c.userId;
+        if (muted.has(c.userId) || !getPrefs().notifications.dmToasts) continue;
         if (!activeConvo) {
           // If multiple arrive in the same poll, show the most recently updated one.
           if (!newest || new Date(c.lastMessageAt) > new Date(newest.lastMessageAt)) {
@@ -54,7 +70,7 @@ const MessageToast = () => {
         setToast({ id: newest.userId, name: newest.name, display_name: newest.display_name, picture_url: newest.picture_url });
       }
     } catch { /* silent */ }
-  }, []); // no deps — uses refs for friend/isOpen
+  }, [setUnreadCount]); // otherwise dep-free — uses refs for friend/isOpen
 
   useEffect(() => {
     if (!isAuthenticated) return;

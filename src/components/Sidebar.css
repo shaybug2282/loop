@@ -20,7 +20,7 @@
   left: -320px;
   width: 320px;
   height: 100vh;
-  background: white;
+  background: var(--card);
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
   z-index: 999;
   transition: left 0.3s ease;
@@ -34,7 +34,7 @@
 
 .sidebar-header {
   padding: 20px;
-  border-bottom: 1px solid #F3D8E4;
+  border-bottom: 1px solid var(--border);
 }
 
 .close-btn {
@@ -48,7 +48,7 @@
 }
 
 .close-btn:hover {
-  background: #FDF5F7;
+  background: var(--surface);
 }
 
 .user-info {
@@ -77,13 +77,13 @@
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #1A1A1A;
+  color: var(--text);
 }
 
 .user-details p {
   margin: 4px 0 0 0;
   font-size: 13px;
-  color: #4A4A52;
+  color: var(--text-soft);
 }
 
 .sidebar-nav {
@@ -97,21 +97,21 @@
   align-items: center;
   gap: 15px;
   padding: 15px 20px;
-  color: #4A4A52;
+  color: var(--text-soft);
   text-decoration: none;
   transition: all 0.2s;
   border-left: 3px solid transparent;
 }
 
 .nav-item:hover {
-  background: #FDF5F7;
-  color: #E8607A;
+  background: var(--surface);
+  color: var(--accent);
 }
 
 .nav-item.active {
   background: rgba(232, 96, 122, 0.08);
-  color: #E8607A;
-  border-left-color: #E8607A;
+  color: var(--accent);
+  border-left-color: var(--accent);
   font-weight: 600;
 }
 
@@ -121,7 +121,7 @@
 
 .sidebar-footer {
   padding: 20px;
-  border-top: 1px solid #F3D8E4;
+  border-top: 1px solid var(--border);
 }
 
 .logout-btn {
@@ -131,7 +131,7 @@
   width: 100%;
   padding: 15px 20px;
   background: none;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 8px;
   color: #d32f2f;
   font-size: 15px;
@@ -149,4 +149,29 @@
     width: 280px;
     left: -280px;
   }
+}
+
+/* Nav entries that are buttons (Messages opens the floating panel) */
+.nav-item-btn {
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
 }

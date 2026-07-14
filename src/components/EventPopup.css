@@ -14,7 +14,7 @@
   width: min(430px, 94vw);
   max-height: 85vh;
   overflow-y: auto;
-  background: #fff;
+  background: var(--card);
   border-radius: 12px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
   display: flex;
@@ -34,7 +34,7 @@
   align-items: flex-start;
   gap: 8px;
   padding: 16px 16px 12px;
-  border-bottom: 1px solid #F3D8E4;
+  border-bottom: 1px solid var(--border);
 }
 
 .ep-head-main {
@@ -49,7 +49,7 @@
   margin: 0;
   font-size: 17px;
   font-weight: 700;
-  color: #1A1A1A;
+  color: var(--text);
   line-height: 1.3;
   word-break: break-word;
 }
@@ -57,8 +57,8 @@
 .ep-title-input {
   font-size: 17px;
   font-weight: 700;
-  color: #1A1A1A;
-  border: 1px solid #E8607A;
+  color: var(--text);
+  border: 1px solid var(--accent);
   border-radius: 6px;
   padding: 2px 8px;
   outline: none;
@@ -73,10 +73,10 @@
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: #4A4A52;
+  color: var(--text-soft);
 }
 
-.ep-when svg { color: #E8607A; flex-shrink: 0; }
+.ep-when svg { color: var(--accent); flex-shrink: 0; }
 
 .ep-when-edit {
   display: flex;
@@ -86,22 +86,22 @@
 }
 
 .ep-input {
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 12.5px;
-  color: #1A1A1A;
+  color: var(--text);
   outline: none;
 }
 
-.ep-input:focus { border-color: #E8607A; }
+.ep-input:focus { border-color: var(--accent); }
 
 .ep-input-dur { width: 58px; }
 
 .ep-mini-btn {
   border: none;
   border-radius: 6px;
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   font-size: 12px;
   font-weight: 600;
@@ -109,7 +109,7 @@
   cursor: pointer;
 }
 
-.ep-mini-btn:hover { background: #C94D65; }
+.ep-mini-btn:hover { background: var(--accent-hover); }
 
 .ep-status {
   font-size: 10px;
@@ -121,7 +121,7 @@
 .ep-status-pending     { background: #FEF3C7; color: #B45309; }
 .ep-status-accepted    { background: #DCFCE7; color: #15803D; }
 .ep-status-rescheduled { background: #FEF3C7; color: #B45309; }
-.ep-status-declined    { background: #E5E7EB; color: #6B7280; }
+.ep-status-declined    { background: var(--border-soft); color: var(--text-muted); }
 .ep-status-rainchecked { background: #E0EAF8; color: #7396C4; }
 
 /* ── Rain Check (two-person events): gentle blue accent + info tooltip ── */
@@ -178,8 +178,8 @@
    overflow-y:auto can't clip it — it overlays the popup border when needed. */
 .ep-rc-tip {
   position: fixed;
-  background: #1F2937;
-  color: #F9FAFB;
+  background: var(--text);
+  color: var(--surface-hover);
   font-size: 11.5px;
   font-weight: 400;
   line-height: 1.45;
@@ -198,18 +198,18 @@
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: #E8607A;
+  color: var(--accent);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.14s;
 }
 
-.ep-close:hover { background: #FDE8EF; }
+.ep-close:hover { background: var(--surface-tint); }
 
 /* ── Editable fields ── */
 
 .ep-editable { cursor: pointer; border-radius: 6px; transition: background 0.12s; }
-.ep-editable:hover { background: #FDF5F7; }
+.ep-editable:hover { background: var(--surface); }
 
 /* ── Participants ── */
 
@@ -237,28 +237,28 @@
 .ep-part.host     { background: #DBEAFE; color: #1D4ED8; }
 .ep-part.accepted { background: #DCFCE7; color: #15803D; }
 .ep-part.pending  { background: #FEF3C7; color: #B45309; }
-.ep-part.declined { background: #E5E7EB; color: #6B7280; }
+.ep-part.declined { background: var(--border-soft); color: var(--text-muted); }
 
 /* Creator-clickable declined chip: click to stage a re-invite */
 .ep-readd {
-  border: 1px dashed #9CA3AF;
+  border: 1px dashed var(--text-faint);
   cursor: pointer;
   font-family: inherit;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.ep-readd:hover { background: #FDF5F7; color: #C94D65; border-color: #E8607A; }
+.ep-readd:hover { background: var(--surface); color: var(--accent-hover); border-color: var(--accent); }
 
 .ep-readd.staged {
-  background: #F9EAF0;
-  color: #C94D65;
-  border: 1px solid #E8607A;
+  background: var(--surface-alt);
+  color: var(--accent-hover);
+  border: 1px solid var(--accent);
 }
 
 .ep-readd-hint {
   margin: 6px 0 0;
   font-size: 11px;
-  color: #9CA3AF;
+  color: var(--text-faint);
 }
 
 .ep-legend {
@@ -269,7 +269,7 @@
 
 .ep-legend-item {
   font-size: 10px;
-  color: #9CA3AF;
+  color: var(--text-faint);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -285,7 +285,7 @@
 .ep-legend-item.host::before     { background: #1D4ED8; }
 .ep-legend-item.accepted::before { background: #15803D; }
 .ep-legend-item.pending::before  { background: #D97706; }
-.ep-legend-item.declined::before { background: #9CA3AF; }
+.ep-legend-item.declined::before { background: var(--text-faint); }
 
 /* ── Detail rows ── */
 
@@ -295,10 +295,10 @@
   gap: 8px;
   padding: 8px 16px 0;
   font-size: 13px;
-  color: #4A4A52;
+  color: var(--text-soft);
 }
 
-.ep-row-ic { color: #E8607A; flex-shrink: 0; margin-top: 3px; }
+.ep-row-ic { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
 
 .ep-row-val {
   min-width: 0;
@@ -320,20 +320,20 @@
   margin: 12px 16px 0;
   padding: 8px 10px;
   border-radius: 6px;
-  background: #FDF5F7;
-  border: 1px solid #F3D8E4;
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 
 .ep-resched-req {
   margin: 0 0 4px;
   font-size: 12.5px;
-  color: #374151;
+  color: var(--text-soft);
 }
 
 .ep-resched-review-hint {
   margin: 4px 0 0;
   font-size: 11.5px;
-  color: #9CA3AF;
+  color: var(--text-faint);
 }
 
 .ep-resched-notice {
@@ -350,7 +350,7 @@
   margin: 12px 16px 0;
   font-size: 12.5px;
   font-weight: 600;
-  color: #6B7280;
+  color: var(--text-muted);
 }
 
 .ep-respond {
@@ -365,7 +365,7 @@
 .ep-resp-accept {
   border: none;
   border-radius: 7px;
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   font-size: 12.5px;
   font-weight: 600;
@@ -374,14 +374,14 @@
   transition: background 0.15s;
 }
 
-.ep-resp-accept:hover:not(:disabled) { background: #C94D65; }
+.ep-resp-accept:hover:not(:disabled) { background: var(--accent-hover); }
 .ep-resp-accept:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .ep-resp-alt {
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 7px;
-  background: #fff;
-  color: #4A4A52;
+  background: var(--card);
+  color: var(--text-soft);
   font-size: 12.5px;
   font-weight: 600;
   padding: 7px 12px;
@@ -389,13 +389,13 @@
   transition: background 0.12s;
 }
 
-.ep-resp-alt:hover:not(:disabled) { background: #FDE8EF; }
+.ep-resp-alt:hover:not(:disabled) { background: var(--surface-tint); }
 .ep-resp-alt:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .ep-resp-q {
   margin: 0;
   font-size: 12.5px;
-  color: #4A4A52;
+  color: var(--text-soft);
 }
 
 .ep-resp-note-row {
@@ -409,14 +409,14 @@
   align-self: flex-start;
   border: none;
   background: none;
-  color: #9CA3AF;
+  color: var(--text-faint);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   padding: 0;
 }
 
-.ep-resp-cancel:hover { color: #6B7280; }
+.ep-resp-cancel:hover { color: var(--text-muted); }
 
 /* ── Confirm bar & messages ── */
 
@@ -442,20 +442,20 @@
 .ep-confirm {
   margin: 12px 16px 0;
   padding: 10px 12px;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #FDF5F7;
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.ep-confirm.nudged { border-color: #E8607A; }
+.ep-confirm.nudged { border-color: var(--accent); }
 
 .ep-confirm-msg {
   margin: 0;
   font-size: 12.5px;
-  color: #4A4A52;
+  color: var(--text-soft);
 }
 
 .ep-confirm-btns {
@@ -467,7 +467,7 @@
   flex: 1;
   border: none;
   border-radius: 7px;
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   font-size: 12.5px;
   font-weight: 600;
@@ -476,21 +476,21 @@
   transition: background 0.15s;
 }
 
-.ep-btn-confirm:hover:not(:disabled) { background: #C94D65; }
+.ep-btn-confirm:hover:not(:disabled) { background: var(--accent-hover); }
 .ep-btn-confirm:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .ep-btn-discard {
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 7px;
-  background: #fff;
-  color: #4A4A52;
+  background: var(--card);
+  color: var(--text-soft);
   font-size: 12.5px;
   font-weight: 600;
   padding: 7px 14px;
   cursor: pointer;
 }
 
-.ep-btn-discard:hover:not(:disabled) { background: #FDE8EF; }
+.ep-btn-discard:hover:not(:disabled) { background: var(--surface-tint); }
 
 /* ── Footer ── */
 
@@ -508,10 +508,10 @@
   justify-content: center;
   gap: 6px;
   width: 100%;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: #fff;
-  color: #E8607A;
+  background: var(--card);
+  color: var(--accent);
   font-size: 13px;
   font-weight: 600;
   padding: 8px 0;
@@ -519,7 +519,7 @@
   transition: background 0.15s, border-color 0.15s;
 }
 
-.ep-ai-btn:hover { background: #FDE8EF; border-color: #E8607A; }
+.ep-ai-btn:hover { background: var(--surface-tint); border-color: var(--accent); }
 
 /* ── Delete event ── */
 
@@ -555,7 +555,7 @@
 .ep-delete-msg {
   margin: 0;
   font-size: 12.5px;
-  color: #4A4A52;
+  color: var(--text-soft);
 }
 
 .ep-btn-delete {
@@ -594,7 +594,7 @@
   padding: 2px 10px;
   border: 1.5px solid currentColor;
   border-radius: 999px;
-  background: #fff;
+  background: var(--card);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.5;
@@ -609,9 +609,9 @@
 
 .ep-group-opt {
   padding: 2px 10px;
-  border: 1.5px solid #F3D8E4;
+  border: 1.5px solid var(--border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--card);
   color: #9A6B7C;
   font-size: 12px;
   font-weight: 600;
@@ -619,9 +619,9 @@
 }
 
 .ep-group-opt:hover {
-  background: #FDF5F7;
+  background: var(--surface);
 }
 
 .ep-group-opt.active {
-  background: #F9EAF0;
+  background: var(--surface-alt);
 }

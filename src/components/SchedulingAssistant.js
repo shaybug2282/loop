@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkles, Send, Loader, Calendar, Check, X, Plus, ChevronLeft, MessageSquare } from 'lucide-react';
-import './AISummary.css';
+import './SchedulingAssistant.css';
 
 // Scheduling Assistant — persistent conversational scheduling backed by Sonnet.
 //
@@ -110,8 +110,11 @@ const PlanCard = ({ plan, booking, locked, onBook }) => {
 const groupGreeting = () =>
   [{ id: 'greet', role: 'ai', text: 'What type of event would you like me to schedule?' }];
 
-const AISummary = ({ group = null, onClose = null }) => {
-  const [view,    setView]    = useState(group ? 'chat' : 'list');   // 'list' | 'chat'
+// initialMessage: when set, the assistant opens straight into a fresh chat
+// and sends it as the first user turn (used by NewEventPopup's "Find a time"
+// and the friend list's Schedule quick action to seed participants).
+const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = null, onBooked = null }) => {
+  const [view,    setView]    = useState(group || initialMessage ? 'chat' : 'list');   // 'list' | 'chat'
   const [convos,  setConvos]  = useState([]);
   // active — the open conversation: { id, title, pendingEventId }; id null = new unsaved chat.
   const [active,  setActive]  = useState(null);
@@ -209,8 +212,9 @@ const AISummary = ({ group = null, onClose = null }) => {
     } catch {}
   }, [googleId]);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
+  // sendMessage — post one user turn to the chat op and append the reply.
+  // Shared by the composer (send) and the initialMessage auto-seed.
+  const sendMessage = useCallback(async (text) => {
     if (!text || loading || !googleId) return;
 
     setItems(prev => [...prev, { id: Date.now(), role: 'user', text }]);
@@ -251,7 +255,18 @@ const AISummary = ({ group = null, onClose = null }) => {
       setLoading(false);
       inputRef.current?.focus();
     }
-  }, [input, loading, googleId, active, group]);
+  }, [loading, googleId, active, group]);
+
+  const send = useCallback(() => sendMessage(input.trim()), [sendMessage, input]);
+
+  // Seed the chat once when opened with an initialMessage (e.g. "Find a time"
+  // from the New event flow, with the picked friends' names baked in).
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!initialMessage || seededRef.current) return;
+    seededRef.current = true;
+    sendMessage(initialMessage);
+  }, [initialMessage, sendMessage]);
 
   // bookPlan — create the pending event, then link it to this conversation so
   // the server can retire the chat once the event is confirmed or declined.
@@ -305,10 +320,11 @@ const AISummary = ({ group = null, onClose = null }) => {
       setActive(prev => prev ? { ...prev, pendingEventId: body.id ?? true } : prev);
       setItems(prev => [...prev, { id: Date.now(), role: 'ai', text: confirmText }]);
       loadConvos();
+      onBooked?.();
     } catch {
       setBooking('error');
     }
-  }, [googleId, active, loadConvos, group]);
+  }, [googleId, active, loadConvos, group, onBooked]);
 
   // undoRemember — the Undo on a "saved to your profile" pill: removes the
   // captured rule from the stored profile (op:'forget-constraint') and flips
@@ -513,4 +529,4 @@ const AISummary = ({ group = null, onClose = null }) => {
   );
 };
 
-export default AISummary;
+export default SchedulingAssistant;

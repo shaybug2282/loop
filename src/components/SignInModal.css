@@ -16,7 +16,7 @@
 
 .sim-card {
   position: relative;
-  background: #fff;
+  background: var(--card);
   border-radius: 16px;
   padding: 36px 32px 32px;
   width: min(380px, calc(100vw - 48px));
@@ -37,7 +37,7 @@
   background: none;
   border: none;
   font-size: 16px;
-  color: #9CA3AF;
+  color: var(--text-faint);
   cursor: pointer;
   line-height: 1;
   padding: 4px;
@@ -49,13 +49,13 @@
 .sim-title {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #1F2937;
+  color: var(--text);
   margin: 0 0 8px;
 }
 
 .sim-sub {
   font-size: 13.5px;
-  color: #6B7280;
+  color: var(--text-muted);
   margin: 0 0 28px;
   line-height: 1.5;
 }
@@ -64,19 +64,19 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  background: #fff;
+  background: var(--card);
   border: 1.5px solid #D1D5DB;
   border-radius: 8px;
   padding: 11px 22px;
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-soft);
   cursor: pointer;
   transition: background 0.15s, box-shadow 0.15s;
   white-space: nowrap;
 }
 
 .sim-google-btn:hover {
-  background: #F9FAFB;
+  background: var(--surface-hover);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }

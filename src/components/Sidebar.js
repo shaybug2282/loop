@@ -1,34 +1,44 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, UserPlus, LogOut, X } from 'lucide-react';
+import { Home, Calendar, UserPlus, Users, MessageSquare, Settings, LogOut, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useMessages } from '../contexts/MessagesContext';
 import './Sidebar.css';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { logout, user } = useAuth();
+  const { openMessages, unreadCount } = useMessages();
 
   const handleLogout = () => {
     logout();
     onClose();
   };
 
+  // Messages is a floating panel, not a route — the nav item opens it in place.
+  const handleMessages = () => {
+    openMessages();
+    onClose();
+  };
+
   const navItems = [
-    { path: '/dashboard',  icon: Home,          label: 'Dashboard' },
-    { path: '/calendar',   icon: Calendar,      label: 'Calendar' },
-    { path: '/friends',    icon: UserPlus,      label: 'Friends' },
+    { path: '/dashboard',           icon: Home,     label: 'Dashboard' },
+    { path: '/calendar',            icon: Calendar, label: 'Calendar' },
+    { path: '/friends',             icon: UserPlus, label: 'Friends' },
+    { path: '/friends?tab=groups',  icon: Users,    label: 'Groups' },
+    { path: '/profile',             icon: Settings, label: 'Profile & Settings' },
   ];
 
   return (
     <>
       {isOpen && <div className="sidebar-overlay" onClick={onClose}></div>}
-      
+
       <div className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <button className="close-btn" onClick={onClose}>
             <X size={24} />
           </button>
-          
+
           {user && (
             <Link to="/profile" className="user-info" onClick={onClose}>
               <img src={user.picture} alt={user.name} className="user-avatar" />
@@ -43,8 +53,9 @@ const Sidebar = ({ isOpen, onClose }) => {
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            
+            const isActive = location.pathname + location.search === item.path ||
+              (item.path === '/friends' && location.pathname === '/friends' && !location.search.includes('tab=groups'));
+
             return (
               <Link
                 key={item.path}
@@ -57,6 +68,14 @@ const Sidebar = ({ isOpen, onClose }) => {
               </Link>
             );
           })}
+
+          <button className="nav-item nav-item-btn" onClick={handleMessages}>
+            <MessageSquare size={20} />
+            <span>Messages</span>
+            {unreadCount > 0 && (
+              <span className="nav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+            )}
+          </button>
         </nav>
 
         <div className="sidebar-footer">

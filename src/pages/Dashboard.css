@@ -1,6 +1,6 @@
 .dashboard {
   min-height: 100vh;
-  background: #FDF5F7;
+  background: var(--surface);
   padding: 20px;
 }
 
@@ -12,7 +12,7 @@
 }
 
 .menu-btn {
-  background: white;
+  background: var(--card);
   border: none;
   padding: 12px;
   border-radius: 10px;
@@ -33,7 +33,7 @@
   margin: 0;
   font-size: 32px;
   font-weight: 700;
-  color: #E8607A;
+  color: var(--accent);
 }
 
 .dashboard-grid {
@@ -130,28 +130,28 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #E8607A;
+  color: var(--accent);
   margin: 0 0 20px;
 }
 
 .dash-hero-heading {
   font-size: clamp(1.9rem, 5vw, 2.8rem);
   font-weight: 800;
-  color: #1F2937;
+  color: var(--text);
   line-height: 1.2;
   margin: 0 0 20px;
 }
 
 .dash-hero-body {
   font-size: 1.05rem;
-  color: #6B7280;
+  color: var(--text-muted);
   line-height: 1.65;
   margin: 0 0 40px;
   max-width: 480px;
 }
 
 .dash-hero-cta {
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -164,14 +164,14 @@
 }
 
 .dash-hero-cta:hover {
-  background: #d44f6a;
+  background: var(--accent-hover);
   box-shadow: 0 6px 24px rgba(232, 96, 122, 0.4);
   transform: translateY(-1px);
 }
 
 .dash-signin-btn {
   margin-left: auto;
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -182,4 +182,4 @@
   transition: background 0.15s;
 }
 
-.dash-signin-btn:hover { background: #d44f6a; }
+.dash-signin-btn:hover { background: var(--accent-hover); }

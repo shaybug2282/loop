@@ -1,5 +1,5 @@
 .calendar-component {
-  background: white;
+  background: var(--card);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -17,19 +17,19 @@
   gap: 12px;
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 2px solid #F3D8E4;
+  border-bottom: 2px solid var(--border);
 }
 
 .component-header h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1A1A1A;
+  color: var(--text);
   flex: 1;
 }
 
 .component-header svg {
-  color: #E8607A;
+  color: var(--accent);
 }
 
 /* Clickable header → opens the full calendar page. */
@@ -40,7 +40,7 @@
 }
 
 .component-header-link:hover {
-  background: #F9EAF0;
+  background: var(--surface-alt);
 }
 
 .refresh-btn {
@@ -48,7 +48,7 @@
   border: none;
   cursor: pointer;
   padding: 6px;
-  color: #E8607A;
+  color: var(--accent);
   display: flex;
   align-items: center;
   border-radius: 6px;
@@ -56,16 +56,16 @@
 }
 
 .refresh-btn:hover {
-  background: #F3D8E4;
+  background: var(--border);
 }
 
 .today-date {
   font-size: 14px;
   font-weight: 600;
-  color: #E8607A;
+  color: var(--accent);
   margin-bottom: 16px;
   padding: 10px 14px;
-  background: #F9EAF0;
+  background: var(--surface-alt);
   border-radius: 8px;
   text-align: center;
 }
@@ -73,7 +73,7 @@
 .loading {
   text-align: center;
   padding: 40px;
-  color: #A3A8B0;
+  color: var(--text-faint);
 }
 
 .error-state {
@@ -91,7 +91,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: #E8607A;
+  background: var(--accent);
   color: white;
   border: none;
   border-radius: 6px;
@@ -101,7 +101,7 @@
 }
 
 .retry-btn:hover {
-  background: #C94D65;
+  background: var(--accent-hover);
 }
 
 .events-list {
@@ -112,8 +112,8 @@
 
 .event-item {
   padding: 16px;
-  border-left: 4px solid #E8607A;
-  background: #F9EAF0;
+  border-left: 4px solid var(--accent);
+  background: var(--surface-alt);
   border-radius: 8px;
   margin-bottom: 12px;
   transition: all 0.2s;
@@ -121,7 +121,7 @@
 
 /* Clickable: opens the universal event popup. */
 .event-item-click { cursor: pointer; }
-.event-item-click:hover { background: #FDE8EF; }
+.event-item-click:hover { background: var(--surface-tint); }
 
 .event-item:hover {
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
@@ -134,8 +134,8 @@
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #E8607A;
-  background: white;
+  color: var(--accent);
+  background: var(--card);
   padding: 4px 10px;
   border-radius: 6px;
   margin-bottom: 10px;
@@ -151,18 +151,18 @@
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #1A1A1A;
+  color: var(--text);
 }
 
 .event-location {
   font-size: 13px;
-  color: #4A4A52;
+  color: var(--text-soft);
   margin: 4px 0;
 }
 
 .event-description {
   font-size: 13px;
-  color: #6B7280;
+  color: var(--text-muted);
   margin: 8px 0 0 0;
   line-height: 1.5;
   /* Wrap to at most 2 lines, then truncate — keeps event cards a fixed size
@@ -178,7 +178,7 @@
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: #4A4A52;
+  color: var(--text-soft);
 }
 
 .empty-state {
@@ -187,7 +187,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #A3A8B0;
+  color: var(--text-faint);
 }
 
 .empty-state svg {
@@ -210,12 +210,12 @@
 .view-more {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #F3D8E4;
+  border-top: 1px solid var(--border);
   text-align: center;
 }
 
 .view-more button {
-  background: #E8607A;
+  background: var(--accent);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -227,5 +227,5 @@
 }
 
 .view-more button:hover {
-  background: #C94D65;
+  background: var(--accent-hover);
 }

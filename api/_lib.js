@@ -32,6 +32,38 @@ export async function resolveUser(client, googleId, columns = 'id') {
   return data ?? null;
 }
 
+// isQuietNow — true while a user's Quiet Time blocks scheduling: on when
+// quiet_time_since is set and the optional quiet_time_until end (migration
+// 015) hasn't passed. Shared by api/schedule.js and api/ai.js.
+export function isQuietNow(u) {
+  if (!u?.quiet_time_since) return false;
+  if (u.quiet_time_until && new Date(u.quiet_time_until) <= new Date()) return false;
+  return true;
+}
+
+// inQuietHours — true when a moment falls inside the user's daily quiet-hours
+// window (preferences.quietHours, evaluated in their timezone). Overnight
+// windows (e.g. 22:00–08:00) wrap past midnight. out: boolean; malformed
+// input reads as "not quiet" so scheduling fails open.
+export function inQuietHours(whenIso, preferences, timezone = 'UTC') {
+  const qh = preferences?.quietHours;
+  if (!qh?.enabled || !qh.start || !qh.end) return false;
+  const toMin = s => {
+    const [h, m] = String(s).split(':').map(Number);
+    return Number.isFinite(h) ? h * 60 + (m || 0) : NaN;
+  };
+  let local;
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'UTC', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date(whenIso));
+    local = toMin(`${parts.find(p => p.type === 'hour')?.value}:${parts.find(p => p.type === 'minute')?.value}`);
+  } catch { return false; }
+  const start = toMin(qh.start), end = toMin(qh.end);
+  if ([local, start, end].some(Number.isNaN)) return false;
+  return start <= end ? (local >= start && local < end) : (local >= start || local < end);
+}
+
 // ── Anthropic helpers (shared by api/ai.js and api/_profiles.js) ──────────────
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';

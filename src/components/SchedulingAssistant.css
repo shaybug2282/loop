@@ -1,7 +1,7 @@
 /* ── Widget shell ── */
 
 .ais-wrap {
-  background: #fff;
+  background: var(--card);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-top: 24px;
@@ -16,15 +16,15 @@
   align-items: center;
   gap: 8px;
   padding: 13px 16px 11px;
-  border-bottom: 1px solid #F3D8E4;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  color: #E8607A;
+  color: var(--accent);
 }
 
 .ais-title {
   font-size: 14px;
   font-weight: 700;
-  color: #1A1A1A;
+  color: var(--text);
 }
 
 .ais-title-ellipsis {
@@ -45,14 +45,14 @@
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: #E8607A;
+  color: var(--accent);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.14s;
 }
 
 .ais-back:hover,
-.ais-new-btn:hover { background: #FDE8EF; }
+.ais-new-btn:hover { background: var(--surface-tint); }
 
 .ais-new-btn { margin-left: auto; }
 
@@ -71,11 +71,11 @@
 }
 
 .ais-body::-webkit-scrollbar { width: 4px; }
-.ais-body::-webkit-scrollbar-thumb { background: #F3D8E4; border-radius: 4px; }
+.ais-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 .ais-hint {
   text-align: center;
-  color: #A3A8B0;
+  color: var(--text-faint);
   font-size: 13px;
   margin: auto;
   padding: 1rem;
@@ -103,14 +103,14 @@
 }
 
 .ais-bubble.user {
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   border-bottom-right-radius: 4px;
 }
 
 .ais-bubble.ai {
-  background: #FDF5F7;
-  color: #1A1A1A;
+  background: var(--surface);
+  color: var(--text);
   border-bottom-left-radius: 4px;
 }
 
@@ -142,9 +142,9 @@
   align-items: center;
   gap: 8px;
   padding: 8px 11px;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 9px;
-  background: #fff;
+  background: var(--card);
   cursor: pointer;
   text-align: left;
   transition: background 0.14s, border-color 0.14s;
@@ -152,8 +152,8 @@
 }
 
 .ais-plan-card:hover:not(:disabled) {
-  background: #FDE8EF;
-  border-color: #E8607A;
+  background: var(--surface-tint);
+  border-color: var(--accent);
 }
 
 .ais-plan-card.booked {
@@ -171,7 +171,7 @@
 .ais-plan-card:disabled:not(.booked):not(.errored) { opacity: 0.5; }
 
 .ais-plan-icon {
-  color: #E8607A;
+  color: var(--accent);
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -201,13 +201,13 @@
 
 .ais-plan-loc {
   font-size: 11.5px;
-  color: #9CA3AF;
+  color: var(--text-faint);
 }
 
 .ais-plan-desc {
   font-size: 11px;
   font-style: italic;
-  color: #9CA3AF;
+  color: var(--text-faint);
 }
 
 .ais-plan-card.booked .ais-plan-time { color: #15803d; }
@@ -228,11 +228,11 @@
   gap: 8px;
   margin-top: 6px;
   padding: 4px 10px;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: #FDF5F7;
+  background: var(--surface);
   font-size: 11px;
-  color: #6B7280;
+  color: var(--text-muted);
 }
 
 .ais-remember-undo {
@@ -241,12 +241,12 @@
   padding: 0;
   font-size: 11px;
   font-weight: 700;
-  color: #E8607A;
+  color: var(--accent);
   cursor: pointer;
   flex-shrink: 0;
 }
 
-.ais-remember-undo:hover { color: #C94D65; text-decoration: underline; }
+.ais-remember-undo:hover { color: var(--accent-hover); text-decoration: underline; }
 
 /* ── Group-mode banner (schedule popup) ── */
 
@@ -261,7 +261,7 @@
 .ais-group-members {
   font-size: 11.5px;
   font-weight: 400;
-  color: #9CA3AF;
+  color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -273,27 +273,27 @@
   display: flex;
   gap: 8px;
   padding: 10px 12px;
-  border-top: 1px solid #F3D8E4;
+  border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .ais-input {
   flex: 1;
   padding: 8px 13px;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 20px;
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
 }
 
-.ais-input:focus { border-color: #E8607A; }
+.ais-input:focus { border-color: var(--accent); }
 
 .ais-send {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   border: none;
   cursor: pointer;
@@ -304,7 +304,7 @@
   transition: background 0.15s, opacity 0.15s;
 }
 
-.ais-send:hover:not(:disabled) { background: #C94D65; }
+.ais-send:hover:not(:disabled) { background: var(--accent-hover); }
 .ais-send:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Conversation list ── */
@@ -320,20 +320,20 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #FDF5F7;
+  background: var(--surface);
   cursor: pointer;
   transition: background 0.14s, border-color 0.14s;
 }
 
 .ais-convo-item:hover {
-  background: #FDE8EF;
-  border-color: #E8607A;
+  background: var(--surface-tint);
+  border-color: var(--accent);
 }
 
 .ais-convo-ic {
-  color: #E8607A;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -348,7 +348,7 @@
 .ais-convo-title {
   font-size: 13px;
   font-weight: 600;
-  color: #1A1A1A;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -359,7 +359,7 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #9CA3AF;
+  color: var(--text-faint);
 }
 
 .ais-convo-badge {
@@ -381,7 +381,7 @@
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: #9CA3AF;
+  color: var(--text-faint);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.14s, color 0.14s;
@@ -401,7 +401,7 @@
   padding: 9px 0;
   border: none;
   border-radius: 20px;
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -409,7 +409,7 @@
   transition: background 0.15s;
 }
 
-.ais-start-btn:hover { background: #C94D65; }
+.ais-start-btn:hover { background: var(--accent-hover); }
 
 /* ── Spinner ── */
 

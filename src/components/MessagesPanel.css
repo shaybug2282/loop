@@ -7,7 +7,7 @@
   width: 340px;
   height: min(520px, calc(100vh - 32px));
   max-height: min(520px, calc(100vh - 32px));
-  background: #fff;
+  background: var(--card);
   border-radius: 12px 12px 0 0;
   box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.16);
   z-index: 900;
@@ -30,7 +30,7 @@
   gap: 6px;
   padding: 0 8px 0 12px;
   height: 44px;
-  background: #E8607A;
+  background: var(--accent);
   border-radius: 12px 12px 0 0;
   flex-shrink: 0;
   cursor: default;
@@ -84,7 +84,7 @@
 
 .mp-status {
   text-align: center;
-  color: #A3A8B0;
+  color: var(--text-faint);
   font-size: 13px;
   padding: 24px 16px;
   margin: auto;
@@ -98,7 +98,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #A3A8B0;
+  color: var(--text-faint);
   padding: 32px 16px;
   flex: 1;
 }
@@ -121,12 +121,12 @@
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-bottom: 1px solid #FDF5F7;
+  border-bottom: 1px solid var(--surface);
   cursor: pointer;
   transition: background 0.1s;
 }
 
-.mp-convo-item:hover { background: #FDF5F7; }
+.mp-convo-item:hover { background: var(--surface); }
 
 .mp-convo-avatar {
   width: 36px;
@@ -137,8 +137,8 @@
 }
 
 .mp-convo-avatar.placeholder {
-  background: #FDE8EF;
-  color: #E8607A;
+  background: var(--surface-tint);
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -157,7 +157,7 @@
 .mp-convo-name {
   font-size: 13.5px;
   font-weight: 500;
-  color: #1A1A1A;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -165,7 +165,7 @@
 
 .mp-convo-time {
   font-size: 11px;
-  color: #A3A8B0;
+  color: var(--text-faint);
   flex-shrink: 0;
   margin-left: 8px;
 }
@@ -191,7 +191,7 @@
 .mp-time-label {
   text-align: center;
   font-size: 11px;
-  color: #A3A8B0;
+  color: var(--text-faint);
   margin: 10px 0 4px;
   flex-shrink: 0;
 }
@@ -225,7 +225,7 @@
 }
 
 .mp-bubble-row.mine .mp-bubble {
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -235,8 +235,8 @@
 }
 
 .mp-bubble-row.theirs .mp-bubble {
-  background: #FDF5F7;
-  color: #1A1A1A;
+  background: var(--surface);
+  color: var(--text);
   border-bottom-left-radius: 4px;
 }
 
@@ -273,9 +273,9 @@
 }
 
 .mp-bubble-row.theirs .mp-edit-input {
-  background: #fff;
-  border-color: #F3D8E4;
-  color: #1A1A1A;
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .mp-edit-actions {
@@ -296,7 +296,7 @@
 
 .mp-edit-save {
   background: rgba(255,255,255,0.9);
-  color: #E8607A;
+  color: var(--accent);
 }
 
 .mp-edit-cancel {
@@ -305,13 +305,13 @@
 }
 
 .mp-bubble-row.theirs .mp-edit-save {
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
 }
 
 .mp-bubble-row.theirs .mp-edit-cancel {
-  background: #F3D8E4;
-  color: #4A4A52;
+  background: var(--border);
+  color: var(--text-soft);
 }
 
 /* ── Input row ── */
@@ -321,13 +321,13 @@
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
-  border-top: 1px solid #FDF5F7;
-  background: #fff;
+  border-top: 1px solid var(--surface);
+  background: var(--card);
   flex-shrink: 0;
 }
 
 .mp-e2e {
-  color: #A3A8B0;
+  color: var(--text-faint);
   display: flex;
   flex-shrink: 0;
 }
@@ -335,22 +335,22 @@
 .mp-input {
   flex: 1;
   padding: 7px 12px;
-  border: 1px solid #F3D8E4;
+  border: 1px solid var(--border);
   border-radius: 20px;
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
 }
 
-.mp-input:focus { border-color: #E8607A; }
-.mp-input:disabled { background: #FDF5F7; }
+.mp-input:focus { border-color: var(--accent); }
+.mp-input:disabled { background: var(--surface); }
 
 .mp-send {
   width: 34px;
   height: 34px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   border: none;
   cursor: pointer;
@@ -360,20 +360,20 @@
   transition: background 0.15s;
 }
 
-.mp-send:hover:not(:disabled) { background: #C94D65; }
+.mp-send:hover:not(:disabled) { background: var(--accent-hover); }
 .mp-send:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Right-click context menu ── */
 
 .mp-ctx {
   position: fixed;
-  background: #fff;
+  background: var(--card);
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.18);
   z-index: 901;
   overflow: hidden;
   min-width: 150px;
-  border: 1px solid #FDF5F7;
+  border: 1px solid var(--surface);
 }
 
 .mp-ctx-item {
@@ -387,22 +387,67 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #1A1A1A;
+  color: var(--text);
   transition: background 0.1s;
 }
 
-.mp-ctx-item:hover:not(.disabled) { background: #FDF5F7; }
+.mp-ctx-item:hover:not(.disabled) { background: var(--surface); }
 
 .mp-ctx-item.danger { color: #C0392B; }
 .mp-ctx-item.danger:hover:not(.disabled) { background: #FFF0EF; }
 
 .mp-ctx-item.disabled {
-  color: #A3A8B0;
+  color: var(--text-faint);
   cursor: default;
 }
 
 .mp-ctx-note {
   font-size: 11px;
-  color: #A3A8B0;
+  color: var(--text-faint);
   margin-left: auto;
 }
+
+/* ── Unread + compose (conversation list) ── */
+.mp-unread-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.mp-list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 10px 0;
+}
+
+.mp-compose-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+}
+.mp-compose-btn:hover { background: var(--surface-tint); }
+
+.mp-compose-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+/* Group chat: encrypted in transit + at rest on the server, but NOT
+   end-to-end like DMs — the icon says so honestly. */
+.gcp-enc { opacity: 0.55; }
