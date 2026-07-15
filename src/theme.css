@@ -1,0 +1,51 @@
+/* Theme tokens — every component stylesheet references these variables
+   instead of raw hex values, so Light/Dark (Profile → Appearance) and the
+   user's accent choice apply app-wide. Light is the source palette the app
+   shipped with; dark keeps the same rose accent on plum-tinted surfaces.
+   --accent / --accent-hover are overridden inline by utils/prefs.js when the
+   user picks a different accent. */
+
+:root {
+  --accent:        #E8607A;
+  --accent-hover:  #C94D65;
+  --on-accent:     #FFFFFF;
+
+  --surface:       #FDF5F7; /* page background */
+  --surface-alt:   #F9EAF0; /* secondary panels */
+  --surface-tint:  #FDE8EF; /* tinted chips / active rows */
+  --surface-hover: #F3F4F6; /* neutral hover */
+  --card:          #FFFFFF; /* cards, popups, inputs */
+
+  --border:        #F3D8E4; /* brand border */
+  --border-soft:   #E5E7EB; /* neutral border */
+
+  --text:          #1A1A1A;
+  --text-soft:     #4A4A52;
+  --text-muted:    #6B7280;
+  --text-faint:    #9CA3AF;
+}
+
+[data-theme="dark"] {
+  --accent-hover:  #F27E93;
+
+  --surface:       #191216;
+  --surface-alt:   #251A20;
+  --surface-tint:  #33222B;
+  --surface-hover: #2B2228;
+  --card:          #221920;
+
+  --border:        #402C37;
+  --border-soft:   #3B333A;
+
+  --text:          #F3EBEF;
+  --text-soft:     #D8C9D1;
+  --text-muted:    #A6949E;
+  --text-faint:    #7F6F78;
+
+  color-scheme: dark;
+}
+
+html, body {
+  background: var(--surface);
+  color: var(--text);
+}

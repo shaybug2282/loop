@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDuration } from '../utils/format';
+import { getPrefs } from '../utils/prefs';
+import EventPopup from './EventPopup';
 import './NotificationCenter.css';
 
 // localStorage keys for notification read/delete state (shared across tabs/reloads).
@@ -27,6 +30,12 @@ function fmtTime(iso) {
 function buildActivities(events) {
   const activities = [];
   events.forEach(e => {
+    // Mutual cancel — both participants get the same notification. This is
+    // the ONLY way a raincheck ever surfaces: one-sided ones stay secret.
+    if (e.status === 'rainchecked') {
+      activities.push({ type: 'rainchecked', event: e });
+      return;
+    }
     if (e.isCreator) {
       (e.declinedUsers ?? []).forEach(u =>
         activities.push({ type: 'decline', user: u, event: e }));
@@ -63,12 +72,16 @@ const activityId = (a) => `ev-${a.type}-${a.event.id}${a.user ? `-${a.user.id}` 
 // Each notification can be deleted (✕ on hover) — deletions persist locally.
 const NotificationCenter = () => {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [isOpen,       setIsOpen]       = useState(false);
   const [events,       setEvents]       = useState([]);
   const [groupInvites, setGroupInvites] = useState([]);
+  const [friendReqs,   setFriendReqs]   = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [seen,         setSeen]         = useState(() => loadSet(LS_SEEN));
   const [dismissed,    setDismissed]    = useState(() => loadSet(LS_DISMISSED));
+  const [popupEvent,   setPopupEvent]   = useState(null); // event open in the universal popup
+  const [quietSince,   setQuietSince]   = useState(null); // Quiet Time start (null = off)
   const wrapRef    = useRef(null);
   const fetchedRef = useRef(false); // true after the first successful fetch — gates pruning
   const syncedRef  = useRef(false); // true after server state is merged — gates pushes
@@ -120,12 +133,16 @@ const NotificationCenter = () => {
     if (!googleId) return;
     setLoading(true);
     try {
-      const [evtRes, grpRes] = await Promise.all([
+      const [evtRes, grpRes, profRes, frRes] = await Promise.all([
         fetch(`/api/schedule?op=pending-events&googleId=${encodeURIComponent(googleId)}`),
         fetch(`/api/groups?op=pending-invites&googleId=${encodeURIComponent(googleId)}`),
+        fetch(`/api/user?op=profile&googleId=${encodeURIComponent(googleId)}`),
+        fetch(`/api/friends?op=data&googleId=${encodeURIComponent(googleId)}`),
       ]);
       if (evtRes.ok) setEvents((await evtRes.json()).events ?? []);
       if (grpRes.ok) setGroupInvites((await grpRes.json()).invites ?? []);
+      if (profRes.ok) setQuietSince((await profRes.json()).quiet_time_since ?? null);
+      if (frRes.ok)  setFriendReqs((await frRes.json()).requests ?? []);
       if (evtRes.ok && grpRes.ok) fetchedRef.current = true;
     } catch { /* silent */ }
     finally { setLoading(false); }
@@ -150,16 +167,36 @@ const NotificationCenter = () => {
 
   const activities = useMemo(() => buildActivities(events), [events]);
 
-  // Unified display list with stable ids; deleted items are filtered out.
-  const items = useMemo(() => [
-    ...groupInvites.map(inv => ({ id: `group-${inv.groupId}`, kind: 'group', inv })),
-    ...activities.map(a => ({ id: activityId(a), kind: 'activity', a })),
-  ].filter(i => !dismissed.has(i.id)), [groupInvites, activities, dismissed]);
+  // Unified display list with stable ids; deleted items are filtered out and
+  // whole categories can be muted from Profile → Notifications.
+  const items = useMemo(() => {
+    const on = getPrefs().notifications;
+    return [
+      ...(on.friendRequests ? friendReqs.map(req => ({ id: `freq-${req.id}`, kind: 'friend', req })) : []),
+      ...(on.groupInvites ? groupInvites.map(inv => ({ id: `group-${inv.groupId}`, kind: 'group', inv })) : []),
+      ...(on.events ? activities.map(a => ({ id: activityId(a), kind: 'activity', a })) : []),
+    ].filter(i => !dismissed.has(i.id));
+  }, [friendReqs, groupInvites, activities, dismissed]);
+
+  // Quiet Time on for 24+ hours → prompt the user to turn it off. Not part of
+  // the dismissable items list: it stays until Quiet Time is actually off.
+  const quietOverdue = quietSince && Date.now() - new Date(quietSince).getTime() > 24 * 60 * 60 * 1000;
+
+  const turnOffQuietTime = async () => {
+    try {
+      await fetch('/api/user', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ op: 'quiet-time', googleId, enabled: false }),
+      });
+      setQuietSince(null);
+    } catch {}
+  };
 
   const unseenCount = useMemo(
     () => items.filter(i => !seen.has(i.id)).length,
     [items, seen]
-  );
+  ) + (quietOverdue ? 1 : 0);
 
   // Opening the panel marks everything currently visible as seen.
   useEffect(() => {
@@ -180,6 +217,7 @@ const NotificationCenter = () => {
   useEffect(() => {
     if (!fetchedRef.current) return;
     const valid = new Set([
+      ...friendReqs.map(req => `freq-${req.id}`),
       ...groupInvites.map(inv => `group-${inv.groupId}`),
       ...activities.map(activityId),
     ]);
@@ -191,7 +229,7 @@ const NotificationCenter = () => {
     });
     prune(setSeen, LS_SEEN);
     prune(setDismissed, LS_DISMISSED);
-  }, [groupInvites, activities]);
+  }, [friendReqs, groupInvites, activities]);
 
   // Delete a notification from the panel (persists across reloads).
   const dismiss = (id) => {
@@ -212,6 +250,16 @@ const NotificationCenter = () => {
     fetchAll();
   };
 
+  // Accept/decline a friend request straight from the bell.
+  const respondFriend = async (requestId, action) => {
+    await fetch('/api/friends', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ op: 'respond', googleId, requestId, action }),
+    });
+    fetchAll();
+  };
+
   if (!isAuthenticated) return null;
 
   const n = x => x?.display_name || x?.name || 'Someone';
@@ -226,6 +274,7 @@ const NotificationCenter = () => {
       case 'reschedule': return { color: 'yellow', title: `${n(a.user)} asked to reschedule`, sub: `${t} — see Scheduling Assistant` };
       case 'accept':     return { color: 'green',  title: `${n(a.user)} confirmed`, sub: t };
       case 'confirmed':  return { color: 'green',  title: 'All confirmed', sub: t };
+      case 'rainchecked': return { color: 'blue',  title: 'This event has been Rain Checked!', sub: t };
       default:          return null;
     }
   };
@@ -251,12 +300,51 @@ const NotificationCenter = () => {
           </div>
 
           <div className="nc-scroll">
+            {/* Quiet Time 24h reminder — pinned above the list, not
+                dismissable: it clears only when Quiet Time turns off. */}
+            {quietOverdue && (
+              <div className="nc-item nc-quiet">
+                <span className="nc-dot nc-dot-blue" />
+                <div className="nc-item-body">
+                  <p className="nc-item-title">Quiet Time has been on for over 24 hours</p>
+                  <p className="nc-item-sub">Friends can't schedule anything with you while it's on.</p>
+                  <div className="nc-invite-btns">
+                    <button className="nc-btn-join" onClick={turnOffQuietTime}>Turn off Quiet Time</button>
+                  </div>
+                </div>
+              </div>
+            )}
             {loading && items.length === 0 ? (
               <p className="nc-empty">Loading…</p>
             ) : items.length === 0 ? (
-              <p className="nc-empty">No notifications yet</p>
+              !quietOverdue && <p className="nc-empty">No notifications yet</p>
             ) : (
               items.map(item => {
+                if (item.kind === 'friend') {
+                  const { req } = item;
+                  const name = req.sender?.display_name || req.sender?.name || 'Someone';
+                  return (
+                    <div key={item.id} className="nc-item">
+                      <span className="nc-dot nc-dot-yellow" />
+                      <div
+                        className="nc-item-body nc-item-click"
+                        onClick={() => { setIsOpen(false); navigate('/friends?tab=requests'); }}
+                        role="button"
+                        tabIndex={0}
+                        title="Open Friends page"
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setIsOpen(false); navigate('/friends?tab=requests'); } }}
+                      >
+                        <p className="nc-item-title">Friend request from <strong>{name}</strong></p>
+                        <div className="nc-invite-btns" onClick={e => e.stopPropagation()}>
+                          <button className="nc-btn-join"    onClick={() => respondFriend(req.id, 'accept')}>Accept</button>
+                          <button className="nc-btn-decline" onClick={() => respondFriend(req.id, 'reject')}>Decline</button>
+                        </div>
+                      </div>
+                      <button className="nc-item-x" title="Delete notification"
+                        onClick={() => dismiss(item.id)}>✕</button>
+                    </div>
+                  );
+                }
                 if (item.kind === 'group') {
                   const { inv } = item;
                   return (
@@ -282,7 +370,14 @@ const NotificationCenter = () => {
                 return (
                   <div key={item.id} className="nc-item">
                     <span className={`nc-dot nc-dot-${info.color}`} />
-                    <div className="nc-item-body">
+                    <div
+                      className="nc-item-body nc-item-click"
+                      onClick={() => setPopupEvent(item.a.event)}
+                      role="button"
+                      tabIndex={0}
+                      title="Open event"
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setPopupEvent(item.a.event); }}
+                    >
                       <p className="nc-item-title">{info.title}</p>
                       <p className="nc-item-sub">{info.sub}</p>
                     </div>
@@ -294,6 +389,14 @@ const NotificationCenter = () => {
             )}
           </div>
         </div>
+      )}
+
+      {popupEvent && (
+        <EventPopup
+          loopEvent={popupEvent}
+          onClose={() => setPopupEvent(null)}
+          onChanged={fetchAll}
+        />
       )}
     </div>
   );

@@ -15,6 +15,13 @@ file **in numeric order** by pasting it into the Supabase SQL editor
 | `006_pending_events_google_event_id.sql` | `pending_events.google_event_id` column | `api/schedule.js` (calendar dedupe of the confirmed Google copy) |
 | `007_ai_conversations.sql` | `ai_conversations` + `pending_events.title`/`location` columns | `api/ai.js` (persistent Scheduling Assistant chats), `api/schedule.js` (event title/location) |
 | `008_reschedule_requests.sql` | `pending_events.reschedule_requests` column | `api/schedule.js` (invitee "Reschedule" action → AI-assisted rebooking) |
+| `009_pending_events_description.sql` | `pending_events.description` column | `api/schedule.js` (invite-only note on invite/event cards; never sent to Google Calendar) |
+| `010_event_outcomes.sql` | `event_outcomes` | `api/schedule.js` (invite responses logged at response time), `api/_profiles.js` (profiler outcome signals that survive purges) |
+| `011_reschedule_notes.sql` | `pending_events.reschedule_notes` column | `api/schedule.js` (requester constraint notes shown to the creator in the event popup while the event is locked) |
+| `012_rainchecks.sql` | `pending_events.rainchecks` column | `api/schedule.js` (Rain Check — secret mutual cancel for two-person events) |
+| `013_users_privacy_quiet_time.sql` | `users.show_phone` + `users.quiet_time_since` columns | `api/user.js`/`api/friends.js` (phone visibility toggle), `api/schedule.js` (Quiet Time blocks scheduling) |
+| `014_pending_events_group_id.sql` | `pending_events.group_id` column | `api/schedule.js` (group tag on events — auto-stamped by group-mode assistant bookings, editable by the creator in the event popup) |
+| `015_preferences_friend_settings.sql` | `users.preferences` JSONB + `users.custom_avatar_url` + `users.quiet_time_until`; `friendships.favorite`/`muted`/`availability_override`; `blocks` table | `api/user.js` (theme/accent/notification prefs, avatar override, Quiet Time auto-off, friend-code regen), `api/friends.js` (per-friend settings, block/unblock, availability sharing + glints), `api/messages.js` (block enforcement), `api/schedule.js`/`api/ai.js` (quiet hours + availability-sharing enforcement) |
 
 ## Base tables
 s

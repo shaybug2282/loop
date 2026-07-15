@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { applyPrefsFromServer } from './utils/prefs';
 import { MessagesProvider }     from './contexts/MessagesContext';
 import { GroupChatProvider }    from './contexts/GroupChatContext';
 import MessagesPanel       from './components/MessagesPanel';
@@ -10,13 +11,26 @@ import GroupChatPanel      from './components/GroupChatPanel';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
-import TodosPage from './pages/TodosPage';
 import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
-import SchedulePage from './pages/SchedulePage';
 import PrivacyPage from './pages/PrivacyPage';
 import Footer from './components/Footer';
 import './App.css';
+
+// PrefsSync — once per session, pull server-stored preferences (theme, accent,
+// notification toggles) so settings changed on another device apply here.
+const PrefsSync = () => {
+  const { isAuthenticated } = useAuth();
+  useEffect(() => {
+    const googleId = localStorage.getItem('googleUserId');
+    if (!isAuthenticated || !googleId) return;
+    fetch(`/api/user?op=profile&googleId=${encodeURIComponent(googleId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.preferences) applyPrefsFromServer(d.preferences); })
+      .catch(() => {});
+  }, [isAuthenticated]);
+  return null;
+};
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -39,6 +53,7 @@ function App() {
       <MessagesProvider>
         <GroupChatProvider>
           <Router>
+            <PrefsSync />
             <Routes>
               <Route path="/login" element={<Login />} />
               {/* Dashboard is publicly accessible; auth state handled inside the component */}
@@ -47,10 +62,8 @@ function App() {
                 path="/calendar"
                 element={<ProtectedRoute><CalendarPage /></ProtectedRoute>}
               />
-              <Route
-                path="/todos"
-                element={<ProtectedRoute><TodosPage /></ProtectedRoute>}
-              />
+              {/* To-Do page removed — old bookmarks land on the dashboard */}
+              <Route path="/todos" element={<Navigate to="/dashboard" />} />
               <Route path="/contacts" element={<Navigate to="/friends" />} />
               <Route
                 path="/friends"
@@ -60,10 +73,9 @@ function App() {
                 path="/profile"
                 element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
               />
-              <Route
-                path="/schedule"
-                element={<ProtectedRoute><SchedulePage /></ProtectedRoute>}
-              />
+              {/* The schedule page was folded into the dashboard (Groups +
+                  pending tiles + event popups); old links land there. */}
+              <Route path="/schedule" element={<Navigate to="/dashboard" />} />
               {/* /messages redirects home; the panel handles all messaging */}
               <Route path="/messages" element={<Navigate to="/dashboard" />} />
               <Route path="/privacy" element={<PrivacyPage />} />

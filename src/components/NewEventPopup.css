@@ -1,0 +1,360 @@
+/* ── New event popup ── */
+
+.ne-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ne-modal {
+  width: min(380px, 94vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  animation: ne-pop 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes ne-pop {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.ne-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ne-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+}
+
+.ne-back:hover { background: var(--surface-tint); }
+
+.ne-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ne-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.12s;
+}
+
+.ne-close:hover { color: var(--text-muted); }
+
+.ne-body {
+  position: relative;
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ne-sublabel {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.ne-hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.ne-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fee2e2;
+  color: #C0392B;
+  font-size: 12px;
+}
+
+/* ── Friend selection ── */
+
+.ne-friend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.ne-friend {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.ne-friend:hover { background: var(--surface); }
+.ne-friend.on    { background: var(--surface-tint); }
+
+.ne-av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.ne-av-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ne-fname {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ne-tick {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.ne-next {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ne-next:hover { background: var(--accent-hover); }
+
+/* ── Timing choice ── */
+
+.ne-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ne-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 0;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.ne-choice:hover { background: var(--surface); border-color: var(--accent); }
+
+.ne-choice.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.ne-choice.primary:hover { background: var(--accent-hover); }
+
+/* ── Manual pick ── */
+
+.ne-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ne-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ne-input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+}
+
+.ne-input:focus { border-color: var(--accent); }
+
+.ne-input-dur { width: 90px; }
+
+.ne-primary {
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ne-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.ne-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── AI find-a-time ── */
+
+.ne-ai-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ne-ai-input { flex: 1; }
+
+.ne-ai-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ne-ai-send:hover:not(:disabled) { background: var(--accent-hover); }
+.ne-ai-send:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.ne-plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ne-plan {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.ne-plan:hover:not(:disabled) { background: var(--surface-tint); border-color: var(--accent); }
+.ne-plan:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.ne-plan svg { color: var(--accent); }
+
+.ne-plan-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ne-plan-loc {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* ── Done ── */
+
+.ne-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 10px 0 4px;
+}
+
+.ne-done-icon { font-size: 30px; }
+
+.ne-done-head {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ne-done .ne-primary {
+  width: 100%;
+  margin-top: 6px;
+}
+
+/* Assistant hand-off step: the modal grows to hold the full chat. */
+.ne-modal-lg {
+  width: min(480px, 94vw);
+  height: min(620px, 88vh);
+  display: flex;
+  flex-direction: column;
+}
+.ne-modal-lg .ne-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ne-assistant {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.ne-assistant > * { flex: 1; min-height: 0; }

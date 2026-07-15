@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Minus, Send } from 'lucide-react';
+import { X, Minus, Send, ShieldCheck } from 'lucide-react';
 import { useGroupChat } from '../contexts/GroupChatContext';
 import { useMessages }  from '../contexts/MessagesContext';
 import { useAuth }      from '../contexts/AuthContext';
@@ -158,6 +158,10 @@ const GroupChatPanel = () => {
             </div>
 
             <div className="mp-input-row">
+              {/* Honest label: server-side encryption, unlike E2E DMs */}
+              <span className="mp-e2e gcp-enc" title="Encrypted on Loop's servers — not end-to-end like direct messages">
+                <ShieldCheck size={10} />
+              </span>
               <input
                 ref={inputRef}
                 className="mp-input"

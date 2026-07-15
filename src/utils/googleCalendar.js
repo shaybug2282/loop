@@ -208,6 +208,40 @@ export const fetchGoogleTasks = async () => {
   }
 };
 
+// Create a Google Task on the user's default list ('@default').
+// in: title string. out: the created task mapped to the widget shape.
+export const createGoogleTask = async (title) => {
+  const accessToken = await getValidToken();
+
+  const response = await fetch(
+    `${TASKS_API_URL}/lists/@default/tasks`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to create Google Task');
+  }
+
+  const task = await response.json();
+  return {
+    id: task.id,
+    text: task.title,
+    completed: false,
+    listId: '@default',
+    listName: 'My Tasks',
+    due: task.due,
+    notes: task.notes,
+    fromGoogle: true,
+  };
+};
+
 // Update a Google Task
 export const updateGoogleTask = async (listId, taskId, updates) => {
   const accessToken = await getValidToken();
@@ -262,6 +296,50 @@ export const deleteGoogleTask = async (listId, taskId) => {
   } catch (error) {
     console.error('Error deleting Google Task:', error);
     throw error;
+  }
+};
+
+// Patch an event on the primary calendar. sendUpdates=all makes Google email
+// an updated invitation to every attendee. Returns the updated event object.
+export const updateCalendarEvent = async (eventId, patch) => {
+  const accessToken = await getValidToken();
+
+  const response = await fetch(
+    `${CALENDAR_API_URL}/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(patch),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to update calendar event');
+  }
+
+  return await response.json();
+};
+
+// Delete an event from the primary calendar. sendUpdates=all makes Google
+// email every attendee that the event was cancelled. A 410 (already gone)
+// is treated as success since the end state — the event no longer exists —
+// is what the caller wants.
+export const deleteCalendarEvent = async (eventId) => {
+  const accessToken = await getValidToken();
+
+  const response = await fetch(
+    `${CALENDAR_API_URL}/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  if (!response.ok && response.status !== 410) {
+    throw new Error('Failed to delete calendar event');
   }
 };
 

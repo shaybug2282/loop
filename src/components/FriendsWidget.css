@@ -1,5 +1,5 @@
 .friends-widget {
-  background: white;
+  background: var(--card);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -16,7 +16,7 @@
   justify-content: space-between;
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 2px solid #F3D8E4;
+  border-bottom: 2px solid var(--border);
 }
 
 .fw-title {
@@ -25,17 +25,17 @@
   gap: 10px;
 }
 
-.fw-title svg { color: #E8607A; }
+.fw-title svg { color: var(--accent); }
 
 .fw-title h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1A1A1A;
+  color: var(--text);
 }
 
 .fw-badge {
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   font-size: 0.68rem;
   font-weight: 700;
@@ -47,7 +47,7 @@
 .fw-view-all {
   background: none;
   border: none;
-  color: #E8607A;
+  color: var(--accent);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -56,7 +56,7 @@
 
 .fw-view-all:hover { text-decoration: underline; }
 
-.fw-loading { color: #A3A8B0; font-size: 13px; margin: 0; }
+.fw-loading { color: var(--text-faint); font-size: 13px; margin: 0; }
 
 .fw-empty {
   flex: 1;
@@ -68,16 +68,16 @@
   gap: 10px;
 }
 
-.fw-empty-icon { color: #F3D8E4; }
+.fw-empty-icon { color: var(--border); }
 
 .fw-empty p {
-  color: #A3A8B0;
+  color: var(--text-faint);
   font-size: 14px;
   margin: 0;
 }
 
 .fw-add-btn {
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -88,7 +88,7 @@
   transition: background 0.15s;
 }
 
-.fw-add-btn:hover { background: #C94D65; }
+.fw-add-btn:hover { background: var(--accent-hover); }
 
 /* ── Friend list ── */
 
@@ -112,10 +112,10 @@
   border-radius: 10px;
   cursor: pointer;
   transition: background 0.12s;
-  background: #F9EAF0;
+  background: var(--surface-alt);
 }
 
-.fw-item:hover { background: #F9EAF0; }
+.fw-item:hover { background: var(--surface-alt); }
 
 .fw-avatar {
   width: 40px;
@@ -126,7 +126,7 @@
 }
 
 .fw-avatar.placeholder {
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   display: flex;
   align-items: center;
@@ -146,7 +146,7 @@
 .fw-name {
   font-size: 14px;
   font-weight: 600;
-  color: #1A1A1A;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -157,13 +157,13 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #6B7280;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.fw-detail svg { flex-shrink: 0; color: #A3A8B0; }
+.fw-detail svg { flex-shrink: 0; color: var(--text-faint); }
 
 /* ── Message button ── */
 
@@ -173,7 +173,7 @@
   border: none;
   padding: 6px;
   border-radius: 8px;
-  color: #A3A8B0;
+  color: var(--text-faint);
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
   display: flex;
@@ -187,6 +187,6 @@
 }
 
 .fw-msg-btn:hover {
-  color: #E8607A;
-  background: #FDE8EF;
+  color: var(--accent);
+  background: var(--surface-tint);
 }

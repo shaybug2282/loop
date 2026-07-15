@@ -1,0 +1,197 @@
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ArrowRight, Sparkles } from 'lucide-react';
+import SchedulingAssistant from './SchedulingAssistant';
+import './NewEventPopup.css';
+
+// Previous step for the header back button.
+const BACK = { timing: 'friends', pick: 'timing', assistant: 'timing' };
+
+// NewEventPopup — modal flow for scheduling a brand-new event: select
+// friends, then either pick a date/time/duration manually or hand off to the
+// conversational Scheduling Assistant (the same persistent chat used
+// everywhere else), pre-seeded with the selected friends. Manual creation
+// posts op:'create-event'; assistant bookings go through its own plan cards.
+// onCreated fires after either path books, so the parent can refetch.
+export default function NewEventPopup({ onClose, onCreated, initialDate = null }) {
+  const [step,      setStep]      = useState('friends'); // friends | timing | pick | assistant | done
+  const [friends,   setFriends]   = useState(null);      // null until fetched
+  const [selected,  setSelected]  = useState(new Set());
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState(null);
+  // Manual pick — initialDate (from a calendar empty-slot click) prefills it.
+  const [date,     setDate]     = useState(initialDate ?? '');
+  const [time,     setTime]     = useState('10:00');
+  const [duration, setDuration] = useState(1);
+
+  const googleId = localStorage.getItem('googleUserId');
+  const today = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    if (!googleId) { setFriends([]); return; }
+    fetch(`/api/friends?op=data&googleId=${encodeURIComponent(googleId)}`)
+      .then(r => r.json()).then(d => setFriends(d.friends ?? [])).catch(() => setFriends([]));
+  }, [googleId]);
+
+  const toggle = id =>
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  // create — POST the pending event; every selected friend is invited.
+  const create = async (eventTime, durationHours) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/schedule', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          op: 'create-event', creatorGoogleId: googleId,
+          invitedUserIds: [...selected], eventTime, durationHours,
+        }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.error || `Server error (${r.status})`);
+      }
+      onCreated?.();
+      setStep('done');
+    } catch (err) {
+      setError(err.message || 'Could not create event. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // schedulePicked — validate the manual date/time is in the future, then create.
+  const schedulePicked = () => {
+    if (!date || !time) return;
+    const when = new Date(`${date}T${time}`);
+    if (when <= new Date()) { setError('Please choose a time in the future.'); return; }
+    setError(null);
+    create(when.toISOString(), Number(duration) || 1);
+  };
+
+  // seedMessage — the first chat turn for the assistant hand-off: names the
+  // selected friends (and the clicked date, if any) so the roster resolves
+  // them and availability checks start immediately.
+  const seedMessage = () => {
+    const names = (friends ?? [])
+      .filter(f => selected.has(f.id))
+      .map(f => f.display_name || f.name)
+      .filter(Boolean);
+    const datePart = date ? ` on ${date}` : '';
+    return `I'd like to schedule something with ${names.join(', ')}${datePart}. Can you find times that work for all of us?`;
+  };
+
+  const body = () => {
+    switch (step) {
+      case 'friends': return (
+        <>
+          <p className="ne-sublabel">Who's it with?</p>
+          {friends === null ? (
+            <p className="ne-hint">Loading friends…</p>
+          ) : friends.length === 0 ? (
+            <p className="ne-hint">No friends yet — add some from the Friends page first.</p>
+          ) : (
+            <ul className="ne-friend-list">
+              {friends.map(f => {
+                const on = selected.has(f.id);
+                return (
+                  <li key={f.id} className={`ne-friend${on ? ' on' : ''}`} onClick={() => toggle(f.id)}>
+                    {f.picture_url
+                      ? <img src={f.picture_url} alt="" className="ne-av" />
+                      : <div className="ne-av ne-av-ph">{(f.display_name || f.name)?.[0]}</div>}
+                    <span className="ne-fname">{f.display_name || f.name}</span>
+                    {on && <span className="ne-tick">✓</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {selected.size > 0 && (
+            <button className="ne-next" onClick={() => setStep('timing')} title="Next">
+              <ArrowRight size={18} />
+            </button>
+          )}
+        </>
+      );
+
+      case 'timing': return (
+        <>
+          <p className="ne-sublabel">How would you like to choose a time?</p>
+          <div className="ne-choices">
+            <button className="ne-choice" onClick={() => setStep('pick')}>Pick a time</button>
+            <button className="ne-choice primary" onClick={() => setStep('assistant')}>
+              <Sparkles size={13} /> Find a time
+            </button>
+          </div>
+        </>
+      );
+
+      case 'pick': return (
+        <>
+          <p className="ne-sublabel">Choose a date and time:</p>
+          <div className="ne-field">
+            <label className="ne-label">Date</label>
+            <input type="date" className="ne-input" min={today} value={date}
+              onChange={e => { setDate(e.target.value); setError(null); }} />
+          </div>
+          <div className="ne-field">
+            <label className="ne-label">Time</label>
+            <input type="time" className="ne-input" value={time}
+              onChange={e => { setTime(e.target.value); setError(null); }} />
+          </div>
+          <div className="ne-field">
+            <label className="ne-label">Duration (hours)</label>
+            <input type="number" className="ne-input ne-input-dur" min="0.5" step="0.5" value={duration}
+              onChange={e => setDuration(e.target.value)} />
+          </div>
+          <button className="ne-primary" disabled={!date || !time || loading} onClick={schedulePicked}>
+            {loading ? 'Scheduling…' : 'Schedule'}
+          </button>
+        </>
+      );
+
+      // Full conversational assistant, seeded with the picked friends — the
+      // same persistent chat as everywhere else (constraints, memory, cards).
+      case 'assistant': return (
+        <div className="ne-assistant">
+          <SchedulingAssistant
+            initialMessage={seedMessage()}
+            onBooked={() => { onCreated?.(); }}
+          />
+        </div>
+      );
+
+      case 'done': return (
+        <div className="ne-done">
+          <div className="ne-done-icon">🗓</div>
+          <p className="ne-done-head">Event pending.</p>
+          <p className="ne-hint">Invites are out — it lands in "In the Works" until everyone accepts.</p>
+          <button className="ne-primary" onClick={onClose}>Done</button>
+        </div>
+      );
+
+      default: return null;
+    }
+  };
+
+  return (
+    <div className="ne-backdrop" onClick={onClose}>
+      <div className={`ne-modal${step === 'assistant' ? ' ne-modal-lg' : ''}`} onClick={e => e.stopPropagation()}>
+        <div className="ne-header">
+          {step in BACK && (
+            <button className="ne-back" onClick={() => { setStep(BACK[step]); setError(null); }} title="Back">
+              <ChevronLeft size={16} />
+            </button>
+          )}
+          <span className="ne-title">New event</span>
+          <button className="ne-close" onClick={onClose} title="Close">✕</button>
+        </div>
+        <div className="ne-body">
+          {error && <p className="ne-error">{error}</p>}
+          {body()}
+        </div>
+      </div>
+    </div>
+  );
+}

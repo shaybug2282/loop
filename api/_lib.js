@@ -32,15 +32,60 @@ export async function resolveUser(client, googleId, columns = 'id') {
   return data ?? null;
 }
 
+// isQuietNow — true while a user's Quiet Time blocks scheduling: on when
+// quiet_time_since is set and the optional quiet_time_until end (migration
+// 015) hasn't passed. Shared by api/schedule.js and api/ai.js.
+export function isQuietNow(u) {
+  if (!u?.quiet_time_since) return false;
+  if (u.quiet_time_until && new Date(u.quiet_time_until) <= new Date()) return false;
+  return true;
+}
+
+// inQuietHours — true when a moment falls inside the user's daily quiet-hours
+// window (preferences.quietHours, evaluated in their timezone). Overnight
+// windows (e.g. 22:00–08:00) wrap past midnight. out: boolean; malformed
+// input reads as "not quiet" so scheduling fails open.
+export function inQuietHours(whenIso, preferences, timezone = 'UTC') {
+  const qh = preferences?.quietHours;
+  if (!qh?.enabled || !qh.start || !qh.end) return false;
+  const toMin = s => {
+    const [h, m] = String(s).split(':').map(Number);
+    return Number.isFinite(h) ? h * 60 + (m || 0) : NaN;
+  };
+  let local;
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'UTC', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date(whenIso));
+    local = toMin(`${parts.find(p => p.type === 'hour')?.value}:${parts.find(p => p.type === 'minute')?.value}`);
+  } catch { return false; }
+  const start = toMin(qh.start), end = toMin(qh.end);
+  if ([local, start, end].some(Number.isNaN)) return false;
+  return start <= end ? (local >= start && local < end) : (local >= start || local < end);
+}
+
 // ── Anthropic helpers (shared by api/ai.js and api/_profiles.js) ──────────────
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
 // callModel — single entry point to the Anthropic Messages API.
 // in:  { model, system, messages, maxTokens? }. out: assistant reply string.
+// `system` is either a plain string or { static, dynamic }: the static text is
+// marked as a prompt-cache breakpoint — because it is byte-identical across
+// every user and turn it becomes a cache READ on subsequent calls (~90%
+// cheaper) — while the dynamic per-user/per-turn context follows uncached.
+// Never put changing data (timestamps, busy windows) in the static part: one
+// changed byte invalidates the cache prefix.
 export async function callModel({ model, system, messages, maxTokens = 1024 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
+
+  const systemBlocks = typeof system === 'string'
+    ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+    : [
+        { type: 'text', text: system.static, cache_control: { type: 'ephemeral' } },
+        ...(system.dynamic ? [{ type: 'text', text: system.dynamic }] : []),
+      ];
 
   const r = await fetch(ANTHROPIC_URL, {
     method: 'POST',
@@ -53,7 +98,7 @@ export async function callModel({ model, system, messages, maxTokens = 1024 }) {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      system:   [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+      system:   systemBlocks,
       messages,
     }),
   });
@@ -63,7 +108,9 @@ export async function callModel({ model, system, messages, maxTokens = 1024 }) {
     throw new Error(`AI error (${r.status}): ${err.error?.message ?? 'unknown'}`);
   }
   const data = await r.json();
-  return data.content?.[0]?.text ?? '';
+  // Models with adaptive reasoning (Sonnet 5+) may prepend a `thinking` block,
+  // so the reply text is the first block of type "text", not content[0].
+  return data.content?.find(b => b.type === 'text')?.text ?? '';
 }
 
 // extractJson — tolerant JSON extraction from model replies (handles fences and prose).

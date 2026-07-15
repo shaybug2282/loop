@@ -14,10 +14,10 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: #fff;
+  background: var(--card);
   border: none;
   border-radius: 50%;
-  color: #E8607A;
+  color: var(--accent);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
   cursor: pointer;
   transition: box-shadow 0.18s, transform 0.15s;
@@ -36,7 +36,7 @@
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -57,8 +57,8 @@
   right: 20px;
   width: 300px;
   max-height: 420px;
-  background: #fff;
-  border: 1px solid #F3D8E4;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
   display: flex;
@@ -78,14 +78,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px 10px;
-  border-bottom: 1px solid #F3D8E4;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .nc-panel-title {
   font-size: 14px;
   font-weight: 700;
-  color: #1F2937;
+  color: var(--text);
 }
 
 .nc-x {
@@ -99,7 +99,7 @@
   transition: color 0.12s;
 }
 
-.nc-x:hover { color: #6B7280; }
+.nc-x:hover { color: var(--text-muted); }
 
 /* ── Scroll area ────────────────────────────────────────────────────────────── */
 
@@ -110,11 +110,11 @@
 }
 
 .nc-scroll::-webkit-scrollbar { width: 4px; }
-.nc-scroll::-webkit-scrollbar-thumb { background: #F3D8E4; border-radius: 4px; }
+.nc-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 .nc-empty {
   font-size: 13px;
-  color: #9CA3AF;
+  color: var(--text-faint);
   text-align: center;
   padding: 28px 16px;
   margin: 0;
@@ -131,7 +131,7 @@
   transition: background 0.12s;
 }
 
-.nc-item:hover { background: #FDF5F7; }
+.nc-item:hover { background: var(--surface); }
 
 .nc-dot {
   width: 8px;
@@ -141,12 +141,18 @@
   flex-shrink: 0;
 }
 
-/* Color semantics: yellow = pending invite, red = declined, green = confirmed */
+/* Color semantics: yellow = pending invite, red = declined, green = confirmed,
+   blue = rain checked (mutual cancel) */
 .nc-dot-yellow { background: #EAB308; }
 .nc-dot-red    { background: #EF4444; }
 .nc-dot-green  { background: #10B981; }
+.nc-dot-blue   { background: #7396C4; }
 
 .nc-item-body { min-width: 0; flex: 1; }
+
+/* Clickable: opens the universal event popup. */
+.nc-item-click { cursor: pointer; }
+.nc-item-click:hover .nc-item-title { color: var(--accent); }
 
 /* Delete button — appears on hover, matches the widget dismiss pattern */
 .nc-item-x {
@@ -176,7 +182,7 @@
 .nc-item-title {
   font-size: 13px;
   font-weight: 600;
-  color: #1F2937;
+  color: var(--text);
   margin: 0 0 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -185,7 +191,7 @@
 
 .nc-item-sub {
   font-size: 11.5px;
-  color: #9CA3AF;
+  color: var(--text-faint);
   margin: 0;
 }
 
@@ -196,7 +202,7 @@
 }
 
 .nc-btn-join {
-  background: #E8607A;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -206,16 +212,22 @@
   cursor: pointer;
   transition: background 0.13s;
 }
-.nc-btn-join:hover { background: #d44f68; }
+.nc-btn-join:hover { background: var(--accent-hover); }
 
 .nc-btn-decline {
   background: none;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-soft);
   border-radius: 6px;
   padding: 4px 12px;
   font-size: 12px;
-  color: #6B7280;
+  color: var(--text-muted);
   cursor: pointer;
   transition: background 0.12s;
 }
-.nc-btn-decline:hover { background: #F9FAFB; }
+.nc-btn-decline:hover { background: var(--surface-hover); }
+
+/* Quiet Time 24h reminder — pinned above the list, gently blue, no delete ✕ */
+.nc-quiet {
+  background: #F3F7FC;
+  border-bottom: 1px solid #DBEAFE;
+}

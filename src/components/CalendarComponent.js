@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar as CalendarIcon, Clock, RefreshCw } from 'lucide-react';
 import { fetchTodayEvents } from '../utils/googleCalendar';
+import EventPopup from './EventPopup';
 import './CalendarComponent.css';
 const CalendarComponent = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selected, setSelected] = useState(null); // event open in the popup
   const navigate = useNavigate();
   useEffect(() => {
     loadEvents();
@@ -99,7 +101,14 @@ const CalendarComponent = () => {
           </div>
         ) : (
           events.map((event) => (
-            <div key={event.id} className="event-item">
+            <div
+              key={event.id}
+              className="event-item event-item-click"
+              onClick={() => setSelected(event)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setSelected(event); }}
+            >
               <div className="event-time-badge">
                 {event.start.dateTime ? (
                   <>
@@ -127,6 +136,13 @@ const CalendarComponent = () => {
           ))
         )}
       </div>
+      {selected && (
+        <EventPopup
+          googleEvent={selected}
+          onClose={() => setSelected(null)}
+          onChanged={loadEvents}
+        />
+      )}
     </div>
   );
 };

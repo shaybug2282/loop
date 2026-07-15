@@ -1,6 +1,6 @@
 .privacy-page {
   min-height: 100vh;
-  background: #FDF5F7;
+  background: var(--surface);
   padding: 32px 24px;
   max-width: 720px;
   margin: 0 auto;
@@ -9,14 +9,14 @@
 .privacy-page h1 {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #E8607A;
+  color: var(--accent);
   margin: 0 0 24px;
 }
 
 .privacy-back {
   display: inline-block;
   font-size: 13px;
-  color: #E8607A;
+  color: var(--accent);
   text-decoration: none;
   margin-bottom: 20px;
   font-weight: 500;
@@ -24,3 +24,11 @@
 }
 
 .privacy-back:hover { opacity: 0.75; }
+
+/* The Termly-generated document hard-codes near-black text; keep it on a
+   light card in dark mode instead of restyling 1200 lines of markup. */
+[data-theme="dark"] .privacy-doc {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+}
