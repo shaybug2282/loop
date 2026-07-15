@@ -4,7 +4,7 @@ import './Footer.css';
 
 const Footer = () => (
   <footer className="site-footer">
-    <span className="site-footer-copy">Copyright 2026 Danish Pastry House is a Front.</span>
+    <span className="site-footer-copy">© 2026 Loop</span>
     <Link to="/privacy" className="site-footer-link">Privacy Policy</Link>
   </footer>
 );

@@ -7,7 +7,7 @@ import './SignInModal.css';
 const SignInModal = ({ onClose }) => {
   const { login } = useAuth();
 
-  const handleTokenResponse = useCallback(async (response) => {
+  const handleCodeResponse = useCallback(async (response) => {
     try {
       const userData = await completeGoogleSignIn(response);
       // isAuthenticated becomes true → Dashboard re-renders with full content;
@@ -19,12 +19,12 @@ const SignInModal = ({ onClose }) => {
   }, [login]);
 
   useEffect(() => {
-    const cleanup = initGisClient(handleTokenResponse, (client) => {
+    const cleanup = initGisClient(handleCodeResponse, (client) => {
       const btn = document.getElementById('sim-google-btn');
-      if (btn) btn.onclick = () => client.requestAccessToken();
+      if (btn) btn.onclick = () => client.requestCode();
     });
     return cleanup;
-  }, [handleTokenResponse]);
+  }, [handleCodeResponse]);
 
   return (
     <div className="sim-backdrop" onClick={onClose}>

@@ -564,9 +564,9 @@
   border-radius: 10px;
   font-weight: 500;
 }
-.gw-status-accepted { background: #ECFDF5; color: #059669; }
-.gw-status-pending  { background: #FFF8EF; color: #D97706; }
-.gw-status-declined { background: #FEF2F2; color: #EF4444; }
+.gw-status-accepted { background: var(--status-ok-bg); color: var(--status-ok-text); }
+.gw-status-pending  { background: var(--status-warn-bg); color: var(--status-warn-text); }
+.gw-status-declined { background: var(--status-danger-bg); color: var(--status-danger-text); }
 
 .gw-remove-btn {
   background: none;

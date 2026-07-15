@@ -1,21 +1,26 @@
 // Messages router — all messaging and E2E key operations in one function.
+// Every op is session-gated (identity from the cookie via requireUser).
 //
-// GET  ?op=conversation&googleId=&friendId=  → messages between two users
-// GET  ?op=conversations&googleId=           → all conversation partners
-// GET  ?op=public-key&userId=                → ECDH public key for a user
-// POST { op:'send',      senderGoogleId, receiverId, ciphertext, iv }
-// POST { op:'store-key', googleId, publicKeyJwk }
-// POST { op:'delete',    googleId, messageId }              → undo send (within 30s)
-// POST { op:'edit',      googleId, messageId, ciphertext, iv } → edit (within 60s)
+// GET  ?op=conversation&friendId=  → messages between the caller and a friend
+// GET  ?op=conversations           → all conversation partners
+// GET  ?op=public-key&userId=      → ECDH public key for a user
+// POST { op:'send',      receiverId, ciphertext, iv }
+// POST { op:'store-key', publicKeyJwk }
+// POST { op:'delete',    messageId }                → undo send (within 30s)
+// POST { op:'edit',      messageId, ciphertext, iv } → edit (within 60s)
 //
 // DB: uses the existing ciphertext TEXT and iv TEXT columns.
 // Edit feature requires one additional column (run once in Supabase SQL editor):
 //   ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
 
-import { db } from './_lib.js';
+import { db, requireUser } from './_lib.js';
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+
+  // Identity comes from the session cookie only — googleId params are ignored.
+  const auth = requireUser(req);
+  if (!auth) return res.status(401).json({ error: 'Not signed in' });
 
   // ── GET operations ────────────────────────────────────────────────────────
   if (req.method === 'GET') {
@@ -23,12 +28,10 @@ export default async function handler(req, res) {
     const client = db();
 
     if (op === 'conversation') {
-      const { googleId, friendId } = req.query;
-      if (!googleId || !friendId) return res.status(400).json({ error: 'googleId and friendId required' });
+      const { friendId } = req.query;
+      if (!friendId) return res.status(400).json({ error: 'friendId required' });
 
-      const { data: me, error: meErr } = await client
-        .from('users').select('id').eq('google_id', googleId).single();
-      if (meErr || !me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       const { data, error } = await client
         .from('messages')
@@ -44,12 +47,7 @@ export default async function handler(req, res) {
     }
 
     if (op === 'conversations') {
-      const { googleId } = req.query;
-      if (!googleId) return res.status(400).json({ error: 'googleId required' });
-
-      const { data: me, error: meErr } = await client
-        .from('users').select('id').eq('google_id', googleId).single();
-      if (meErr || !me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       const [
         { data: sent,     error: e1 },
@@ -106,13 +104,11 @@ export default async function handler(req, res) {
     const client = db();
 
     if (op === 'send') {
-      const { senderGoogleId, receiverId, ciphertext, iv } = req.body;
-      if (!senderGoogleId || !receiverId || !ciphertext || !iv)
-        return res.status(400).json({ error: 'senderGoogleId, receiverId, ciphertext, iv required' });
+      const { receiverId, ciphertext, iv } = req.body;
+      if (!receiverId || !ciphertext || !iv)
+        return res.status(400).json({ error: 'receiverId, ciphertext, iv required' });
 
-      const { data: sender, error: senderErr } = await client
-        .from('users').select('id').eq('google_id', senderGoogleId).single();
-      if (senderErr || !sender) return res.status(404).json({ error: 'Sender not found' });
+      const sender = { id: auth.userId };
 
       // Blocks (migration 015) stop DMs in both directions. Missing table
       // reads as "not blocked" so pre-015 deployments keep working.
@@ -136,13 +132,13 @@ export default async function handler(req, res) {
     }
 
     if (op === 'store-key') {
-      const { googleId, publicKeyJwk } = req.body;
-      if (!googleId || !publicKeyJwk) return res.status(400).json({ error: 'googleId and publicKeyJwk required' });
+      const { publicKeyJwk } = req.body;
+      if (!publicKeyJwk) return res.status(400).json({ error: 'publicKeyJwk required' });
 
       const { error } = await client
         .from('users')
         .update({ public_key: JSON.stringify(publicKeyJwk) })
-        .eq('google_id', googleId);
+        .eq('id', auth.userId);
 
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ ok: true });
@@ -150,11 +146,10 @@ export default async function handler(req, res) {
 
     // Undo send — hard delete within 30 seconds
     if (op === 'delete') {
-      const { googleId, messageId } = req.body;
-      if (!googleId || !messageId) return res.status(400).json({ error: 'googleId and messageId required' });
+      const { messageId } = req.body;
+      if (!messageId) return res.status(400).json({ error: 'messageId required' });
 
-      const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
-      if (!me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       const { data: msg } = await client.from('messages')
         .select('id, created_at').eq('id', messageId).eq('sender_id', me.id).single();
@@ -171,12 +166,11 @@ export default async function handler(req, res) {
     // Edit message — re-encrypt within 60 seconds
     // Requires: ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
     if (op === 'edit') {
-      const { googleId, messageId, ciphertext, iv } = req.body;
-      if (!googleId || !messageId || !ciphertext || !iv)
-        return res.status(400).json({ error: 'googleId, messageId, ciphertext, iv required' });
+      const { messageId, ciphertext, iv } = req.body;
+      if (!messageId || !ciphertext || !iv)
+        return res.status(400).json({ error: 'messageId, ciphertext, iv required' });
 
-      const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
-      if (!me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       const { data: msg } = await client.from('messages')
         .select('id, created_at').eq('id', messageId).eq('sender_id', me.id).single();

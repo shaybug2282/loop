@@ -8,7 +8,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const handleTokenResponse = useCallback(async (response) => {
+  const handleCodeResponse = useCallback(async (response) => {
     try {
       const userData = await completeGoogleSignIn(response);
       login(userData);
@@ -20,14 +20,14 @@ const Login = () => {
   }, [login, navigate]);
 
   useEffect(() => {
-    const cleanup = initGisClient(handleTokenResponse, (client) => {
+    const cleanup = initGisClient(handleCodeResponse, (client) => {
       const signInButton = document.getElementById('google-sign-in-button');
       if (signInButton) {
-        signInButton.onclick = () => client.requestAccessToken();
+        signInButton.onclick = () => client.requestCode();
       }
     });
     return cleanup;
-  }, [handleTokenResponse]);
+  }, [handleCodeResponse]);
 
   return (
     <div className="login-container">

@@ -4,18 +4,20 @@
 //   STAGE 2 (Sonnet, "scheduler") turns a request + every participant's profile
 //                                 + real availability into candidate event plans.
 //
-// GET  ?op=conversations&googleId=      → { conversations } (open scheduling chats)
-// GET  ?op=conversation&googleId=&id=   → { conversation } (full message history)
-// GET  ?op=profile-prefs&googleId=      → { hard_constraints, soft_constraints } (Profile page Preferences)
-// POST { op:'add-constraint', googleId, constraint }      → user-stated preference ("I'm not a morning person")
-// POST { op:'forget-constraint', googleId, constraint }   → remove a learned rule (chat pill Undo / Profile ✕)
-// POST { op:'build-profile', googleId, notes?, force? }        → { profile }
-// POST { op:'schedule', googleId, participantIds[], request }  → { plans }
-// POST { op:'chat', googleId, conversationId?, message, groupId? } → { conversationId, reply, plans }
+// Every op is session-gated (identity from the cookie via requireUser).
+//
+// GET  ?op=conversations      → { conversations } (open scheduling chats)
+// GET  ?op=conversation&id=   → { conversation } (full message history)
+// GET  ?op=profile-prefs      → { hard_constraints, soft_constraints } (Profile page Preferences)
+// POST { op:'add-constraint', constraint }      → user-stated preference ("I'm not a morning person")
+// POST { op:'forget-constraint', constraint }   → remove a learned rule (chat pill Undo / Profile ✕)
+// POST { op:'build-profile', notes?, force? }        → { profile }
+// POST { op:'schedule', participantIds[], request }  → { plans }
+// POST { op:'chat', conversationId?, message, groupId? } → { conversationId, reply, plans }
 //        groupId puts the chat in group mode: the group's accepted members are
 //        injected as mandatory participants (sent by the client on every turn).
-// POST { op:'record-booking', googleId, conversationId, eventId, plan } → { ok }
-// POST { op:'delete-conversation', googleId, conversationId }  → { ok }
+// POST { op:'record-booking', conversationId, eventId, plan } → { ok }
+// POST { op:'delete-conversation', conversationId }  → { ok }
 //
 // The Haiku profile is created on first login here (op:'build-profile') and
 // refreshed at most weekly when a user is invited to an event (that refresh
@@ -27,8 +29,7 @@
 // deletes a conversation once its linked event is confirmed or declined.
 // Requires the user_profiles table: db/migrations/003_user_profiles.sql
 
-import { decrypt } from './_crypto.js';
-import { db, callModel, extractJson, isQuietNow } from './_lib.js';
+import { db, callModel, extractJson, isQuietNow, requireUser, getGoogleAccessToken } from './_lib.js';
 import { buildProfileForUser, loadProfile, updateCommStyle, mergeConstraint } from './_profiles.js';
 
 // Re-exported so the existing unit tests (import from api/ai) keep resolving.
@@ -85,32 +86,32 @@ const renderParticipants = (participants) => participants.map(p => ({
     : renderBusy(p.busy, p.timezone),
 }));
 
-// resolveUsers — google IDs → user rows (includes encrypted token for calendar reads).
-async function resolveUsers(client, googleIds) {
-  const { data } = await client
-    .from('users')
-    .select('id, google_id, name, display_name, timezone, access_token')
-    .in('google_id', googleIds);
-  return data ?? [];
-}
-
-// resolveUsersByIds — Supabase UUIDs → user rows (used when participant list comes
-// from ScheduleWidget's `selected` Set, which stores internal UUIDs, not googleIds).
-// preferences (migration 015) carries availabilitySharing; absent pre-015.
+// resolveUsersByIds — Supabase UUIDs → user rows with the token columns
+// getGoogleAccessToken needs. Fallback chain drops columns from unapplied
+// migrations: full (016 + 015) → pre-016 (no refresh_token) → legacy.
 async function resolveUsersByIds(client, ids) {
   if (!ids.length) return [];
   let { data, error } = await client
     .from('users')
-    .select('id, google_id, name, display_name, timezone, access_token, preferences')
+    .select('id, google_id, name, display_name, timezone, access_token, token_expiry, refresh_token, preferences')
     .in('id', ids);
+  if (error) {
+    ({ data, error } = await client
+      .from('users')
+      .select('id, google_id, name, display_name, timezone, access_token, token_expiry, preferences')
+      .in('id', ids));
+  }
   if (error) {
     ({ data } = await client
       .from('users')
-      .select('id, google_id, name, display_name, timezone, access_token')
+      .select('id, google_id, name, display_name, timezone, access_token, token_expiry')
       .in('id', ids));
   }
   return data ?? [];
 }
+
+// resolveMe — the calling user's row (same columns as resolveUsersByIds).
+const resolveMe = async (client, userId) => (await resolveUsersByIds(client, [userId]))[0] ?? null;
 
 // sharesCalendarWithAI — availabilitySharing 'off' means the assistant must
 // not read this user's calendar at all (the strictest privacy setting);
@@ -127,14 +128,16 @@ async function loadProfiles(client, userIds) {
   return Object.fromEntries((data ?? []).map(r => [r.user_id, r.profile]));
 }
 
-// fetchUserBusy — one user's free/busy intervals for the next `days` days.
-// out: [{start, end}] (empty when no token or the fetch fails).
-async function fetchUserBusy(user, windowStart, windowEnd) {
-  if (!user.access_token) return [];
+// fetchUserBusy — one user's free/busy intervals for the next `days` days,
+// using a server-refreshed access token so offline participants' calendars
+// stay readable. out: [{start, end}] (empty when no token or the fetch fails).
+async function fetchUserBusy(client, user, windowStart, windowEnd) {
+  const token = await getGoogleAccessToken(client, user);
+  if (!token) return [];
   try {
     const r = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
       method:  'POST',
-      headers: { Authorization: `Bearer ${decrypt(user.access_token)}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         timeMin: windowStart.toISOString(),
         timeMax: windowEnd.toISOString(),
@@ -149,13 +152,13 @@ async function fetchUserBusy(user, windowStart, windowEnd) {
 
 // gatherBusy — aggregate free/busy data across all participant calendars.
 // out: { windowStart, windowEnd, busy: [{start, end}] }
-async function gatherBusy(users, days = 14) {
+async function gatherBusy(client, users, days = 14) {
   const windowStart = new Date();
   const windowEnd   = new Date(windowStart.getTime() + days * 24 * 60 * 60 * 1000);
   const busy = [];
 
   await Promise.allSettled((users ?? []).map(async u => {
-    busy.push(...await fetchUserBusy(u, windowStart, windowEnd));
+    busy.push(...await fetchUserBusy(client, u, windowStart, windowEnd));
   }));
 
   return { windowStart: windowStart.toISOString(), windowEnd: windowEnd.toISOString(), busy };
@@ -176,7 +179,7 @@ async function gatherParticipantContext(client, userIds, days = 14) {
     timezone: u.timezone || 'UTC',
     profile:  profiles[u.id] ?? null,
     shared:   sharesCalendarWithAI(u),
-    busy:     sharesCalendarWithAI(u) ? await fetchUserBusy(u, windowStart, windowEnd) : [],
+    busy:     sharesCalendarWithAI(u) ? await fetchUserBusy(client, u, windowStart, windowEnd) : [],
   })));
 }
 
@@ -325,17 +328,18 @@ export function validatePlans(plans, friendIds, { busy = [], windowEnd = null, n
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
+  // Identity comes from the session cookie only — googleId params are ignored.
+  const auth = requireUser(req);
+  if (!auth) return res.status(401).json({ error: 'Not signed in' });
+
   const client = db();
 
   // ── GET · conversation memory reads ─────────────────────────────────────
   if (req.method === 'GET') {
-    const { op, googleId, id } = req.query;
-
-    if (!googleId) return res.status(400).json({ error: 'googleId required' });
+    const { op, id } = req.query;
 
     try {
-      const [me] = await resolveUsers(client, [googleId]);
-      if (!me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       if (op === 'conversations') {
         const { data, error } = await client
@@ -384,10 +388,9 @@ export default async function handler(req, res) {
     // (api/schedule.js create-event → refreshProfileIfStale). `force`/`notes`
     // are explicit overrides (e.g. a manual rebuild with new stated notes).
     if (op === 'build-profile') {
-      const { googleId, notes, force } = req.body;
-      if (!googleId) return res.status(400).json({ error: 'googleId required' });
+      const { notes, force } = req.body;
 
-      const [user] = await resolveUsers(client, [googleId]);
+      const user = await resolveMe(client, auth.userId);
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       if (!force && !notes) {
@@ -404,12 +407,12 @@ export default async function handler(req, res) {
 
     // ── STAGE 2 · Sonnet scheduler (one-shot, ScheduleWidget "Ask AI") ───────
     if (op === 'schedule') {
-      // participantIds: Supabase UUIDs from ScheduleWidget's `selected` Set.
-      const { googleId, participantIds = [], request, durationHours = 1 } = req.body;
-      if (!googleId || !request?.trim())
-        return res.status(400).json({ error: 'googleId and request required' });
+      // participantIds: Supabase UUIDs of the picked friends.
+      const { participantIds = [], request, durationHours = 1 } = req.body;
+      if (!request?.trim())
+        return res.status(400).json({ error: 'request required' });
 
-      const [requester] = await resolveUsers(client, [googleId]);
+      const requester = await resolveMe(client, auth.userId);
       if (!requester) return res.status(404).json({ error: 'User not found' });
       const others = await resolveUsersByIds(client, participantIds);
       // De-dupe in case the requester is also in participantIds.
@@ -460,11 +463,11 @@ export default async function handler(req, res) {
     // turn, results NOT persisted — availability goes stale, the model can
     // re-request it next turn).
     if (op === 'chat') {
-      const { googleId, conversationId, message, groupId } = req.body;
-      if (!googleId || !message?.trim())
-        return res.status(400).json({ error: 'googleId and message required' });
+      const { conversationId, message, groupId } = req.body;
+      if (!message?.trim())
+        return res.status(400).json({ error: 'message required' });
 
-      const [user] = await resolveUsers(client, [googleId]);
+      const user = await resolveMe(client, auth.userId);
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       // Group mode (GroupsWidget schedule popup): the client sends groupId on
@@ -523,7 +526,7 @@ export default async function handler(req, res) {
       const [friendProfs, sharedHist, availability] = await Promise.all([
         loadProfiles(client, [...friendIds]),
         gatherSharedHistory(client, user.id, [...allowedIds], user.timezone || 'UTC'),
-        gatherBusy([user]),
+        gatherBusy(client, [user]),
       ]);
       const friends = friendRows.map(f => {
         const p = friendProfs[f.id];
@@ -653,12 +656,11 @@ export default async function handler(req, res) {
     // Stored as a soft constraint (same list the assistant's `remember`
     // capture feeds), so it flows into every scheduling prompt immediately.
     if (op === 'add-constraint') {
-      const { googleId, constraint } = req.body;
-      if (!googleId || !constraint?.trim())
-        return res.status(400).json({ error: 'googleId and constraint required' });
+      const { constraint } = req.body;
+      if (!constraint?.trim())
+        return res.status(400).json({ error: 'constraint required' });
 
-      const [user] = await resolveUsers(client, [googleId]);
-      if (!user) return res.status(404).json({ error: 'User not found' });
+      const user = { id: auth.userId };
 
       const stored = await loadProfile(client, user.id);
       // No profile row yet (first login race) — store a stub holding just
@@ -684,12 +686,11 @@ export default async function handler(req, res) {
 
     // ── forget-constraint — undo a learned standing rule (chat pill / Profile) ─
     if (op === 'forget-constraint') {
-      const { googleId, constraint } = req.body;
-      if (!googleId || !constraint?.trim())
-        return res.status(400).json({ error: 'googleId and constraint required' });
+      const { constraint } = req.body;
+      if (!constraint?.trim())
+        return res.status(400).json({ error: 'constraint required' });
 
-      const [user] = await resolveUsers(client, [googleId]);
-      if (!user) return res.status(404).json({ error: 'User not found' });
+      const user = { id: auth.userId };
 
       const stored = await loadProfile(client, user.id);
       if (!stored?.profile)
@@ -708,11 +709,11 @@ export default async function handler(req, res) {
     // Appends a confirmation bubble (with the booked plan marker) and pins
     // pending_event_id; api/schedule.js clears the row on confirm/decline.
     if (op === 'record-booking') {
-      const { googleId, conversationId, eventId, plan } = req.body;
-      if (!googleId || !conversationId || !eventId)
-        return res.status(400).json({ error: 'googleId, conversationId, eventId required' });
+      const { conversationId, eventId, plan } = req.body;
+      if (!conversationId || !eventId)
+        return res.status(400).json({ error: 'conversationId and eventId required' });
 
-      const [user] = await resolveUsers(client, [googleId]);
+      const user = await resolveMe(client, auth.userId);
       if (!user) return res.status(404).json({ error: 'User not found' });
       const convo = await loadConversation(client, user.id, conversationId);
       if (!convo) return res.status(404).json({ error: 'Conversation not found' });
@@ -738,12 +739,11 @@ export default async function handler(req, res) {
 
     // ── delete-conversation — user dismisses a chat from the assistant UI ────
     if (op === 'delete-conversation') {
-      const { googleId, conversationId } = req.body;
-      if (!googleId || !conversationId)
-        return res.status(400).json({ error: 'googleId and conversationId required' });
+      const { conversationId } = req.body;
+      if (!conversationId)
+        return res.status(400).json({ error: 'conversationId required' });
 
-      const [user] = await resolveUsers(client, [googleId]);
-      if (!user) return res.status(404).json({ error: 'User not found' });
+      const user = { id: auth.userId };
 
       const { error } = await client
         .from('ai_conversations')

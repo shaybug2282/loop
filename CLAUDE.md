@@ -28,15 +28,16 @@
 - `src/pages/` — route-level views; routing lives in `src/App.js`
 - `src/components/` — widgets/panels, one `.css` per component, co-located
 - `src/contexts/` — AuthContext (login/logout), MessagesContext (DM panel), GroupChatContext
-- `src/utils/` — `googleAuth` (GIS sign-in flow), `googleCalendar` (Calendar/Tasks REST + token refresh), `messageCrypto` (E2E DMs), `format` (shared date/duration formatters)
+- `src/utils/` — `googleAuth` (GIS authorization-code sign-in flow), `googleCalendar` (Calendar/Tasks REST; access tokens fetched from `/api/user?op=google-token`), `messageCrypto` (E2E DMs), `format` (shared date/duration formatters)
 - `api/` — one router per domain: `user`, `friends`, `messages`, `schedule`, `groups`, `ai`. Files prefixed `_` (`_crypto.js`, `_lib.js`) are shared modules, NOT deployed as functions
 - `db/migrations/` — Supabase SQL, applied manually in order; `db/README.md` documents the full schema including base tables
 - `CHANGES.md` — the changelog required by the Workflow rule above; newest entry on top
 
 # Conventions
 - **API op-routing:** every router dispatches on `op` — query param for GET (`?op=list`), body field for POST (`{ op: 'create' }`). Add new operations to an existing router rather than creating a new function file (Vercel Hobby caps functions at 12; currently 6).
-- **Identity:** the client identifies users by `googleId` (from localStorage `googleUserId`); the API resolves it to the internal Supabase UUID via `resolveUser` in `api/_lib.js`. Cross-user references (invites, members, participants) always use Supabase UUIDs.
-- **Secrets:** Google tokens and emails are AES-256-GCM encrypted via `api/_crypto.js` before hitting the DB; use `safeDecrypt` from `_lib.js` when reading (handles pre-encryption rows). `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `TOKEN_ENCRYPTION_KEY` are server-only — never import them into `src/`.
+- **Identity:** every API op derives the caller from the httpOnly session cookie via `requireUser` in `api/_lib.js` — client-sent `googleId` params are legacy and ignored; never trust them. Sessions are issued by `api/user.js` op:`google-auth` (server-side code exchange). localStorage `googleUserId` remains only as the client's "signed in" gate. Cross-user references (invites, members, participants) always use Supabase UUIDs.
+- **Google tokens:** server-side Google API calls must go through `getGoogleAccessToken` (`api/_lib.js`) — it refreshes expired access tokens from the stored refresh token; never decrypt `users.access_token` and use it directly. Browser-side calls get tokens from `/api/user?op=google-token` (via `getValidToken` in `src/utils/googleCalendar.js`).
+- **Secrets:** Google tokens (access + refresh) and emails are AES-256-GCM encrypted via `api/_crypto.js` before hitting the DB; use `safeDecrypt` from `_lib.js` when reading (handles pre-encryption rows). `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `TOKEN_ENCRYPTION_KEY`, `GOOGLE_CLIENT_SECRET` (and optional `SESSION_SECRET`) are server-only — never import them into `src/`.
 - **All data access goes through `/api/`** — the frontend must not query Supabase directly (no anon-key client exists anymore).
 - **Styling:** plain CSS files per component, class prefixes per component (`sw-` ScheduleWidget, `gw-` GroupsWidget, `mp-` MessagesPanel, `nc-` NotificationCenter, `ais-` AISummary). Brand palette: accent `#E8607A`, hover `#C94D65`, surfaces `#FDF5F7`/`#F9EAF0`, border `#F3D8E4`.
 - **AI prompts** live inline in `api/ai.js` with the JSON contract documented alongside; model IDs are in the `MODELS` const.

@@ -89,8 +89,8 @@ const privacyHTML = `
         <span style="font-size: 15px; color: rgb(89, 89, 89);">
           <span data-custom-class="body_text">
             Visit our website at
-            <a target="_blank" data-custom-class="link" href="https://loop-tau-black.vercel.app">
-              https://loop-tau-black.vercel.app
+            <a target="_blank" data-custom-class="link" href="https://hangoutwithyourfriends.fun">
+              https://hangoutwithyourfriends.fun
             </a>
             or any website of ours that links to this Privacy Notice
           </span>

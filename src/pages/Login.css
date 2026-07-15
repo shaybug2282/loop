@@ -52,6 +52,29 @@
   margin-bottom: 30px;
 }
 
+/* Same treatment as the sign-in modal's Google button (.sim-google-btn) —
+   the login page previously left this class unstyled (bare browser button). */
+.google-sign-in-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1.5px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 11px 22px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.google-sign-in-btn:hover {
+  background: var(--surface-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 .login-footer {
   text-align: center;
   padding-top: 20px;

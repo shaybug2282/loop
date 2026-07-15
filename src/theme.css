@@ -23,6 +23,17 @@
   --text-soft:     #4A4A52;
   --text-muted:    #6B7280;
   --text-faint:    #9CA3AF;
+
+  /* Status chips (green = confirmed, yellow = pending, red = declined,
+     blue = rain check) — paired bg/text so dark mode can swap both. */
+  --status-ok-bg:      #DCFCE7;
+  --status-ok-text:    #15803D;
+  --status-warn-bg:    #FEF3C7;
+  --status-warn-text:  #B45309;
+  --status-danger-bg:  #FEF2F2;
+  --status-danger-text:#DC2626;
+  --status-info-bg:    #DBE6F5;
+  --status-info-text:  #5B82B8;
 }
 
 [data-theme="dark"] {
@@ -41,6 +52,15 @@
   --text-soft:     #D8C9D1;
   --text-muted:    #A6949E;
   --text-faint:    #7F6F78;
+
+  --status-ok-bg:      #14351F;
+  --status-ok-text:    #7BE3A2;
+  --status-warn-bg:    #3B2D10;
+  --status-warn-text:  #F5C563;
+  --status-danger-bg:  #42201E;
+  --status-danger-text:#F79A93;
+  --status-info-bg:    #1C2B41;
+  --status-info-text:  #93B7E4;
 
   color-scheme: dark;
 }

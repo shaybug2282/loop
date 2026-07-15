@@ -22,6 +22,7 @@ file **in numeric order** by pasting it into the Supabase SQL editor
 | `013_users_privacy_quiet_time.sql` | `users.show_phone` + `users.quiet_time_since` columns | `api/user.js`/`api/friends.js` (phone visibility toggle), `api/schedule.js` (Quiet Time blocks scheduling) |
 | `014_pending_events_group_id.sql` | `pending_events.group_id` column | `api/schedule.js` (group tag on events — auto-stamped by group-mode assistant bookings, editable by the creator in the event popup) |
 | `015_preferences_friend_settings.sql` | `users.preferences` JSONB + `users.custom_avatar_url` + `users.quiet_time_until`; `friendships.favorite`/`muted`/`availability_override`; `blocks` table | `api/user.js` (theme/accent/notification prefs, avatar override, Quiet Time auto-off, friend-code regen), `api/friends.js` (per-friend settings, block/unblock, availability sharing + glints), `api/messages.js` (block enforcement), `api/schedule.js`/`api/ai.js` (quiet hours + availability-sharing enforcement) |
+| `016_users_refresh_token.sql` | `users.refresh_token` column (encrypted) | `api/user.js` (op:'google-auth' code exchange), `api/_lib.js` (`getGoogleAccessToken` — server-side access-token refresh for every Google Calendar/Tasks call) |
 
 ## Base tables
 s
@@ -31,7 +32,8 @@ Their working schema, as the API code expects it:
 
 - **users** — `id UUID PK`, `google_id TEXT UNIQUE`, `email TEXT` (encrypted),
   `name`, `display_name`, `picture_url`, `phone_number`, `show_email BOOL`,
-  `access_token TEXT` (encrypted), `token_expiry TIMESTAMPTZ`, `timezone`,
+  `access_token TEXT` (encrypted), `token_expiry TIMESTAMPTZ`,
+  `refresh_token TEXT` (encrypted, migration 016), `timezone`,
   `friend_code TEXT UNIQUE` (trigger-generated), `public_key TEXT` (ECDH JWK),
   `last_seen_at TIMESTAMPTZ`
 - **friend_requests** — `id`, `sender_id → users`, `receiver_id → users`,

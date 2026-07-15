@@ -1,93 +1,30 @@
 // Schedule router — shared event scheduling with Google Calendar integration.
+// Every op is session-gated (identity from the cookie via requireUser); all
+// Google Calendar calls use server-refreshed access tokens, so confirming or
+// cancelling events works even when the token owner has been offline for days.
 //
-// GET  ?op=pending-events&googleId=              → events/invites for this user
+// GET  ?op=pending-events              → events/invites for the caller
 //        (opportunistically purges declined/rescheduled rows older than 2 weeks)
-// POST { op:'create-event', creatorGoogleId, invitedUserIds, eventTime, durationHours, title?, location?, description?, groupId? }
+// POST { op:'create-event', invitedUserIds, eventTime, durationHours, title?, location?, description?, groupId? }
+//        invitees must be the caller's friends (or fellow members of the tagged group)
 //        description = short invite-only note: shown on invite + event cards, never sent to Google Calendar
 //        groupId = group tag (sent automatically by group-mode assistant bookings); stamped only if the creator
 //        is an accepted member of that group
-// POST { op:'respond', googleId, eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
-// POST { op:'raincheck', googleId, eventId, undo? }  → secret mutual cancel, two-person CONFIRMED events only. One
+// POST { op:'respond', eventId, action, note? }  → accept / decline / reschedule (note = constraints, reschedule only)
+// POST { op:'raincheck', eventId, undo? }  → secret mutual cancel, two-person CONFIRMED events only. One
 //        side's raincheck is invisible to the other (API exposes only iRainchecked, never the array) and can be
 //        retracted with undo:true until the other side completes it; when BOTH raincheck, the event flips to
 //        'rainchecked', the Google copy is cancelled, and both users get a notification
-// POST { op:'update-event', googleId, eventId, title?, eventTime?, durationHours?, location?, description?, groupId?, readdUserIds? }  → creator edits;
+// POST { op:'update-event', eventId, title?, eventTime?, durationHours?, location?, description?, groupId?, readdUserIds? }  → creator edits;
 //        material edits (time/duration/title/location or a re-invite) restart the invite cycle — a description- or
 //        group-tag-only edit does not (groupId: uuid tags the event with a group, null removes the tag).
 //        Users who declined stay OUT of the restarted cycle unless the creator re-adds them via readdUserIds (⊆ declines)
-// POST { op:'delete-event', googleId, eventId }  → creator only; cancels the Google copy (if any) and removes the row
-// POST { op:'find-times', googleId, invitedUserIds, durationHours, weekOffset }
+// POST { op:'delete-event', eventId }  → creator only; cancels the Google copy (if any) and removes the row
 //
 // Requires the pending_events table: db/migrations/002_pending_events.sql
 
-import { decrypt } from './_crypto.js';
-import { db, isQuietNow, inQuietHours } from './_lib.js';
+import { db, safeDecrypt, isQuietNow, inQuietHours, requireUser, getGoogleAccessToken, loadGoogleTokenRow } from './_lib.js';
 import { refreshProfileIfStale, recordRescheduleNote, recordOutcome } from './_profiles.js';
-
-// Merge overlapping busy intervals, then find durationMs-length free slots.
-// Prefers daytime (9 AM – 6 PM) on first pass; any hour on second pass.
-// Exported for unit tests.
-export function findFreeSlots(busySlots, windowStart, windowEnd, durationMs) {
-  const we = windowEnd.getTime();
-
-  const sorted = busySlots
-    .map(s => [new Date(s.start).getTime(), new Date(s.end).getTime()])
-    .sort((a, b) => a[0] - b[0]);
-
-  const merged = [];
-  for (const [s, e] of sorted) {
-    if (merged.length && s < merged[merged.length - 1][1]) {
-      merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], e);
-    } else {
-      merged.push([s, e]);
-    }
-  }
-
-  const isFree = (start) => {
-    const end = start + durationMs;
-    return end <= we && !merged.some(([bs, be]) => start < be && end > bs);
-  };
-
-  const STEP    = 30 * 60 * 1000;
-  const MIN_GAP =  6 * 60 * 60 * 1000;
-  const selected = [];
-
-  for (const daytimeOnly of [true, false]) {
-    if (selected.length >= 3) break;
-
-    let ts = windowStart.getTime();
-
-    while (ts < we && selected.length < 3) {
-      const d    = new Date(ts);
-      const hour = d.getHours() + d.getMinutes() / 60;
-
-      if (daytimeOnly) {
-        if (hour < 9) {
-          d.setHours(9, 0, 0, 0); ts = d.getTime(); continue;
-        }
-        const endHour = new Date(ts + durationMs).getHours() +
-                        new Date(ts + durationMs).getMinutes() / 60;
-        if (hour >= 18 || endHour > 18) {
-          d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
-          ts = d.getTime(); continue;
-        }
-      }
-
-      // Jump over any busy block that covers ts
-      const block = merged.find(([bs, be]) => ts >= bs && ts < be);
-      if (block) { ts = block[1]; continue; }
-
-      if (isFree(ts)) {
-        const spaced = !selected.length || ts - selected[selected.length - 1] >= MIN_GAP;
-        if (spaced) selected.push(ts);
-      }
-
-      ts += STEP;
-    }
-  }
-
-  return selected.map(ts => new Date(ts).toISOString());
-}
 
 // applyReinvites — who is in the NEW invite cycle after a material edit.
 // Declining is a standing answer: decliners stay excluded from restarted
@@ -176,27 +113,28 @@ async function confirmEvent(client, ev, eventId, patch) {
   const invitedIds = patch.invited_user_ids ?? ev.invited_user_ids;
 
   const { data: creatorUser } = await client.from('users')
-    .select('name,display_name,access_token').eq('id', ev.creator_id).single();
+    .select('name,display_name').eq('id', ev.creator_id).single();
   // AI-scheduled events carry their own title; manual ones keep the default.
   const summary = ev.title || `${creatorUser?.display_name || creatorUser?.name || 'Someone'} Hangout!`;
 
   // Fetch all participants' emails for the shared attendee list.
   const { data: participants } = await client.from('users')
     .select('email').in('id', [ev.creator_id, ...invitedIds]);
-  const attendeeEmails = (participants ?? []).map(u => {
-    try { return decrypt(u.email); } catch { return u.email; }
-  }).filter(Boolean);
+  const attendeeEmails = (participants ?? []).map(u => safeDecrypt(u.email)).filter(Boolean);
 
   // Create one shared event on the creator's calendar; Google delivers
   // invitations to every attendee automatically. ev.description is deliberately
   // NOT passed: the invite note lives only on Loop's invite/event cards.
+  // The token is refreshed server-side, so confirmation works even when the
+  // creator hasn't opened the app in days.
   let googleEventId = null;
-  if (creatorUser?.access_token) {
-    try {
-      const token = decrypt(creatorUser.access_token);
+  try {
+    const tokenRow = await loadGoogleTokenRow(client, ev.creator_id);
+    const token    = await getGoogleAccessToken(client, tokenRow);
+    if (token) {
       googleEventId = await createGCalEvent(token, summary, ev.event_time, ev.duration_hours, attendeeEmails, ev.location ?? null);
-    } catch {}
-  }
+    }
+  } catch {}
 
   await client.from('pending_events')
     .update({ ...patch, status: 'accepted', google_event_created: true })
@@ -236,14 +174,14 @@ async function seedRescheduleConversation(client, ev, requesterId, note = null) 
       `on ${when} (with ${others}).` +
       (note ? ` Their note: "${note}".` : '') +
       ` Tell me any new constraints, or say "find new times" and I'll suggest alternatives.`;
-    const note = { role: 'assistant', content: JSON.stringify({ reply, plans: [] }) };
+    const seedMsg = { role: 'assistant', content: JSON.stringify({ reply, plans: [] }) };
 
     const { data: convo } = await client.from('ai_conversations')
       .select('id, messages').eq('pending_event_id', ev.id).maybeSingle();
 
     if (convo) {
       await client.from('ai_conversations').update({
-        messages:         [...(convo.messages ?? []), note],
+        messages:         [...(convo.messages ?? []), seedMsg],
         pending_event_id: null, // unlock booking for the replacement event
         updated_at:       new Date().toISOString(),
       }).eq('id', convo.id);
@@ -252,7 +190,7 @@ async function seedRescheduleConversation(client, ev, requesterId, note = null) 
       await client.from('ai_conversations').insert({
         user_id:  ev.creator_id,
         title:    `Reschedule: ${ev.title || when}`,
-        messages: [note],
+        messages: [seedMsg],
       });
     }
   } catch {}
@@ -261,19 +199,20 @@ async function seedRescheduleConversation(client, ev, requesterId, note = null) 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
+  // Identity comes from the session cookie only — googleId params are ignored.
+  const auth = requireUser(req);
+  if (!auth) return res.status(401).json({ error: 'Not signed in' });
+
   const client = db();
 
   // ── GET ──────────────────────────────────────────────────────────────────────
   if (req.method === 'GET') {
-    const { op, googleId } = req.query;
+    const { op } = req.query;
 
     if (op === 'pending-events') {
-      if (!googleId) return res.status(400).json({ error: 'googleId required' });
-
       await purgeStaleEvents(client);
 
-      const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
-      if (!me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       // select('*') keeps this working on deployments that haven't run
       // 006_pending_events_google_event_id.sql yet (google_event_id just absent).
@@ -337,12 +276,27 @@ export default async function handler(req, res) {
     const { op } = req.body ?? {};
 
     if (op === 'create-event') {
-      const { creatorGoogleId, invitedUserIds, eventTime, durationHours = 1, title, location, description, groupId } = req.body;
-      if (!creatorGoogleId || !invitedUserIds?.length || !eventTime)
-        return res.status(400).json({ error: 'creatorGoogleId, invitedUserIds, eventTime required' });
+      const { invitedUserIds, eventTime, durationHours = 1, title, location, description, groupId } = req.body;
+      if (!invitedUserIds?.length || !eventTime)
+        return res.status(400).json({ error: 'invitedUserIds and eventTime required' });
 
-      const { data: creator } = await client.from('users').select('id').eq('google_id', creatorGoogleId).single();
-      if (!creator) return res.status(404).json({ error: 'Creator not found' });
+      const creator = { id: auth.userId };
+
+      // Invitees must be the creator's friends — or fellow accepted members of
+      // the tagged group — so a leaked user UUID alone can't be invited.
+      const inTaggedGroup = groupId ? await isAcceptedGroupMember(client, groupId, creator.id) : false;
+      const { data: friendRows } = await client.from('friendships')
+        .select('friend_id').eq('user_id', creator.id);
+      const invitable = new Set((friendRows ?? []).map(r => r.friend_id));
+      if (inTaggedGroup) {
+        try {
+          const { data: gm } = await client.from('group_members')
+            .select('user_id').eq('group_id', groupId).eq('status', 'accepted');
+          (gm ?? []).forEach(m => invitable.add(m.user_id));
+        } catch {}
+      }
+      if (invitedUserIds.some(id => !invitable.has(id) || id === creator.id))
+        return res.status(403).json({ error: 'You can only invite your friends (or members of the tagged group).' });
 
       // Quiet Time gate: someone with Quiet Time on can't be scheduled, by
       // anyone, through any path (manual, assistant, group) — they all book
@@ -391,7 +345,7 @@ export default async function handler(req, res) {
       // Group tag (migration 014) — best-effort: booking from a group chat
       // stamps the group, but a failed stamp (unmigrated DB, non-member
       // creator) never fails the create itself.
-      if (groupId && await isAcceptedGroupMember(client, groupId, creator.id)) {
+      if (inTaggedGroup) {
         try { await client.from('pending_events').update({ group_id: groupId }).eq('id', data.id); } catch {}
       }
 
@@ -403,20 +357,23 @@ export default async function handler(req, res) {
       // no-op when a profile is <1 week old, so most events rebuild nothing;
       // failures are swallowed so profile work never blocks event creation.
       const participantIds = [...new Set([creator.id, ...invitedUserIds])];
-      const { data: participants } = await client.from('users')
-        .select('id, name, display_name, timezone, access_token').in('id', participantIds);
+      let { data: participants, error: pErr } = await client.from('users')
+        .select('id, name, display_name, timezone, access_token, token_expiry, refresh_token').in('id', participantIds);
+      if (pErr) {
+        ({ data: participants } = await client.from('users')
+          .select('id, name, display_name, timezone, access_token, token_expiry').in('id', participantIds));
+      }
       await Promise.allSettled((participants ?? []).map(u => refreshProfileIfStale(client, u)));
 
       return res.status(200).json(data);
     }
 
     if (op === 'respond') {
-      const { googleId, eventId, action, note } = req.body;
-      if (!googleId || !eventId || !['accept', 'decline', 'reschedule'].includes(action))
-        return res.status(400).json({ error: 'googleId, eventId, and action (accept|decline|reschedule) required' });
+      const { eventId, action, note } = req.body;
+      if (!eventId || !['accept', 'decline', 'reschedule'].includes(action))
+        return res.status(400).json({ error: 'eventId and action (accept|decline|reschedule) required' });
 
-      const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
-      if (!me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       const { data: ev } = await client.from('pending_events').select('*').eq('id', eventId).single();
       if (!ev) return res.status(404).json({ error: 'Event not found' });
@@ -513,12 +470,11 @@ export default async function handler(req, res) {
     // both have rainchecked, the event is cancelled everywhere (status
     // 'rainchecked', Google copy deleted) and both users get the notification.
     if (op === 'raincheck') {
-      const { googleId, eventId, undo } = req.body;
-      if (!googleId || !eventId)
-        return res.status(400).json({ error: 'googleId and eventId required' });
+      const { eventId, undo } = req.body;
+      if (!eventId)
+        return res.status(400).json({ error: 'eventId required' });
 
-      const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
-      if (!me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       const { data: ev } = await client.from('pending_events').select('*').eq('id', eventId).single();
       if (!ev) return res.status(404).json({ error: 'Event not found' });
@@ -561,10 +517,9 @@ export default async function handler(req, res) {
       // with sendUpdates=all so both calendars drop it.
       if (ev.google_event_id) {
         try {
-          const { data: creatorUser } = await client.from('users')
-            .select('access_token').eq('id', ev.creator_id).single();
-          if (creatorUser?.access_token) {
-            const token = decrypt(creatorUser.access_token);
+          const tokenRow = await loadGoogleTokenRow(client, ev.creator_id);
+          const token    = await getGoogleAccessToken(client, tokenRow);
+          if (token) {
             await fetch(
               `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(ev.google_event_id)}?sendUpdates=all`,
               { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
@@ -587,12 +542,11 @@ export default async function handler(req, res) {
     }
 
     if (op === 'update-event') {
-      const { googleId, eventId, title, eventTime, durationHours, location, description, groupId, readdUserIds } = req.body;
-      if (!googleId || !eventId)
-        return res.status(400).json({ error: 'googleId and eventId required' });
+      const { eventId, title, eventTime, durationHours, location, description, groupId, readdUserIds } = req.body;
+      if (!eventId)
+        return res.status(400).json({ error: 'eventId required' });
 
-      const { data: me } = await client.from('users').select('id, access_token').eq('google_id', googleId).single();
-      if (!me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       const { data: ev } = await client.from('pending_events').select('*').eq('id', eventId).single();
       if (!ev) return res.status(404).json({ error: 'Event not found' });
@@ -686,8 +640,9 @@ export default async function handler(req, res) {
       // one when everyone re-accepts.
       if (ev.google_event_id) {
         try {
-          if (me.access_token) {
-            const token = decrypt(me.access_token);
+          const tokenRow = await loadGoogleTokenRow(client, me.id);
+          const token    = await getGoogleAccessToken(client, tokenRow);
+          if (token) {
             await fetch(
               `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(ev.google_event_id)}?sendUpdates=all`,
               { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
@@ -701,12 +656,11 @@ export default async function handler(req, res) {
     }
 
     if (op === 'delete-event') {
-      const { googleId, eventId } = req.body;
-      if (!googleId || !eventId)
-        return res.status(400).json({ error: 'googleId and eventId required' });
+      const { eventId } = req.body;
+      if (!eventId)
+        return res.status(400).json({ error: 'eventId required' });
 
-      const { data: me } = await client.from('users').select('id, access_token').eq('google_id', googleId).single();
-      if (!me) return res.status(404).json({ error: 'User not found' });
+      const me = { id: auth.userId };
 
       const { data: ev } = await client.from('pending_events').select('*').eq('id', eventId).single();
       if (!ev) return res.status(404).json({ error: 'Event not found' });
@@ -716,13 +670,16 @@ export default async function handler(req, res) {
 
       // If already confirmed onto Google Calendar, cancel that copy first —
       // sendUpdates=all notifies every attendee of the cancellation.
-      if (ev.google_event_id && me.access_token) {
+      if (ev.google_event_id) {
         try {
-          const token = decrypt(me.access_token);
-          await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(ev.google_event_id)}?sendUpdates=all`,
-            { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
-          );
+          const tokenRow = await loadGoogleTokenRow(client, me.id);
+          const token    = await getGoogleAccessToken(client, tokenRow);
+          if (token) {
+            await fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(ev.google_event_id)}?sendUpdates=all`,
+              { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+            );
+          }
         } catch {}
       }
 
@@ -731,47 +688,6 @@ export default async function handler(req, res) {
       if (error) return res.status(500).json({ error: error.message });
 
       return res.status(200).json({ ok: true });
-    }
-
-    if (op === 'find-times') {
-      const { googleId, invitedUserIds, durationHours, weekOffset = 0 } = req.body;
-      if (!googleId || !invitedUserIds?.length || !durationHours)
-        return res.status(400).json({ error: 'googleId, invitedUserIds, durationHours required' });
-
-      const { data: me } = await client.from('users').select('id').eq('google_id', googleId).single();
-      if (!me) return res.status(404).json({ error: 'User not found' });
-
-      const allIds = [me.id, ...invitedUserIds];
-      const { data: users } = await client.from('users').select('id,access_token').in('id', allIds);
-
-      const now         = new Date();
-      const windowStart = new Date(now.getTime() + weekOffset * 7 * 24 * 60 * 60 * 1000);
-      windowStart.setHours(0, 0, 0, 0);
-      const windowEnd = new Date(windowStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-      const busySlots = [];
-      await Promise.allSettled((users ?? []).map(async u => {
-        if (!u.access_token) return;
-        try {
-          const token    = decrypt(u.access_token);
-          const response = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
-            method:  'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-              timeMin: windowStart.toISOString(),
-              timeMax: windowEnd.toISOString(),
-              items:   [{ id: 'primary' }],
-            }),
-          });
-          if (response.ok) {
-            const d = await response.json();
-            busySlots.push(...(d.calendars?.primary?.busy ?? []));
-          }
-        } catch {}
-      }));
-
-      const proposedTimes = findFreeSlots(busySlots, windowStart, windowEnd, durationHours * 60 * 60 * 1000);
-      return res.status(200).json({ proposedTimes });
     }
 
     return res.status(400).json({ error: `Unknown op: ${op}` });

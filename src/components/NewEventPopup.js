@@ -22,6 +22,7 @@ export default function NewEventPopup({ onClose, onCreated, initialDate = null }
   const [date,     setDate]     = useState(initialDate ?? '');
   const [time,     setTime]     = useState('10:00');
   const [duration, setDuration] = useState(1);
+  const [title,    setTitle]    = useState('');
 
   const googleId = localStorage.getItem('googleUserId');
   const today = new Date().toISOString().split('T')[0];
@@ -44,8 +45,10 @@ export default function NewEventPopup({ onClose, onCreated, initialDate = null }
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          op: 'create-event', creatorGoogleId: googleId,
+          op: 'create-event',
           invitedUserIds: [...selected], eventTime, durationHours,
+          // Untitled events fall back to "Hangout" on every surface.
+          ...(title.trim() ? { title: title.trim() } : {}),
         }),
       });
       if (!r.ok) {
@@ -130,6 +133,12 @@ export default function NewEventPopup({ onClose, onCreated, initialDate = null }
       case 'pick': return (
         <>
           <p className="ne-sublabel">Choose a date and time:</p>
+          <div className="ne-field">
+            <label className="ne-label">Event name</label>
+            <input type="text" className="ne-input" placeholder="e.g. Dinner (optional)"
+              maxLength={80} value={title}
+              onChange={e => setTitle(e.target.value)} />
+          </div>
           <div className="ne-field">
             <label className="ne-label">Date</label>
             <input type="date" className="ne-input" min={today} value={date}

@@ -190,33 +190,33 @@
 }
 
 .event-badge.pending {
-  color: #D97706;
-  background: #FEF3C7;
+  color: var(--status-warn-text);
+  background: var(--status-warn-bg);
 }
 
 .event-badge.confirmed {
-  color: #059669;
-  background: #DCFCE7;
+  color: var(--status-ok-text);
+  background: var(--status-ok-bg);
 }
 
 .event-badge.rainchecked {
-  color: #7396C4;
-  background: #DBE6F5;
+  color: var(--status-info-text);
+  background: var(--status-info-bg);
 }
 
 /* Mutually cancelled (Rain Checked) events: greyed-out blue, crossed out */
 .week-event-rainchecked {
-  background: #EDF2F9;
-  border-left-color: #A8C0DE;
+  background: var(--status-info-bg);
+  border-left-color: var(--status-info-text);
   opacity: 0.8;
 }
 
-.week-event-rainchecked:hover { background: #E2EAF6; }
+.week-event-rainchecked:hover { background: var(--status-info-bg); }
 
 .week-event-rainchecked .event-title,
 .week-event-rainchecked .event-time,
 .week-event-rainchecked .event-location {
-  color: #7396C4;
+  color: var(--status-info-text);
   text-decoration: line-through;
 }
 
@@ -429,9 +429,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.month-chip.pending   { background: #fef3c7; color: #b45309; }
-.month-chip.confirmed { background: #dcfce7; color: #15803d; }
-.month-chip.rainchecked { background: #dbeafe; color: #3b82f6; text-decoration: line-through; }
+.month-chip.pending   { background: var(--status-warn-bg); color: var(--status-warn-text); }
+.month-chip.confirmed { background: var(--status-ok-bg); color: var(--status-ok-text); }
+.month-chip.rainchecked { background: var(--status-info-bg); color: var(--status-info-text); text-decoration: line-through; }
 
 .month-more {
   font-size: 10px;

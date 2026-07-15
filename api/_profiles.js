@@ -12,8 +12,7 @@
 // A `_`-prefixed module: imported by the routers, never deployed as its own
 // Vercel function.
 
-import { decrypt } from './_crypto.js';
-import { callModel, extractJson } from './_lib.js';
+import { callModel, extractJson, getGoogleAccessToken } from './_lib.js';
 
 const PROFILER_MODEL = 'claude-haiku-4-5';
 
@@ -157,9 +156,10 @@ async function fetchAppOutcomes(client, userId, tz = 'UTC') {
 // notes (recorded by recordRescheduleNote below).
 async function gatherUserSignals(client, user, notes = '', prevProfile = null) {
   let recentEvents = [], appOutcomes = [];
-  if (user.access_token) {
-    try { recentEvents = await fetchRecentEvents(decrypt(user.access_token), user.timezone || 'UTC'); } catch {}
-  }
+  try {
+    const token = await getGoogleAccessToken(client, user);
+    if (token) recentEvents = await fetchRecentEvents(token, user.timezone || 'UTC');
+  } catch {}
   try { appOutcomes = await fetchAppOutcomes(client, user.id, user.timezone || 'UTC'); } catch {}
   return {
     user:        user.display_name || user.name || 'User',

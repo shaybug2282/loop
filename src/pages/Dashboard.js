@@ -23,13 +23,6 @@ const Dashboard = () => {
     window.scrollTo(0, 0);
   }, []);
 
-  // Show sign-in prompt after 30 s if the user is still unauthenticated.
-  useEffect(() => {
-    if (isAuthenticated || isLoading) return;
-    const t = setTimeout(() => setShowSignIn(true), 30_000);
-    return () => clearTimeout(t);
-  }, [isAuthenticated, isLoading]);
-
   if (isLoading) {
     return (
       <div className="loading-screen">
@@ -42,12 +35,8 @@ const Dashboard = () => {
   if (!isAuthenticated) {
     return (
       <div className="dashboard dashboard-guest">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="dashboard-header">
-          <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
-            <Menu size={24} />
-          </button>
-          <h1>Dashboard</h1>
+          <h1 className="dash-brand">Loop</h1>
           <button className="dash-signin-btn" onClick={() => setShowSignIn(true)}>
             Sign in
           </button>
@@ -59,6 +48,24 @@ const Dashboard = () => {
           <button className="dash-hero-cta" onClick={() => setShowSignIn(true)}>
             Get started — it's free
           </button>
+
+          <div className="dash-how">
+            <div className="dash-how-step">
+              <span className="dash-how-num">1</span>
+              <h3>Connect your calendar</h3>
+              <p>Sign in with Google — Loop reads free/busy and books confirmed plans, nothing else.</p>
+            </div>
+            <div className="dash-how-step">
+              <span className="dash-how-num">2</span>
+              <h3>Add your people</h3>
+              <p>Swap friend codes, make groups, and chat right where the plans happen.</p>
+            </div>
+            <div className="dash-how-step">
+              <span className="dash-how-num">3</span>
+              <h3>Let the assistant find the time</h3>
+              <p>Say "dinner with Sam next week" — it checks everyone's calendars and proposes times that fit.</p>
+            </div>
+          </div>
         </div>
         {showSignIn && <SignInModal onClose={() => setShowSignIn(false)} />}
       </div>

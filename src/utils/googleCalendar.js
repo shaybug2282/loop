@@ -1,107 +1,36 @@
 const CALENDAR_API_URL = 'https://www.googleapis.com/calendar/v3';
 const TASKS_API_URL = 'https://tasks.googleapis.com/tasks/v1';
 
-// Module-level references for token refresh management
-let tokenClientRef = null;
-let refreshTimer = null;
+// Access tokens are minted server-side (/api/user?op=google-token refreshes
+// them from the stored refresh token) and only cached here in module memory —
+// never in localStorage. The session cookie authenticates the endpoint.
+let tokenCache = { token: null, expiresAt: 0 };
+let tokenInflight = null;
 
-// Register the GIS token client; also re-schedules any pending refresh from stored expiry.
-export const setTokenClient = (client) => {
-  tokenClientRef = client;
-  rescheduleRefresh();
-};
-
-// Re-schedule based on stored expiry — called after page reload to restore the refresh timer.
-export const rescheduleRefresh = () => {
-  const expiry = parseInt(localStorage.getItem('googleTokenExpiry') || '0', 10);
-  const remainingSeconds = (expiry - Date.now()) / 1000;
-  if (remainingSeconds > 30) {
-    scheduleTokenRefresh(remainingSeconds);
-  }
-};
-
-// Store token and expiry, then schedule a proactive refresh.
-// Also syncs the refreshed token to Supabase so the AI agent always has a valid token per user.
-// expiresIn: lifetime in seconds returned by GIS (default 3600).
-export const initGoogleCalendar = (accessToken, expiresIn = 3600) => {
-  const expiry = Date.now() + expiresIn * 1000;
-  localStorage.setItem('googleAccessToken', accessToken);
-  localStorage.setItem('googleTokenExpiry', String(expiry));
-  scheduleTokenRefresh(expiresIn);
-
-  // Sync refreshed token to Supabase via serverless function so it's encrypted server-side.
-  // Fire-and-forget — a sync failure doesn't block calendar use.
-  const googleId = localStorage.getItem('googleUserId');
-  if (googleId) {
-    fetch('/api/user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ op: 'sync', googleId, accessToken, expiresIn }),
-    }).catch(() => {});
-  }
-};
-
-// Schedule a silent refresh 5 minutes before the token expires.
-const scheduleTokenRefresh = (expiresIn) => {
-  if (refreshTimer) clearTimeout(refreshTimer);
-  const delay = Math.max((expiresIn - 300) * 1000, 0);
-  refreshTimer = setTimeout(silentRefresh, delay);
-};
-
-// Request a new token silently (no user prompt) using the stored GIS client.
-const silentRefresh = () => {
-  if (!tokenClientRef) return;
-  tokenClientRef.callback = (response) => {
-    if (response.access_token) {
-      initGoogleCalendar(response.access_token, response.expires_in || 3600);
-    }
-  };
-  tokenClientRef.requestAccessToken({ prompt: '' });
-};
-
-// Cancel the refresh timer and clear the client reference (call on logout).
-export const clearTokenRefresh = () => {
-  if (refreshTimer) {
-    clearTimeout(refreshTimer);
-    refreshTimer = null;
-  }
-  tokenClientRef = null;
-};
-
-// Returns a valid access token, silently refreshing if within 5 minutes of expiry.
-// Rejects if no token is stored or the refresh fails.
+// getValidToken — a Google access token valid for at least the next minute.
+// Deduplicates concurrent callers onto one in-flight fetch. Throws when the
+// user is signed out or their Google authorization has been revoked.
 export const getValidToken = async () => {
-  const token = localStorage.getItem('googleAccessToken');
-  const expiry = parseInt(localStorage.getItem('googleTokenExpiry') || '0', 10);
+  if (tokenCache.token && tokenCache.expiresAt - 60_000 > Date.now()) return tokenCache.token;
 
-  if (!token) throw new Error('No access token found');
+  if (!tokenInflight) {
+    tokenInflight = (async () => {
+      const r = await fetch('/api/user?op=google-token');
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'Authentication expired. Please log in again.');
+      tokenCache = {
+        token:     data.accessToken,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt).getTime() : Date.now() + 5 * 60 * 1000,
+      };
+      return tokenCache.token;
+    })().finally(() => { tokenInflight = null; });
+  }
+  return tokenInflight;
+};
 
-  // No stored expiry — token age unknown, use as-is
-  if (expiry === 0) return token;
-
-  // Token still valid for more than 5 minutes
-  if (Date.now() < expiry - 5 * 60 * 1000) return token;
-
-  // Token expired or expiring soon — attempt silent refresh
-  if (!tokenClientRef) return token; // GIS client unavailable; fall back to existing token
-
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error('Token refresh timed out')),
-      10000
-    );
-    tokenClientRef.callback = (response) => {
-      clearTimeout(timeout);
-      if (response.access_token) {
-        initGoogleCalendar(response.access_token, response.expires_in || 3600);
-        resolve(response.access_token);
-      } else {
-        // Silent refresh failed — fall back to the stored token
-        resolve(token);
-      }
-    };
-    tokenClientRef.requestAccessToken({ prompt: '' });
-  });
+// Drop the cached token (call on logout, or after a Google 401).
+export const clearTokenCache = () => {
+  tokenCache = { token: null, expiresAt: 0 };
 };
 
 // Fetch events for a specific date range
@@ -123,8 +52,7 @@ export const fetchCalendarEvents = async (timeMin = null, timeMax = null) => {
 
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem('googleAccessToken');
-        localStorage.removeItem('googleTokenExpiry');
+        clearTokenCache();
         throw new Error('Authentication expired. Please log in again.');
       }
       throw new Error('Failed to fetch calendar events');
@@ -164,8 +92,7 @@ export const fetchGoogleTasks = async () => {
 
     if (!listsResponse.ok) {
       if (listsResponse.status === 401) {
-        localStorage.removeItem('googleAccessToken');
-        localStorage.removeItem('googleTokenExpiry');
+        clearTokenCache();
         throw new Error('Authentication expired. Please log in again.');
       }
       throw new Error('Failed to fetch task lists');

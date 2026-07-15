@@ -1,8 +1,9 @@
 // Groups router — create and manage social groups.
+// Every op is session-gated (identity from the cookie via requireUser).
 //
-// GET  ?op=list&googleId=             → list all accepted groups for a user (by last_accessed)
-// GET  ?op=pending-invites&googleId=  → groups with pending invite for user
-// GET  ?op=messages&groupId=&googleId=&before= → paginated group messages (newest first)
+// GET  ?op=list                → list all accepted groups for the caller (by last_accessed)
+// GET  ?op=pending-invites     → groups with a pending invite for the caller
+// GET  ?op=messages&groupId=&before= → paginated group messages (newest first)
 // POST { op:'create',        ... }    → create group, add members, send invites
 // POST { op:'respond',       ... }    → accept or decline a group invite
 // POST { op:'invite',        ... }    → add new members to an existing group
@@ -13,11 +14,7 @@
 // POST { op:'send-message',  ... }    → send a group message
 
 import { encrypt } from './_crypto.js';
-import { db, safeDecrypt, resolveUser as resolveUserBase } from './_lib.js';
-
-// Resolve a googleId to a DB user row (id, name, display_name, picture_url).
-const resolveUser = (supabase, googleId) =>
-  resolveUserBase(supabase, googleId, 'id, name, display_name, picture_url');
+import { db, safeDecrypt, requireUser } from './_lib.js';
 
 // True when the user is an accepted member of the group. Used to guard
 // mutating ops so a leaked groupId alone can't modify a group.
@@ -51,18 +48,22 @@ function shapeGroup(g) {
 }
 
 export default async function handler(req, res) {
+  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+
+  // Identity comes from the session cookie only — googleId params are ignored.
+  const auth = requireUser(req);
+  if (!auth) return res.status(401).json({ error: 'Not signed in' });
+  const me = { id: auth.userId };
+
   const supabase = db();
   const op = req.query.op ?? req.body?.op;
 
   // ── GET ops ─────────────────────────────────────────────────────────────────
 
   if (req.method === 'GET') {
-    const { googleId, groupId, before } = req.query;
+    const { groupId, before } = req.query;
 
     if (op === 'list') {
-      if (!googleId) return res.status(400).json({ error: 'googleId required' });
-      const me = await resolveUser(supabase, googleId);
-      if (!me) return res.status(404).json({ error: 'user not found' });
 
       // Show groups where the user is accepted OR has a pending invite.
       // Creators always have an 'accepted' row added at creation time.
@@ -136,9 +137,6 @@ export default async function handler(req, res) {
     }
 
     if (op === 'pending-invites') {
-      if (!googleId) return res.status(400).json({ error: 'googleId required' });
-      const me = await resolveUser(supabase, googleId);
-      if (!me) return res.status(404).json({ error: 'user not found' });
 
       // Avoid ambiguous FK join (group_members has two FKs to users).
       // Fetch memberships + group info first, then resolve inviter names separately.
@@ -170,9 +168,7 @@ export default async function handler(req, res) {
     }
 
     if (op === 'messages') {
-      if (!groupId || !googleId) return res.status(400).json({ error: 'groupId and googleId required' });
-      const me = await resolveUser(supabase, googleId);
-      if (!me) return res.status(404).json({ error: 'user not found' });
+      if (!groupId) return res.status(400).json({ error: 'groupId required' });
 
       // Verify membership
       const { data: membership } = await supabase
@@ -214,13 +210,11 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   // memberUserIds: array of DB UUIDs (from friends list) to invite
-  const { googleId, groupId, name, description, color, icon_url,
+  const { groupId, name, description, color, icon_url,
           memberUserIds, userId, accept, content } = req.body;
 
   if (op === 'create') {
-    if (!googleId || !name) return res.status(400).json({ error: 'googleId and name required' });
-    const me = await resolveUser(supabase, googleId);
-    if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!name) return res.status(400).json({ error: 'name required' });
 
     const { data: group, error } = await supabase
       .from('groups')
@@ -248,10 +242,8 @@ export default async function handler(req, res) {
 
   if (op === 'respond') {
     // accept: true/false
-    if (!googleId || !groupId || accept === undefined)
-      return res.status(400).json({ error: 'googleId, groupId, accept required' });
-    const me = await resolveUser(supabase, googleId);
-    if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!groupId || accept === undefined)
+      return res.status(400).json({ error: 'groupId and accept required' });
 
     const update = accept
       ? { status: 'accepted', joined_at: new Date().toISOString() }
@@ -267,10 +259,8 @@ export default async function handler(req, res) {
   }
 
   if (op === 'invite') {
-    if (!googleId || !groupId || !memberUserIds?.length)
-      return res.status(400).json({ error: 'googleId, groupId, memberUserIds required' });
-    const me = await resolveUser(supabase, googleId);
-    if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!groupId || !memberUserIds?.length)
+      return res.status(400).json({ error: 'groupId and memberUserIds required' });
     if (!(await isAcceptedMember(supabase, groupId, me.id)))
       return res.status(403).json({ error: 'not a member' });
 
@@ -286,10 +276,8 @@ export default async function handler(req, res) {
   }
 
   if (op === 'remove-member') {
-    if (!googleId || !groupId || !userId)
-      return res.status(400).json({ error: 'googleId, groupId, userId required' });
-    const me = await resolveUser(supabase, googleId);
-    if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!groupId || !userId)
+      return res.status(400).json({ error: 'groupId and userId required' });
     // Anyone may remove THEMSELVES (leave group); removing someone else is
     // creator-only — a member shouldn't be able to eject other members.
     if (!(await isAcceptedMember(supabase, groupId, me.id)))
@@ -309,9 +297,7 @@ export default async function handler(req, res) {
   }
 
   if (op === 'update') {
-    if (!googleId || !groupId) return res.status(400).json({ error: 'googleId and groupId required' });
-    const me = await resolveUser(supabase, googleId);
-    if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!groupId) return res.status(400).json({ error: 'groupId required' });
     // Any accepted member may edit (icon/name changes are a shared feature).
     if (!(await isAcceptedMember(supabase, groupId, me.id)))
       return res.status(403).json({ error: 'not a member' });
@@ -334,9 +320,7 @@ export default async function handler(req, res) {
   }
 
   if (op === 'delete') {
-    if (!googleId || !groupId) return res.status(400).json({ error: 'googleId and groupId required' });
-    const me = await resolveUser(supabase, googleId);
-    if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!groupId) return res.status(400).json({ error: 'groupId required' });
 
     // Only creator can delete
     const { data: g } = await supabase
@@ -352,9 +336,7 @@ export default async function handler(req, res) {
   }
 
   if (op === 'touch') {
-    if (!googleId || !groupId) return res.status(400).json({ error: 'googleId and groupId required' });
-    const me = await resolveUser(supabase, googleId);
-    if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!groupId) return res.status(400).json({ error: 'groupId required' });
     if (!(await isAcceptedMember(supabase, groupId, me.id)))
       return res.status(403).json({ error: 'not a member' });
 
@@ -366,10 +348,8 @@ export default async function handler(req, res) {
   }
 
   if (op === 'send-message') {
-    if (!googleId || !groupId || !content)
-      return res.status(400).json({ error: 'googleId, groupId, content required' });
-    const me = await resolveUser(supabase, googleId);
-    if (!me) return res.status(404).json({ error: 'user not found' });
+    if (!groupId || !content)
+      return res.status(400).json({ error: 'groupId and content required' });
 
     const { data: membership } = await supabase
       .from('group_members')
