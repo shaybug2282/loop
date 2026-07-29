@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Hourglass, Clock, Archive, Plus, X } from 'lucide-react';
+import { Hourglass, Clock, Archive, X } from 'lucide-react';
 import EventPopup from './EventPopup';
 import NewEventPopup from './NewEventPopup';
 import { formatEventTime as formatTime } from '../utils/format';
@@ -76,7 +76,16 @@ export default function PendingEventsWidget() {
     .filter(e => dismissed.has(e.id))
     .sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
 
-  // withLine — who the event is with, from the viewer's side.
+  // replyLine — how the invites are going, in words rather than a ratio.
+// out: "Waiting on replies" | "Sam said yes" | "2 of 4 said yes" | "Everyone's in".
+const replyLine = (accepted, total) => {
+  if (total === 0)        return 'Just you so far';
+  if (accepted === 0)     return 'Waiting on replies';
+  if (accepted === total) return "Everyone's in";
+  return `${accepted} of ${total} said yes`;
+};
+
+// withLine — who the event is with, from the viewer's side.
   const withLine = e => e.isCreator
     ? (e.invitedUsers ?? []).map(u => u.display_name || u.name).filter(Boolean).join(', ')
     : e.creator?.display_name || e.creator?.name || '';
@@ -89,7 +98,7 @@ export default function PendingEventsWidget() {
           onClick={() => setShowNew(true)}
           title="Schedule a new event"
         >
-          <Plus size={12} /> New event
+          New plan
         </button>
         <button
           className={`panel-pill-btn${showDismissed ? ' panel-pill-btn-solid' : ''}`}
@@ -105,8 +114,8 @@ export default function PendingEventsWidget() {
         {showDismissed ? (
           dismissedEvents.length === 0 ? (
             <p className="pe-hint">
-              Nothing dismissed.<br />
-              Tiles you dismiss land here — unfinished ones are removed after two weeks.
+              Nothing hidden here yet.<br />
+              Plans you tuck away show up in this list.
             </p>
           ) : (
             <ul className="pe-dm-list">
@@ -131,8 +140,8 @@ export default function PendingEventsWidget() {
           <p className="pe-hint">Loading…</p>
         ) : inWorks.length === 0 ? (
           <p className="pe-hint">
-            Nothing in the works.<br />
-            Events waiting on invites show up here until everyone accepts.
+            No plans in the works.<br />
+            Anything you're still waiting on replies for shows up here.
           </p>
         ) : (
           <div className="pe-grid">
@@ -150,7 +159,7 @@ export default function PendingEventsWidget() {
                     </span>
                     {withLine(e) && <span className="pe-tile-people">with {withLine(e)}</span>}
                     <span className={`pe-tile-badge${resched ? ' resched' : ''}`}>
-                      {resched ? 'Rescheduling' : `${acceptedN}/${totalN} accepted`}
+                      {resched ? 'Picking a new time' : replyLine(acceptedN, totalN)}
                     </span>
                   </button>
                   <button

@@ -262,7 +262,6 @@ const WeekView = () => {
         <div className="error-state">
           <p>{error}</p>
           <button onClick={loadEvents} className="retry-btn">
-            <RefreshCw size={16} />
             Try Again
           </button>
         </div>

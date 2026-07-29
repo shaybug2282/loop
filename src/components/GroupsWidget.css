@@ -49,8 +49,6 @@
   font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   margin: 0;
 }
 
@@ -309,10 +307,8 @@
 }
 
 .gw-invited-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
   background: var(--status-warn-bg);
   color: var(--status-warn-text);
   padding: 2px 7px;

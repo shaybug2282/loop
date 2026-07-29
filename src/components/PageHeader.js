@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, Home, Calendar, UserPlus, Users, MessageSquare } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { useMessages } from '../contexts/MessagesContext';
 import NotificationCenter from './NotificationCenter';
 import './PageHeader.css';
@@ -9,11 +9,11 @@ import './PageHeader.css';
 // (reachable from the avatar/drawer) — Messages is a panel, not a route, so it
 // carries `panel: true` and opens in place.
 const NAV = [
-  { path: '/dashboard',          icon: Home,           label: 'Dashboard' },
-  { path: '/calendar',           icon: Calendar,       label: 'Calendar' },
-  { path: '/friends',            icon: UserPlus,       label: 'Friends' },
-  { path: '/friends?tab=groups', icon: Users,          label: 'Groups' },
-  { path: null,                  icon: MessageSquare,  label: 'Messages', panel: true },
+  { path: '/dashboard',          label: 'Dashboard' },
+  { path: '/calendar',           label: 'Calendar' },
+  { path: '/friends',            label: 'Friends' },
+  { path: '/friends?tab=groups', label: 'Groups' },
+  { path: null,                  label: 'Messages', panel: true },
 ];
 
 // isActive — a nav entry matches when path+query match exactly. The two
@@ -55,13 +55,11 @@ const PageHeader = ({ title, onMenu, children }) => {
 
       <nav className="page-header-nav" aria-label="Primary">
         {NAV.map(item => {
-          const Icon = item.icon;
           const active = isActive(item, location);
 
           if (item.panel) {
             return (
               <button key={item.label} className="page-nav-item" onClick={openMessages}>
-                <Icon size={16} />
                 <span>{item.label}</span>
                 {unreadCount > 0 && (
                   <span className="page-nav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
@@ -77,7 +75,6 @@ const PageHeader = ({ title, onMenu, children }) => {
               className={`page-nav-item${active ? ' active' : ''}`}
               aria-current={active ? 'page' : undefined}
             >
-              <Icon size={16} />
               <span>{item.label}</span>
             </Link>
           );

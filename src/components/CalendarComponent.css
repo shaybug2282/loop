@@ -97,9 +97,8 @@
 }
 
 .event-time-badge .all-day {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
 }
 
 .event-details h3 {

@@ -1,52 +1,41 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Send, MessageSquare } from 'lucide-react';
-import SchedulingAssistant from './SchedulingAssistant';
+import { Sparkles, Send } from 'lucide-react';
+import { useAssistant } from '../contexts/AssistantContext';
 import './AssistantComposer.css';
 
 // AssistantComposer — the dashboard's front door to the Scheduling Assistant.
 //
 // The assistant is the product's whole point, but it had no presence on the
 // home screen (UX_AUDIT.md §2.1): it lived behind a Calendar-page button and
-// inside three popups, and its persistent conversation list had no home
-// anywhere. A user who signed in off the landing page's "say 'dinner with Sam
-// next week'" promise landed somewhere with no way to say that.
+// inside three popups, and its open conversations had no home anywhere.
 //
-// Typing here opens the assistant seeded with the text, reusing the existing
-// `initialMessage` prop — no new AI logic. Open scheduling chats surface as
-// chips beside the input so they are reachable in one click.
-//
-// out: a composer row, plus the assistant modal once opened.
+// Typing here opens the docked assistant window with the text as the first
+// message, reusing SchedulingAssistant's existing `initialMessage` path. Open
+// plans are summarised as a single link into that window rather than listed
+// here — a chip row stops working the moment someone has more than a few.
 const AssistantComposer = () => {
-  const [text,   setText]   = useState('');
-  const [seed,   setSeed]   = useState(null);  // message the assistant opens with
-  const [open,   setOpen]   = useState(false);
-  const [convos, setConvos] = useState([]);
+  const [text,  setText]  = useState('');
+  const [count, setCount] = useState(0);
+  const { startChat, openAssistant } = useAssistant();
   const googleId = localStorage.getItem('googleUserId');
 
-  // loadConvos — open scheduling chats, newest first. The server retires a
-  // conversation once its event is confirmed or declined, so this self-prunes.
-  const loadConvos = useCallback(async () => {
+  // How many plans are in flight — just the count; the window owns the list.
+  const loadCount = useCallback(async () => {
     if (!googleId) return;
     try {
       const r = await fetch(`/api/ai?op=conversations&googleId=${encodeURIComponent(googleId)}`);
-      if (r.ok) setConvos((await r.json()).conversations ?? []);
+      if (r.ok) setCount(((await r.json()).conversations ?? []).length);
     } catch {}
   }, [googleId]);
 
-  useEffect(() => { loadConvos(); }, [loadConvos]);
+  useEffect(() => { loadCount(); }, [loadCount]);
 
   const start = () => {
     const msg = text.trim();
     if (!msg) return;
-    setSeed(msg);
-    setOpen(true);
+    startChat(msg);
     setText('');
   };
-
-  // Opening with no seed lands on the assistant's conversation list.
-  const openList = () => { setSeed(null); setOpen(true); };
-
-  const close = () => { setOpen(false); setSeed(null); loadConvos(); };
 
   return (
     <div className="ac-wrap">
@@ -55,42 +44,21 @@ const AssistantComposer = () => {
         <input
           className="ac-input"
           type="text"
-          placeholder="Find a time — e.g. dinner with Sam next week…"
+          placeholder="What are you planning? Try “dinner with Sam next week”"
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') start(); }}
           aria-label="Ask the scheduling assistant"
         />
-        <button className="ac-send" onClick={start} disabled={!text.trim()} title="Ask the assistant">
+        <button className="ac-send" onClick={start} disabled={!text.trim()} title="Start planning">
           <Send size={15} />
         </button>
       </div>
 
-      {convos.length > 0 && (
-        <div className="ac-chips">
-          <span className="ac-chips-label">Open chats</span>
-          {convos.slice(0, 4).map(c => (
-            <button key={c.id} className="ac-chip" onClick={openList} title={c.title}>
-              <MessageSquare size={12} />
-              <span className="ac-chip-text">{c.title}</span>
-              {c.pending_event_id && <span className="ac-chip-dot" title="Event pending" />}
-            </button>
-          ))}
-          {convos.length > 4 && (
-            <button className="ac-chip ac-chip-more" onClick={openList}>
-              +{convos.length - 4} more
-            </button>
-          )}
-        </div>
-      )}
-
-      {open && (
-        <div className="ac-backdrop" onClick={close}>
-          <div className="ac-modal" onClick={e => e.stopPropagation()}>
-            {/* SchedulingAssistant renders its own close control from onClose. */}
-            <SchedulingAssistant initialMessage={seed} onClose={close} onBooked={loadConvos} />
-          </div>
-        </div>
+      {count > 0 && (
+        <button className="ac-open-link" onClick={openAssistant}>
+          {count === 1 ? "You have 1 plan in the works" : `You have ${count} plans in the works`}
+        </button>
       )}
     </div>
   );

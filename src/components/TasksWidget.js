@@ -127,7 +127,7 @@ export default function TasksWidget() {
         {loading ? (
           <p className="tw-hint">Loading…</p>
         ) : open.length === 0 && done.length === 0 ? (
-          <p className="tw-hint">No tasks yet — anything you add syncs with Google Tasks.</p>
+          <p className="tw-hint">Nothing on your list. Anything you add here syncs with Google Tasks.</p>
         ) : (
           <>
             <ul className="tw-list">

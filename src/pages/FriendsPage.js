@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  UserPlus, Check, X, Copy, Clock, MessageSquare, UserMinus,
-  Users, Inbox, Search, Star, BellOff, Ban, Calendar, Sparkles, Moon, ChevronRight,
+  Check, X, MessageSquare,
+  Search, Star, Calendar, Moon, ChevronRight,
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
@@ -62,7 +62,7 @@ const AvailabilityStrip = ({ friendId }) => {
   }, [googleId, friendId]);
 
   if (state === null) return <p className="popup-avail-note">Checking availability…</p>;
-  if (state.quiet) return <p className="popup-avail-note"><Moon size={11} /> Quiet Time is on — scheduling is paused.</p>;
+  if (state.quiet) return <p className="popup-avail-note">Quiet Time is on — scheduling is paused.</p>;
   if (!state.shared) return null;
   return (
     <div className="popup-avail">
@@ -275,14 +275,14 @@ const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule
             onClick={() => saveSetting({ favorite: !settings.favorite })}
             title={settings.favorite ? 'Unpin from top of list' : 'Pin to top of list'}
           >
-            <Star size={14} /> {settings.favorite ? 'Favorited' : 'Favorite'}
+            {settings.favorite ? 'Favorited' : 'Favorite'}
           </button>
           <button
             className={`popup-setting${settings.muted ? ' on' : ''}`}
             onClick={() => saveSetting({ muted: !settings.muted })}
             title={settings.muted ? 'Get message pop-ups again' : 'No message pop-ups from this friend'}
           >
-            <BellOff size={14} /> {settings.muted ? 'Muted' : 'Mute'}
+            {settings.muted ? 'Muted' : 'Mute'}
           </button>
           <label className="popup-setting popup-setting-select" title="Override your default availability sharing for this friend">
             <span>Sees my availability:</span>
@@ -303,7 +303,6 @@ const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule
             className="popup-btn message-btn"
             onClick={() => { openMessages(friend); onClose(); }}
           >
-            <MessageSquare size={16} />
             Message
           </button>
 
@@ -311,7 +310,6 @@ const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule
             className="popup-btn message-btn"
             onClick={() => { onSchedule(friend); onClose(); }}
           >
-            <Sparkles size={16} />
             Schedule
           </button>
 
@@ -320,7 +318,6 @@ const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule
             onClick={handleUnfriend}
             disabled={loading}
           >
-            <UserMinus size={16} />
             {loading ? 'Removing…' : unfriendConfirm ? 'Confirm?' : 'Unfriend'}
           </button>
 
@@ -330,7 +327,6 @@ const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule
             disabled={loading}
             title="Unfriend and refuse future requests and messages"
           >
-            <Ban size={16} />
             {blockConfirm ? 'Confirm block?' : 'Block'}
           </button>
         </div>
@@ -529,7 +525,6 @@ const FriendsPage = () => {
 
       <PageHeader title="Friends" onMenu={() => setSidebarOpen(true)}>
         <button className="add-friend-btn header-add" onClick={() => setTab('requests')}>
-          <UserPlus size={16} />
           Add Friend
         </button>
       </PageHeader>
@@ -537,16 +532,16 @@ const FriendsPage = () => {
       {/* ── Tabs ── */}
       <div className="friends-tabs">
         <button className={`friends-tab${tab === 'friends' ? ' active' : ''}`} onClick={() => setTab('friends')}>
-          <UserPlus size={14} /> Friends
+          Friends
           {friends.length > 0 && <span className="tab-count">{friends.length}</span>}
         </button>
         <button className={`friends-tab${tab === 'groups' ? ' active' : ''}`} onClick={() => setTab('groups')}>
           {/* No count: groups are loaded by GroupsWidget, and fetching them
               here just for a badge would cost an extra request per page view. */}
-          <Users size={14} /> Groups
+          Groups
         </button>
         <button className={`friends-tab${tab === 'requests' ? ' active' : ''}`} onClick={() => setTab('requests')}>
-          <Inbox size={14} /> Add &amp; Requests
+          Add &amp; Requests
           {requestCount > 0 && <span className="tab-count badge">{requestCount}</span>}
         </button>
       </div>
@@ -565,11 +560,10 @@ const FriendsPage = () => {
                   <span className="my-code-label">Your friend code:</span>
                   <span className="my-code">{friendCode}</span>
                   <button className="copy-btn" onClick={handleCopy}>
-                    <Copy size={14} />
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
                   <button className="add-friend-link" onClick={() => setTab('requests')}>
-                    <UserPlus size={14} /> Add a friend
+                    Add a friend
                   </button>
                 </div>
               )}
@@ -588,9 +582,9 @@ const FriendsPage = () => {
 
               {friends.length === 0 ? (
                 <div className="friends-empty-cta">
-                  <p className="empty-state">No friends yet — share your code to get started</p>
+                  <p className="empty-state">Nobody here yet — share your code and start a circle</p>
                   <button className="add-friend-btn" onClick={() => setTab('requests')}>
-                    <UserPlus size={16} /> Add a friend
+                    Add a friend
                   </button>
                 </div>
               ) : (
@@ -679,7 +673,6 @@ const FriendsPage = () => {
                   <span className="my-code-label">Your friend code:</span>
                   <span className="my-code">{friendCode}</span>
                   <button className="copy-btn" onClick={handleCopy}>
-                    <Copy size={14} />
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
@@ -724,10 +717,7 @@ const FriendsPage = () => {
                         </span>
                         <span className="request-email">{req.receiver.email}</span>
                       </div>
-                      <span className="pending-label">
-                        <Clock size={12} />
-                        Pending
-                      </span>
+                      <span className="pending-label">Waiting to hear back</span>
                       <button className="reject-btn" onClick={() => handleCancel(req.id)} title="Cancel request">
                         <X size={16} />
                       </button>

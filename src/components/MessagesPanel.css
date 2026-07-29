@@ -1,16 +1,13 @@
 /* ── Panel shell — fixed bottom-right popup ──────────────────────────────── */
 
 .mp-panel {
-  position: fixed;
-  bottom: 0;
-  right: 24px;
+  pointer-events: auto;
   width: 340px;
   height: min(520px, calc(100vh - 32px));
   max-height: min(520px, calc(100vh - 32px));
   background: var(--card);
   border-radius: var(--r-md) var(--r-md) 0 0;
   box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.16);
-  z-index: var(--z-panel);
   display: flex;
   flex-direction: column;
   transition: height 0.2s ease;

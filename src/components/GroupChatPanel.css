@@ -3,11 +3,8 @@
  * This file only overrides position and adds group-specific elements.
  */
 
-/* Position override — mp-panel anchors at right: 24px by default */
-.gcp-panel {
-  right: 24px; /* overridden at runtime via inline style */
-  transition: right 0.2s ease;
-}
+/* Position is handled by the dock rail (App.css) — this panel used to compute
+   an inline `right` in JS to dodge the DM panel. */
 
 /* ── Header group icon ──────────────────────────────────────────────────────── */
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, Pencil, Users, Calendar, MessageSquare, X, Check, Trash2, UserPlus, UserMinus, LogOut } from 'lucide-react';
+import { Plus, Pencil, Users, X, Check, Trash2, UserMinus } from 'lucide-react';
 import { useGroupChat } from '../contexts/GroupChatContext';
 import { useMessages } from '../contexts/MessagesContext';
 import { resizeImage } from '../utils/image';
@@ -386,7 +386,7 @@ export default function GroupsWidget() {
       {loading && groups.length === 0 ? (
         <p className="gw-empty">Loading…</p>
       ) : groups.length === 0 && !showCreate ? (
-        <p className="gw-empty">No groups yet.<br />Create one to get started!</p>
+        <p className="gw-empty">No groups yet.<br />Make one for the people you see most.</p>
       ) : (
         <ul className="gw-list">
           {groups.map(g => {
@@ -450,17 +450,17 @@ export default function GroupsWidget() {
                 {expandedId === g.id && (
                   <div className="gw-actions">
                     <button className="gw-action-btn" onClick={() => handleSchedule(g)}>
-                      <Calendar size={14} /> Schedule
+                      Schedule
                     </button>
                     <button className="gw-action-btn" onClick={() => handleMessage(g)}>
-                      <MessageSquare size={14} /> Message
+                      Message
                     </button>
                     <button className="gw-action-btn" onClick={() => openEdit(g)}>
-                      <Pencil size={14} /> Edit
+                      Edit
                     </button>
                     {!g.isCreator && (
                       <button className="gw-action-btn gw-action-leave" onClick={() => handleLeave(g)}>
-                        <LogOut size={14} /> Leave
+                        Leave
                       </button>
                     )}
                   </div>
@@ -535,7 +535,7 @@ export default function GroupsWidget() {
               {/* Invite more friends */}
               {invitableFriends.length > 0 && (
                 <>
-                  <label className="gw-field-label"><UserPlus size={12} /> Add members</label>
+                  <label className="gw-field-label">Add members</label>
                   <div className="gw-friend-chips">
                     {invitableFriends.map(f => (
                       <FriendChip
@@ -561,7 +561,7 @@ export default function GroupsWidget() {
                 </button>
               ) : (
                 <button className="gw-btn-danger" onClick={() => handleLeave(editGroup)}>
-                  <LogOut size={14} /> Leave group
+                  Leave group
                 </button>
               )}
               <div className="gw-modal-footer-right">

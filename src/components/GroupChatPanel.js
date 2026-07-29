@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Minus, Send, ShieldCheck } from 'lucide-react';
 import { useGroupChat } from '../contexts/GroupChatContext';
-import { useMessages }  from '../contexts/MessagesContext';
 import { useAuth }      from '../contexts/AuthContext';
 import { formatMsgTime, hasGapBefore, isGroupedMsg as isGroupedBy } from '../utils/format';
 import './MessagesPanel.css';
@@ -14,7 +13,6 @@ const isGroupedMsg = (msgs, i) => isGroupedBy(msgs, i, m => m.senderId);
 
 const GroupChatPanel = () => {
   const { chatGroup, closeGroupChat } = useGroupChat();
-  const { isOpen: dmOpen }            = useMessages();
   const { isAuthenticated }           = useAuth();
 
   const [messages,  setMessages]  = useState([]);
@@ -89,14 +87,9 @@ const GroupChatPanel = () => {
   if (!chatGroup) return null;
 
   const acceptedCount = (chatGroup.members ?? []).filter(m => m.status === 'accepted').length;
-  // Sit left of DM panel when it's open; otherwise anchor at same right edge
-  const rightPx = dmOpen ? 372 : 24;
 
   return (
-    <div
-      className={`mp-panel gcp-panel${minimized ? ' minimized' : ''}`}
-      style={{ right: rightPx }}
-    >
+    <div className={`mp-panel gcp-panel${minimized ? ' minimized' : ''}`}>
       {/* Header — same pink bar as DM panel, with group icon + member count */}
       <div className="mp-header">
         <div className="gcp-hd-icon">

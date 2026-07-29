@@ -45,7 +45,7 @@ const FriendsWidget = () => {
         {!loading && friends.length === 0 && (
           <div className="fw-empty">
             <UserPlus size={36} strokeWidth={1.4} className="fw-empty-icon" />
-            <p>No friends yet</p>
+            <p>No friends here yet</p>
             <button className="fw-add-btn" onClick={() => navigate('/friends')}>
               Add a friend
             </button>

@@ -4,9 +4,11 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { applyPrefsFromServer } from './utils/prefs';
 import { MessagesProvider }     from './contexts/MessagesContext';
 import { GroupChatProvider }    from './contexts/GroupChatContext';
+import { AssistantProvider }    from './contexts/AssistantContext';
 import MessagesPanel       from './components/MessagesPanel';
 import MessageToast        from './components/MessageToast';
 import GroupChatPanel      from './components/GroupChatPanel';
+import AssistantPanel      from './components/AssistantPanel';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
@@ -51,6 +53,7 @@ function App() {
     <AuthProvider>
       <MessagesProvider>
         <GroupChatProvider>
+          <AssistantProvider>
           <Router>
             <PrefsSync />
             {/* Flex column so the footer sits at the true page bottom. Page
@@ -89,13 +92,17 @@ function App() {
               <Footer />
             </div>
 
-            {/* Global floating messages panel — rendered on top of all pages */}
-            <MessagesPanel />
+            {/* Docked windows share one rail so they can never overlap; each
+                panel is a flex child rather than positioning itself. */}
+            <div className="dock-rail">
+              <AssistantPanel />
+              <GroupChatPanel />
+              <MessagesPanel />
+            </div>
             {/* Background message notifier — always rendered, shows toast for new messages */}
             <MessageToast />
-            {/* Global group chat panel */}
-            <GroupChatPanel />
           </Router>
+          </AssistantProvider>
         </GroupChatProvider>
       </MessagesProvider>
     </AuthProvider>

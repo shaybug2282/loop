@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Save, Loader, Sparkles, X, Copy, Moon, Plus, Palette, Bell, Shield, Camera, RefreshCw } from 'lucide-react';
+import { Save, Loader, X, Camera } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../contexts/AuthContext';
@@ -328,7 +328,7 @@ const ProfilePage = () => {
                 <p className="identity-code">
                   Friend code: <span className="identity-code-value">{friendCode}</span>
                   <button className="identity-code-copy" onClick={copyFriendCode}>
-                    <Copy size={12} /> {codeCopied ? 'Copied!' : 'Copy'}
+                    {codeCopied ? 'Copied!' : 'Copy'}
                   </button>
                 </p>
               )}
@@ -412,7 +412,7 @@ const ProfilePage = () => {
 
           {/* Quiet Time — while on, nobody can schedule events with you */}
           <div className="profile-card">
-            <h2><Moon size={15} /> Quiet Time</h2>
+            <h2>Quiet Time</h2>
             <div className="field-group toggle-group">
               <div className="toggle-label">
                 <label htmlFor="quietTime">Quiet Time</label>
@@ -486,7 +486,7 @@ const ProfilePage = () => {
 
           {/* Appearance — theme + accent, applied instantly app-wide */}
           <div className="profile-card">
-            <h2><Palette size={15} /> Appearance</h2>
+            <h2>Appearance</h2>
 
             <div className="field-group">
               <label>Theme</label>
@@ -521,7 +521,7 @@ const ProfilePage = () => {
 
           {/* Notifications — per-category toggles, applied instantly */}
           <div className="profile-card">
-            <h2><Bell size={15} /> Notifications</h2>
+            <h2>Notifications</h2>
             {[
               ['events',         'Event activity',   'Invites, accepts, declines, and reschedules in the bell'],
               ['groupInvites',   'Group invites',    'Invitations to join groups'],
@@ -548,7 +548,7 @@ const ProfilePage = () => {
 
           {/* Privacy — availability sharing, friend code, blocked users */}
           <div className="profile-card">
-            <h2><Shield size={15} /> Privacy</h2>
+            <h2>Privacy</h2>
 
             <div className="field-group">
               <label>Calendar availability</label>
@@ -576,7 +576,7 @@ const ProfilePage = () => {
               <label>Friend code</label>
               <p className="field-hint">Shared it too widely? A new code invalidates the old one; existing friends are unaffected.</p>
               <button className="pref-add-btn" onClick={regenerateCode} disabled={regenBusy}>
-                <RefreshCw size={13} /> {regenBusy ? 'Generating…' : 'Generate new code'}
+                {regenBusy ? 'Generating…' : 'Generate new code'}
               </button>
             </div>
 
@@ -600,7 +600,7 @@ const ProfilePage = () => {
           {/* Scheduling Assistant — preferences it schedules around */}
           {prefs && (
             <div className="profile-card">
-              <h2><Sparkles size={15} /> Preferences</h2>
+              <h2>Preferences</h2>
 
               <div className="field-group">
                 <label>Anything to keep in mind about you?</label>
@@ -620,7 +620,7 @@ const ProfilePage = () => {
                     disabled={prefBusy}
                   />
                   <button className="pref-add-btn" onClick={addPreference} disabled={prefBusy || !prefInput.trim()}>
-                    <Plus size={13} /> {prefBusy ? 'Adding…' : 'Add'}
+                    {prefBusy ? 'Adding…' : 'Add'}
                   </button>
                 </div>
 

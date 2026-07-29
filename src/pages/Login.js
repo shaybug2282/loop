@@ -37,8 +37,9 @@ const Login = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>Welcome</h1>
-          <p>Sign in with your Google account to continue</p>
+          <p className="login-brand">Loop</p>
+          <h1>Welcome back</h1>
+          <p>Sign in with Google to pick up where you left off.</p>
         </div>
 
         <div className="login-content">
@@ -57,10 +58,11 @@ const Login = () => {
         {error && <p className="login-error">{error}</p>}
 
         <div className="login-footer">
-          <p>This app will access your:</p>
+          <p>What Loop can see:</p>
           <ul>
-            <li>Google Calendar (read &amp; write)</li>
-            <li>Google Tasks (read &amp; write)</li>
+            <li>When you're free, so it can suggest times</li>
+            <li>Plans you confirm, so it can add them to your calendar</li>
+            <li>Your Google Tasks, so your to-dos show up here too</li>
           </ul>
         </div>
       </div>

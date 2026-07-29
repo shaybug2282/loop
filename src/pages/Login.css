@@ -3,16 +3,19 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background: var(--accent);
+  /* Was a full-bleed saturated accent wash, which made /login look like a
+     different product from the guest landing (UX_AUDIT.md §1.5). */
+  background: var(--surface);
   padding: 20px;
 }
 
 .login-card {
   background: var(--card);
+  border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-xl);
-  padding: 60px 50px;
-  max-width: 450px;
+  box-shadow: var(--shadow-lg);
+  padding: 44px 40px;
+  max-width: 420px;
   width: 100%;
   animation: slideUp 0.5s ease-out;
 }
@@ -33,11 +36,19 @@
   margin-bottom: 40px;
 }
 
-.login-header h1 {
-  font-size: 42px;
-  font-weight: 700;
-  margin-bottom: 10px;
+.login-brand {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--accent);
+  margin: 0 0 6px;
+}
+
+.login-header h1 {
+  font-size: 1.45rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text);
 }
 
 .login-header p {
@@ -105,30 +116,31 @@
   padding: 0;
   margin: 0;
   text-align: left;
+  display: inline-block;
 }
 
 .login-footer li {
   font-size: 12px;
   color: var(--text-muted);
   padding: 6px 0;
-  padding-left: 20px;
+  padding-left: 16px;
   position: relative;
 }
 
 .login-footer li::before {
-  content: "✓";
+  content: "";
   position: absolute;
   left: 0;
-  color: var(--status-ok-text);
-  font-weight: bold;
+  top: 0.72em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.5;
 }
 
 @media (max-width: 600px) {
   .login-card {
-    padding: 40px 30px;
-  }
-
-  .login-header h1 {
-    font-size: 32px;
+    padding: 32px 24px;
   }
 }

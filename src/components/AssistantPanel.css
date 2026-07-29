@@ -1,0 +1,181 @@
+/* Docked scheduling window. Shares the dock rail with the DM and group panels
+   (see App.css .dock-rail), so it never overlaps them. */
+
+.ap-panel {
+  pointer-events: auto;
+  width: 340px;
+  height: min(520px, calc(100vh - 32px));
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+.ap-panel.minimized {
+  height: 44px;
+}
+
+.ap-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 14px;
+  height: 44px;
+  background: var(--accent);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.ap-header-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--on-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ap-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ap-header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--on-accent);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: var(--r-xs);
+  opacity: 0.85;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.ap-header-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.ap-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* SchedulingAssistant fills the body when a thread is open. */
+.ap-body > .ais-wrap { flex: 1; min-height: 0; }
+
+/* ── Chat list ── */
+
+.ap-list-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) 0;
+}
+
+.ap-list::-webkit-scrollbar { width: 4px; }
+.ap-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--r-xs); }
+
+.ap-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  text-align: left;
+  border: none;
+  background: none;
+  font-family: inherit;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.ap-item:hover { background: var(--surface); }
+
+.ap-item-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+
+.ap-item-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ap-item-time {
+  flex-shrink: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+
+.ap-item-note {
+  font-size: var(--fs-xs);
+  color: var(--status-warn-text);
+}
+
+.ap-empty {
+  flex: 1;
+  margin: 0;
+  padding: 32px 20px;
+  text-align: center;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.ap-new {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 12px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.ap-new:hover { background: var(--surface-tint); }
+
+@media (max-width: 600px) {
+  .ap-panel { width: calc(100vw - 32px); }
+}

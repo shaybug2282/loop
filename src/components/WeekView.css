@@ -185,8 +185,6 @@
   margin-top: 5px;
   padding: 2px 7px;
   border-radius: var(--r-pill);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .event-badge.pending {
@@ -232,8 +230,6 @@
 
 .event-time.all-day {
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .event-title {

@@ -82,6 +82,11 @@
   --fs-xl:  28px;   /* brand wordmark */
   --fs-2xl: 32px;   /* page h1 */
 
+  /* Type families. No webfont is self-hosted (nothing is fetched at runtime),
+     so headings get a Georgia-led serif stack instead — it ships everywhere and
+     gives the brand a voice the system UI sans can't. Body stays system sans. */
+  --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+
   /* Space */
   --space-1:  4px;
   --space-2:  8px;

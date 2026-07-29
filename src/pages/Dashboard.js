@@ -43,28 +43,36 @@ const Dashboard = () => {
           </button>
         </div>
         <div className="dash-hero">
-          <p className="dash-hero-eyebrow">Welcome</p>
-          <h2 className="dash-hero-heading">So, you want to hang out with your friends?</h2>
-          <p className="dash-hero-body">Let us help! Loop is the AI social calendar that makes scheduling events easy.</p>
+          <h2 className="dash-hero-heading">Getting everyone together shouldn't take twelve texts.</h2>
+          <p className="dash-hero-body">
+            Tell Loop who you want to see and roughly when. It reads everyone's
+            calendars, finds the times that actually work, and sends the invites.
+          </p>
           <button className="dash-hero-cta" onClick={() => setShowSignIn(true)}>
             Get started — it's free
           </button>
+          <p className="dash-hero-note">Free, and it only ever books plans you've confirmed.</p>
 
-          <div className="dash-how">
-            <div className="dash-how-step">
-              <span className="dash-how-num">1</span>
-              <h3>Connect your calendar</h3>
-              <p>Sign in with Google — Loop reads free/busy and books confirmed plans, nothing else.</p>
+          {/* A look at the thing itself, rather than three numbered cards
+              describing it. Static markup — no data, no interaction. */}
+          <div className="dash-demo" aria-hidden="true">
+            <div className="dash-demo-msg dash-demo-you">Dinner with Sam and Priya next week</div>
+            <div className="dash-demo-msg dash-demo-loop">
+              All three of you are free these times:
             </div>
-            <div className="dash-how-step">
-              <span className="dash-how-num">2</span>
-              <h3>Add your people</h3>
-              <p>Swap friend codes, make groups, and chat right where the plans happen.</p>
-            </div>
-            <div className="dash-how-step">
-              <span className="dash-how-num">3</span>
-              <h3>Let the assistant find the time</h3>
-              <p>Say "dinner with Sam next week" — it checks everyone's calendars and proposes times that fit.</p>
+            <div className="dash-demo-slots">
+              <div className="dash-demo-slot">
+                <span className="dash-demo-day">Tue</span>
+                <span className="dash-demo-time">7:00 PM</span>
+              </div>
+              <div className="dash-demo-slot dash-demo-slot-pick">
+                <span className="dash-demo-day">Thu</span>
+                <span className="dash-demo-time">6:30 PM</span>
+              </div>
+              <div className="dash-demo-slot">
+                <span className="dash-demo-day">Sat</span>
+                <span className="dash-demo-time">1:00 PM</span>
+              </div>
             </div>
           </div>
         </div>

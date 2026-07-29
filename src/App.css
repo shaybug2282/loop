@@ -10,6 +10,27 @@
 
 .app-shell > *:not(.site-footer) { flex: 1 0 auto; }
 
+/* Dock rail — the DM, group-chat and assistant windows line up here instead of
+   each pinning itself to the bottom-right corner (they used to overlap, and
+   GroupChatPanel dodged the DM panel with an inline `right` computed in JS).
+   pointer-events: none so the empty rail is not a click trap. */
+.dock-rail {
+  position: fixed;
+  right: 24px;
+  bottom: 0;
+  z-index: var(--z-panel);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  pointer-events: none;
+}
+
+.dock-rail > * { pointer-events: auto; }
+
+@media (max-width: 600px) {
+  .dock-rail { right: 16px; left: 16px; justify-content: flex-end; }
+}
+
 /* Sits on the page surface rather than a full-bleed accent wash — this renders
    between every protected-route navigation, and a saturated flash each time
    read as unfinished. The accent now appears only on the spinner. */

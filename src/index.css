@@ -13,6 +13,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Headings carry the display face; UI controls stay on the system sans. */
+.dash-hero-heading,
+.dash-brand,
+.login-brand,
+.page-header-brand,
+.sim-title {
+  font-family: var(--font-display);
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

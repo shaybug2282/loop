@@ -113,8 +113,18 @@ const groupGreeting = () =>
 // initialMessage: when set, the assistant opens straight into a fresh chat
 // and sends it as the first user turn (used by NewEventPopup's "Find a time"
 // and the friend list's Schedule quick action to seed participants).
-const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = null, onBooked = null }) => {
-  const [view,    setView]    = useState(group || initialMessage ? 'chat' : 'list');   // 'list' | 'chat'
+//
+// openConversationId: opens straight into an existing thread. Callers outside
+// the widget (the dock panel's chat list) need to land the user in a real chat
+// with the composer, not on the internal list view.
+const SchedulingAssistant = ({
+  group = null, onClose = null, initialMessage = null, onBooked = null,
+  openConversationId = null, onBack = null, startNew = false, embedded = false,
+}) => {
+  // startNew opens an empty composer directly — used by the dock panel, which
+  // owns the chat list itself and never wants the internal one.
+  const [view,    setView]    = useState(
+    group || initialMessage || openConversationId || startNew ? 'chat' : 'list');   // 'list' | 'chat'
   const [convos,  setConvos]  = useState([]);
   // active — the open conversation: { id, title, pendingEventId }; id null = new unsaved chat.
   const [active,  setActive]  = useState(null);
@@ -193,6 +203,7 @@ const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = nu
   };
 
   const backToList = () => {
+    if (onBack) { onBack(); return; }
     setView('list');
     setActive(null);
     setItems([]);
@@ -258,6 +269,14 @@ const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = nu
   }, [loading, googleId, active, group]);
 
   const send = useCallback(() => sendMessage(input.trim()), [sendMessage, input]);
+
+  // Open a specific thread once when the caller named one.
+  const openedRef = useRef(false);
+  useEffect(() => {
+    if (!openConversationId || openedRef.current) return;
+    openedRef.current = true;
+    openConvo({ id: openConversationId });
+  }, [openConversationId, openConvo]);
 
   // Seed the chat once when opened with an initialMessage (e.g. "Find a time"
   // from the New event flow, with the picked friends' names baked in).
@@ -369,8 +388,8 @@ const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = nu
         <div className="ais-body">
           {convos.length === 0 ? (
             <p className="ais-hint">
-              No open scheduling chats.<br />
-              Start one — I'll check everyone's calendars and find times that fit.
+              Nothing being planned yet.<br />
+              Tell me what you have in mind and I'll find a time that works for everyone.
             </p>
           ) : (
             <div className="ais-convo-list">
@@ -381,7 +400,7 @@ const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = nu
                     <span className="ais-convo-title">{c.title}</span>
                     <span className="ais-convo-meta">
                       {ago(c.updated_at)}
-                      {c.pending_event_id && <span className="ais-convo-badge">event pending</span>}
+                      {c.pending_event_id && <span className="ais-convo-badge">Waiting on replies</span>}
                     </span>
                   </div>
                   <button className="ais-convo-x" onClick={e => deleteConvo(e, c.id)} title="Delete chat">
@@ -395,7 +414,7 @@ const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = nu
 
         <div className="ais-input-row">
           <button className="ais-start-btn" onClick={newChat}>
-            <Plus size={14} /> New scheduling chat
+            Plan something new
           </button>
         </div>
       </div>
@@ -413,13 +432,13 @@ const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = nu
 
   return (
     <div className="ais-wrap">
-      {group ? (
+      {embedded ? null : group ? (
         <div className="ais-header">
           <div className="ais-group-head">
             <span className="ais-title ais-title-ellipsis">{group.name}</span>
             {memberNames && <span className="ais-group-members">{memberNames}</span>}
           </div>
-          {locked && <span className="ais-convo-badge">event pending</span>}
+          {locked && <span className="ais-convo-badge">Waiting on replies</span>}
           {onClose && (
             <button className="ais-new-btn" onClick={onClose} title="Close">
               <X size={16} />
@@ -432,7 +451,7 @@ const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = nu
             <ChevronLeft size={16} />
           </button>
           <span className="ais-title ais-title-ellipsis">{active?.title || 'New chat'}</span>
-          {locked && <span className="ais-convo-badge">event pending</span>}
+          {locked && <span className="ais-convo-badge">Waiting on replies</span>}
           {onClose && (
             <button className="ais-new-btn" onClick={onClose} title="Close">
               <X size={15} />
@@ -443,7 +462,7 @@ const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = nu
 
       <div className="ais-body" ref={bodyRef}>
         {items.length === 0 && !loading && (
-          <p className="ais-hint">Tell me what to schedule — I'll check everyone's calendars and find times that fit.</p>
+          <p className="ais-hint">What are you planning? I'll look at everyone's calendars and suggest a few times.</p>
         )}
 
         {items.map(item => {
@@ -511,7 +530,7 @@ const SchedulingAssistant = ({ group = null, onClose = null, initialMessage = nu
           ref={inputRef}
           className="ais-input"
           type="text"
-          placeholder="e.g. Dinner with Sam next week…"
+          placeholder="Dinner with Sam next week…"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}

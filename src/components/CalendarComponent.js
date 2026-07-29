@@ -60,7 +60,6 @@ const CalendarComponent = () => {
         <div className="error-state">
           <p>{error}</p>
           <button onClick={loadEvents} className="retry-btn">
-            <RefreshCw size={16} />
             Try Again
           </button>
         </div>
@@ -87,8 +86,8 @@ const CalendarComponent = () => {
         {events.length === 0 ? (
           <div className="empty-state">
             <CalendarIcon size={48} />
-            <p>No events scheduled for today</p>
-            <small>Enjoy your free time!</small>
+            <p>Nothing on today</p>
+            <small>Enjoy the free day</small>
           </div>
         ) : (
           events.map((event) => (
