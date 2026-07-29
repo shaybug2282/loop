@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar as CalendarIcon, Clock, RefreshCw } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, RefreshCw, MapPin } from 'lucide-react';
 import { fetchTodayEvents } from '../utils/googleCalendar';
 import EventPopup from './EventPopup';
+import { Panel, PanelHeader } from './Panel';
 import './CalendarComponent.css';
 const CalendarComponent = () => {
   const [events, setEvents] = useState([]);
@@ -45,22 +46,17 @@ const CalendarComponent = () => {
   };
   if (loading) {
     return (
-      <div className="calendar-component">
-        <div className="component-header">
-          <CalendarIcon size={24} />
-          <h2>Today's Schedule</h2>
-        </div>
-        <div className="loading">Loading today's events...</div>
-      </div>
+      <Panel className="calendar-component">
+        <PanelHeader icon={CalendarIcon} title="Today's Schedule" />
+        <div className="cc-body"><div className="loading">Loading today's events…</div></div>
+      </Panel>
     );
   }
   if (error) {
     return (
-      <div className="calendar-component">
-        <div className="component-header">
-          <CalendarIcon size={24} />
-          <h2>Today's Schedule</h2>
-        </div>
+      <Panel className="calendar-component">
+        <PanelHeader icon={CalendarIcon} title="Today's Schedule" />
+        <div className="cc-body">
         <div className="error-state">
           <p>{error}</p>
           <button onClick={loadEvents} className="retry-btn">
@@ -68,29 +64,23 @@ const CalendarComponent = () => {
             Try Again
           </button>
         </div>
-      </div>
+        </div>
+      </Panel>
     );
   }
   return (
-    <div className="calendar-component">
-      <div
-        className="component-header component-header-link"
-        onClick={() => navigate('/calendar')}
-        role="button"
-        tabIndex={0}
-        title="Open calendar"
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') navigate('/calendar'); }}
+    <Panel className="calendar-component">
+      <PanelHeader
+        icon={CalendarIcon}
+        title="Today's Schedule"
+        onActivate={() => navigate('/calendar')}
+        activateLabel="Open calendar"
       >
-        <CalendarIcon size={24} />
-        <h2>Today's Schedule</h2>
-        <button
-          onClick={e => { e.stopPropagation(); loadEvents(); }}
-          className="refresh-btn"
-          title="Refresh"
-        >
-          <RefreshCw size={18} />
+        <button onClick={loadEvents} className="panel-icon-btn" title="Refresh">
+          <RefreshCw size={16} />
         </button>
-      </div>
+      </PanelHeader>
+      <div className="cc-body">
       <div className="today-date">{getTodayDate()}</div>
       <div className="events-list">
         {events.length === 0 ? (
@@ -122,7 +112,7 @@ const CalendarComponent = () => {
               <div className="event-details">
                 <h3>{event.summary}</h3>
                 {event.location && (
-                  <p className="event-location">📍 {event.location}</p>
+                  <p className="event-location"><MapPin size={13} /> {event.location}</p>
                 )}
                 {event.description && (
                   <p className="event-description">
@@ -136,6 +126,7 @@ const CalendarComponent = () => {
           ))
         )}
       </div>
+      </div>
       {selected && (
         <EventPopup
           googleEvent={selected}
@@ -143,7 +134,7 @@ const CalendarComponent = () => {
           onChanged={loadEvents}
         />
       )}
-    </div>
+    </Panel>
   );
 };
 export default CalendarComponent;

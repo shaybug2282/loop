@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { initGisClient, completeGoogleSignIn } from '../utils/googleAuth';
@@ -7,15 +7,19 @@ import './Login.css';
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [error, setError] = useState(null);
 
   const handleCodeResponse = useCallback(async (response) => {
     try {
+      setError(null);
       const userData = await completeGoogleSignIn(response);
       login(userData);
       navigate('/dashboard');
-    } catch (error) {
-      console.error('Sign-in error:', error);
-      alert('Failed to log in. Please try again.');
+    } catch (err) {
+      console.error('Sign-in error:', err);
+      // Mirrors SignInModal: a native alert() was the only styled-app surface
+      // that dropped to OS chrome. Server errors carry a useful message.
+      setError(err.message || 'Sign-in failed — please try again.');
     }
   }, [login, navigate]);
 
@@ -49,6 +53,8 @@ const Login = () => {
             Sign in with Google
           </button>
         </div>
+
+        {error && <p className="login-error">{error}</p>}
 
         <div className="login-footer">
           <p>This app will access your:</p>

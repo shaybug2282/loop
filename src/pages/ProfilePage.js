@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, Save, Loader, Home, Sparkles, X, Copy, Moon, Plus, Palette, Bell, Shield, Camera, RefreshCw } from 'lucide-react';
+import { Save, Loader, Sparkles, X, Copy, Moon, Plus, Palette, Bell, Shield, Camera, RefreshCw } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import PageHeader from '../components/PageHeader';
 import { useAuth } from '../contexts/AuthContext';
 import { getPrefs, setPrefs as savePrefs, applyPrefsFromServer, ACCENTS } from '../utils/prefs';
 import { resizeImage } from '../utils/image';
@@ -291,13 +291,7 @@ const ProfilePage = () => {
     <div className="profile-page">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="profile-header">
-        <Link to="/dashboard" className="home-btn" title="Dashboard"><Home size={18} /></Link>
-        <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
-          <Menu size={24} />
-        </button>
-        <h1>Profile</h1>
-      </div>
+      <PageHeader title="Profile" onMenu={() => setSidebarOpen(true)} />
 
       {loading ? (
         <div className="profile-loading"><Loader size={20} className="spinner" /> Loading…</div>

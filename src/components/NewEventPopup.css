@@ -3,7 +3,7 @@
 .ne-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--scrim);
   z-index: 1100;
   display: flex;
   align-items: center;
@@ -60,10 +60,12 @@
 
 .ne-close {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: none;
   color: var(--text-faint);
-  font-size: 13px;
   cursor: pointer;
   padding: 2px 4px;
   transition: color 0.12s;
@@ -154,7 +156,7 @@
 .ne-tick {
   margin-left: auto;
   color: var(--accent);
-  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .ne-next {
@@ -325,7 +327,7 @@
   padding: 10px 0 4px;
 }
 
-.ne-done-icon { font-size: 30px; }
+.ne-done-icon { display: flex; justify-content: center; color: var(--accent); }
 
 .ne-done-head {
   margin: 0;

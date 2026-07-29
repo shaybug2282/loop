@@ -3,6 +3,7 @@ import { ListTodo, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import {
   fetchGoogleTasks, createGoogleTask, updateGoogleTask, deleteGoogleTask,
 } from '../utils/googleCalendar';
+import { Panel, PanelHeader } from './Panel';
 import './TasksWidget.css';
 
 // TasksWidget — dashboard panel for the user's Google Tasks (the OAuth scope
@@ -97,92 +98,93 @@ export default function TasksWidget() {
   const done = tasks.filter(t => t.completed);
 
   return (
-    <div className="tw-panel">
-      <div className="tw-header">
-        <h3 className="tw-title"><ListTodo size={15} /> Tasks</h3>
-        <button className="tw-icon-btn" onClick={load} title="Refresh">
+    <Panel className="tw-panel">
+      <PanelHeader icon={ListTodo} title="Tasks">
+        <button className="panel-icon-btn" onClick={load} title="Refresh">
           <RefreshCw size={14} />
         </button>
+      </PanelHeader>
+
+      <div className="tw-body">
+        <div className="tw-add-row">
+          <input
+            className="tw-input"
+            type="text"
+            placeholder="Add a task…"
+            value={newText}
+            maxLength={200}
+            onChange={e => setNewText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && add()}
+            disabled={adding}
+          />
+          <button className="tw-add-btn" onClick={add} disabled={adding || !newText.trim()} title="Add task">
+            <Plus size={15} />
+          </button>
+        </div>
+
+        {error && <p className="tw-error">{error}</p>}
+
+        {loading ? (
+          <p className="tw-hint">Loading…</p>
+        ) : open.length === 0 && done.length === 0 ? (
+          <p className="tw-hint">No tasks yet — anything you add syncs with Google Tasks.</p>
+        ) : (
+          <>
+            <ul className="tw-list">
+              {open.map(t => {
+                const due = dueLabel(t.due);
+                return (
+                  <li key={t.id} className="tw-item">
+                    <input
+                      type="checkbox"
+                      className="tw-check"
+                      checked={false}
+                      disabled={busyIds.has(t.id)}
+                      onChange={() => toggle(t)}
+                      title="Mark done"
+                    />
+                    <span className="tw-text">{t.text}</span>
+                    {due && <span className={`tw-due ${due.cls}`}>{due.text}</span>}
+                    <button className="tw-del" title="Delete task" disabled={busyIds.has(t.id)}
+                      onClick={() => remove(t)}>
+                      <Trash2 size={12} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {done.length > 0 && (
+              <>
+                <button className="tw-done-toggle" onClick={() => setShowDone(v => !v)}>
+                  {showDone ? 'Hide' : 'Show'} completed ({done.length})
+                </button>
+                {showDone && (
+                  <ul className="tw-list tw-list-done">
+                    {done.map(t => (
+                      <li key={t.id} className="tw-item done">
+                        <input
+                          type="checkbox"
+                          className="tw-check"
+                          checked
+                          disabled={busyIds.has(t.id)}
+                          onChange={() => toggle(t)}
+                          title="Mark not done"
+                        />
+                        <span className="tw-text">{t.text}</span>
+                        <button className="tw-del" title="Delete task" disabled={busyIds.has(t.id)}
+                          onClick={() => remove(t)}>
+                          <Trash2 size={12} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
-
-      <div className="tw-add-row">
-        <input
-          className="tw-input"
-          type="text"
-          placeholder="Add a task…"
-          value={newText}
-          maxLength={200}
-          onChange={e => setNewText(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && add()}
-          disabled={adding}
-        />
-        <button className="tw-add-btn" onClick={add} disabled={adding || !newText.trim()} title="Add task">
-          <Plus size={15} />
-        </button>
-      </div>
-
-      {error && <p className="tw-error">{error}</p>}
-
-      {loading ? (
-        <p className="tw-hint">Loading…</p>
-      ) : open.length === 0 && done.length === 0 ? (
-        <p className="tw-hint">No tasks yet — anything you add syncs with Google Tasks.</p>
-      ) : (
-        <>
-          <ul className="tw-list">
-            {open.map(t => {
-              const due = dueLabel(t.due);
-              return (
-                <li key={t.id} className="tw-item">
-                  <input
-                    type="checkbox"
-                    className="tw-check"
-                    checked={false}
-                    disabled={busyIds.has(t.id)}
-                    onChange={() => toggle(t)}
-                    title="Mark done"
-                  />
-                  <span className="tw-text">{t.text}</span>
-                  {due && <span className={`tw-due ${due.cls}`}>{due.text}</span>}
-                  <button className="tw-del" title="Delete task" disabled={busyIds.has(t.id)}
-                    onClick={() => remove(t)}>
-                    <Trash2 size={12} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          {done.length > 0 && (
-            <>
-              <button className="tw-done-toggle" onClick={() => setShowDone(v => !v)}>
-                {showDone ? 'Hide' : 'Show'} completed ({done.length})
-              </button>
-              {showDone && (
-                <ul className="tw-list tw-list-done">
-                  {done.map(t => (
-                    <li key={t.id} className="tw-item done">
-                      <input
-                        type="checkbox"
-                        className="tw-check"
-                        checked
-                        disabled={busyIds.has(t.id)}
-                        onChange={() => toggle(t)}
-                        title="Mark not done"
-                      />
-                      <span className="tw-text">{t.text}</span>
-                      <button className="tw-del" title="Delete task" disabled={busyIds.has(t.id)}
-                        onClick={() => remove(t)}>
-                        <Trash2 size={12} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-        </>
-      )}
-    </div>
+    </Panel>
   );
 }

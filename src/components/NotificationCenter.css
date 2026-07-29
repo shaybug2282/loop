@@ -60,7 +60,7 @@
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -89,13 +89,14 @@
 }
 
 .nc-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--text-faint);
-  font-size: 13px;
   cursor: pointer;
   padding: 2px 4px;
-  line-height: 1;
   transition: color 0.12s;
 }
 
@@ -162,7 +163,7 @@
   width: 17px;
   height: 17px;
   border: none;
-  background: rgba(0, 0, 0, 0.12);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
   border-radius: 50%;
   color: var(--on-accent);
   cursor: pointer;
@@ -177,7 +178,7 @@
 }
 
 .nc-item:hover .nc-item-x { opacity: 1; }
-.nc-item-x:hover { background: rgba(0, 0, 0, 0.28); }
+.nc-item-x:hover { background: color-mix(in srgb, var(--text) 28%, transparent); }
 
 .nc-item-title {
   font-size: 13px;

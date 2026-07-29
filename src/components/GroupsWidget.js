@@ -4,6 +4,7 @@ import { useGroupChat } from '../contexts/GroupChatContext';
 import { useMessages } from '../contexts/MessagesContext';
 import { resizeImage } from '../utils/image';
 import SchedulingAssistant from './SchedulingAssistant';
+import { Panel, PanelHeader } from './Panel';
 import './GroupsWidget.css';
 
 const PRESET_COLORS = ['#E8607A','#6366F1','#10B981','#F59E0B','#3B82F6','#EC4899','#14B8A6','#8B5CF6'];
@@ -303,14 +304,16 @@ export default function GroupsWidget() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="gw-panel">
-      {/* Header */}
-      <div className="gw-header">
-        <h3 className="gw-title"><Users size={15} /> Groups</h3>
-        <button className="gw-create-btn" onClick={() => setShowCreate(v => !v)} title="Create group">
+    <Panel className="gw-panel">
+      <PanelHeader icon={Users} title="Groups">
+        <button
+          className="panel-icon-btn panel-icon-btn-solid"
+          onClick={() => setShowCreate(v => !v)}
+          title="Create group"
+        >
           <Plus size={16} />
         </button>
-      </div>
+      </PanelHeader>
 
       {/* Create form */}
       {showCreate && (
@@ -580,6 +583,6 @@ export default function GroupsWidget() {
           </div>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

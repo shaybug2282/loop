@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { ChevronLeft, ArrowRight, Sparkles, X, Check, CalendarCheck } from 'lucide-react';
 import SchedulingAssistant from './SchedulingAssistant';
 import './NewEventPopup.css';
 
@@ -104,7 +104,7 @@ export default function NewEventPopup({ onClose, onCreated, initialDate = null }
                       ? <img src={f.picture_url} alt="" className="ne-av" />
                       : <div className="ne-av ne-av-ph">{(f.display_name || f.name)?.[0]}</div>}
                     <span className="ne-fname">{f.display_name || f.name}</span>
-                    {on && <span className="ne-tick">✓</span>}
+                    {on && <Check size={14} className="ne-tick" />}
                   </li>
                 );
               })}
@@ -173,7 +173,7 @@ export default function NewEventPopup({ onClose, onCreated, initialDate = null }
 
       case 'done': return (
         <div className="ne-done">
-          <div className="ne-done-icon">🗓</div>
+          <div className="ne-done-icon"><CalendarCheck size={30} strokeWidth={1.6} /></div>
           <p className="ne-done-head">Event pending.</p>
           <p className="ne-hint">Invites are out — it lands in "In the Works" until everyone accepts.</p>
           <button className="ne-primary" onClick={onClose}>Done</button>
@@ -194,7 +194,7 @@ export default function NewEventPopup({ onClose, onCreated, initialDate = null }
             </button>
           )}
           <span className="ne-title">New event</span>
-          <button className="ne-close" onClick={onClose} title="Close">✕</button>
+          <button className="ne-close" onClick={onClose} title="Close"><X size={14} /></button>
         </div>
         <div className="ne-body">
           {error && <p className="ne-error">{error}</p>}

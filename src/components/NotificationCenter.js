@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDuration } from '../utils/format';
@@ -296,7 +296,7 @@ const NotificationCenter = () => {
         <div className="nc-panel">
           <div className="nc-panel-head">
             <span className="nc-panel-title">Notifications</span>
-            <button className="nc-x" onClick={() => setIsOpen(false)}>✕</button>
+            <button className="nc-x" onClick={() => setIsOpen(false)} title="Close"><X size={14} /></button>
           </div>
 
           <div className="nc-scroll">
@@ -341,7 +341,7 @@ const NotificationCenter = () => {
                         </div>
                       </div>
                       <button className="nc-item-x" title="Delete notification"
-                        onClick={() => dismiss(item.id)}>✕</button>
+                        onClick={() => dismiss(item.id)}><X size={11} /></button>
                     </div>
                   );
                 }
@@ -361,7 +361,7 @@ const NotificationCenter = () => {
                         </div>
                       </div>
                       <button className="nc-item-x" title="Delete notification"
-                        onClick={() => dismiss(item.id)}>✕</button>
+                        onClick={() => dismiss(item.id)}><X size={11} /></button>
                     </div>
                   );
                 }
@@ -382,7 +382,7 @@ const NotificationCenter = () => {
                       <p className="nc-item-sub">{info.sub}</p>
                     </div>
                     <button className="nc-item-x" title="Delete notification"
-                      onClick={() => dismiss(item.id)}>✕</button>
+                      onClick={() => dismiss(item.id)}><X size={11} /></button>
                   </div>
                 );
               })

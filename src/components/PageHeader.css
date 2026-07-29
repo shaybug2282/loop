@@ -1,0 +1,63 @@
+/* The single app-page header. See PageHeader.js for what it replaced. */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* Right padding clears the globally-fixed notification bell (40px wide at
+     right: 20px, NotificationCenter.css) — without it, header actions such as
+     Friends' "Add Friend" render underneath it. */
+  padding: var(--space-3) 72px var(--space-3) var(--space-5);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  margin-bottom: var(--space-5);
+}
+
+.page-header-title {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Home link and drawer trigger share one treatment — they sit side by side. */
+.page-header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: var(--space-2);
+  border: none;
+  background: none;
+  border-radius: var(--r-sm);
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.page-header-btn:hover { background: var(--surface-tint); }
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    padding: var(--space-3) 64px var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  .page-header-title { font-size: var(--fs-xl); }
+}

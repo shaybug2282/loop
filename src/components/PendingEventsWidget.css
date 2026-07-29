@@ -1,69 +1,12 @@
 /* ── In the Works (pending events) widget ── */
 
+/* Card and header come from Panel.css; the "New event" and "Dismissed" buttons
+   are now the shared .panel-pill-btn. Only the minimum height and the clip are
+   specific here — the tile grid must not spill past the rounded corners. */
 .pe-widget {
-  background: var(--card);
-  border-radius: var(--r-md);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
   min-height: 260px;
   overflow: hidden;
 }
-
-.pe-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 13px 16px 11px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  color: var(--accent);
-}
-
-.pe-header h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-/* "New event" — opens the creation popup (friends → time → invites out). */
-.pe-new-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  border: 1px solid var(--accent);
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: background 0.14s;
-}
-
-.pe-new-btn:hover { background: var(--accent-hover); }
-
-/* "Dismissed" toggle — flips the body to the restorable hidden-events list. */
-.pe-dismissed-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  background: var(--card);
-  color: var(--accent);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: background 0.14s, border-color 0.14s;
-}
-
-.pe-dismissed-btn:hover,
-.pe-dismissed-btn.active { background: var(--surface-tint); border-color: var(--accent); }
 
 .pe-body {
   flex: 1;
@@ -110,7 +53,8 @@
   transition: background 0.14s, border-color 0.14s;
 }
 
-/* Delete/dismiss ✕ — appears on tile hover, top-right corner. */
+/* Dismiss button — appears on tile hover, top-right corner. Tinted from
+   --text so it stays visible on dark cards, where flat black vanished. */
 .pe-tile-x {
   position: absolute;
   top: 6px;
@@ -118,7 +62,7 @@
   width: 18px;
   height: 18px;
   border: none;
-  background: rgba(0, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--text) 18%, transparent);
   border-radius: 50%;
   color: var(--on-accent);
   cursor: pointer;
@@ -133,7 +77,7 @@
 }
 
 .pe-tile-wrap:hover .pe-tile-x { opacity: 1; }
-.pe-tile-x:hover { background: rgba(0, 0, 0, 0.38); }
+.pe-tile-x:hover { background: color-mix(in srgb, var(--text) 38%, transparent); }
 
 .pe-tile:hover {
   background: var(--surface-tint);

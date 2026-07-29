@@ -1,38 +1,11 @@
-.tw-panel {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 16px;
+/* Card and header come from Panel.css. Tasks' body is inset and its children
+   are evenly spaced, so the padding lives on the body rather than the card. */
+.tw-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
+  padding: var(--space-4);
 }
-
-.tw-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.tw-title {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-  margin: 0;
-}
-
-.tw-icon-btn {
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: var(--r-xs);
-}
-.tw-icon-btn:hover { background: var(--surface-tint); color: var(--accent); }
 
 .tw-add-row {
   display: flex;

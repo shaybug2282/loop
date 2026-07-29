@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
-  Menu, UserPlus, Check, X, Copy, Clock, Tag, MessageSquare, UserMinus, Home,
-  Users, Inbox, Search, Star, BellOff, Ban, Calendar, Sparkles, Moon,
+  UserPlus, Check, X, Copy, Clock, Tag, MessageSquare, UserMinus,
+  Users, Inbox, Search, Star, BellOff, Ban, Calendar, Sparkles, Moon, ChevronRight,
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import PageHeader from '../components/PageHeader';
 import GroupsWidget from '../components/GroupsWidget';
 import SchedulingAssistant from '../components/SchedulingAssistant';
 import EventPopup from '../components/EventPopup';
@@ -531,17 +532,12 @@ const FriendsPage = () => {
         </div>
       )}
 
-      <div className="friends-header">
-        <Link to="/dashboard" className="home-btn" title="Dashboard"><Home size={18} /></Link>
-        <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
-          <Menu size={24} />
-        </button>
-        <h1>Friends</h1>
+      <PageHeader title="Friends" onMenu={() => setSidebarOpen(true)}>
         <button className="add-friend-btn header-add" onClick={() => setTab('requests')}>
           <UserPlus size={16} />
           Add Friend
         </button>
-      </div>
+      </PageHeader>
 
       {/* ── Tabs ── */}
       <div className="friends-tabs">
@@ -624,7 +620,7 @@ const FriendsPage = () => {
                           <Calendar size={15} />
                         </button>
                       </div>
-                      <span className="friend-chevron">›</span>
+                      <ChevronRight size={16} className="friend-chevron" />
                     </li>
                   ))}
                 </ul>

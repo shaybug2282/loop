@@ -3,7 +3,7 @@
 .ais-wrap {
   background: var(--card);
   border-radius: var(--r-md);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   margin-top: 24px;
   display: flex;
   flex-direction: column;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Menu } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import PageHeader from '../components/PageHeader';
 import CalendarComponent from '../components/CalendarComponent';
 import TasksWidget from '../components/TasksWidget';
 import PendingEventsWidget from '../components/PendingEventsWidget';
@@ -35,7 +35,7 @@ const Dashboard = () => {
   if (!isAuthenticated) {
     return (
       <div className="dashboard dashboard-guest">
-        <div className="dashboard-header">
+        <div className="dash-guest-header">
           <h1 className="dash-brand">Loop</h1>
           <button className="dash-signin-btn" onClick={() => setShowSignIn(true)}>
             Sign in
@@ -76,12 +76,7 @@ const Dashboard = () => {
     <div className="dashboard">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="dashboard-header">
-        <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
-          <Menu size={24} />
-        </button>
-        <h1>Dashboard</h1>
-      </div>
+      <PageHeader title="Dashboard" onMenu={() => setSidebarOpen(true)} home={false} />
 
       <div className="dashboard-grid">
         <div className="dashboard-item dashboard-col-stack">

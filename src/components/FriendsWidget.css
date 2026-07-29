@@ -1,47 +1,16 @@
+/* Card and header come from Panel.css; only the bounded height is specific to
+   Friends — the list scrolls internally rather than stretching the column. */
 .friends-widget {
-  background: var(--card);
-  border-radius: var(--r-md);
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  /* Bounded height: the friend list scrolls internally rather than expanding. */
   min-height: 400px;
   max-height: calc(100vh - 140px);
+}
+
+.fw-body {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.fw-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid var(--border);
-}
-
-.fw-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.fw-title svg { color: var(--accent); }
-
-.fw-title h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.fw-badge {
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 0.68rem;
-  font-weight: 700;
-  border-radius: var(--r-sm);
-  padding: 1px 7px;
-  line-height: 1.6;
+  padding: var(--space-4);
 }
 
 .fw-view-all {

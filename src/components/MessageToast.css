@@ -65,13 +65,14 @@
 }
 
 .mt-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--text-faint);
-  font-size: 13px;
   cursor: pointer;
   padding: 2px 4px;
-  line-height: 1;
   flex-shrink: 0;
   transition: color 0.12s;
 }

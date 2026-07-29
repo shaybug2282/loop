@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Hourglass, Clock, Archive, Plus } from 'lucide-react';
+import { Hourglass, Clock, Archive, Plus, X } from 'lucide-react';
 import EventPopup from './EventPopup';
 import NewEventPopup from './NewEventPopup';
 import { formatEventTime as formatTime } from '../utils/format';
+import { Panel, PanelHeader } from './Panel';
 import './PendingEventsWidget.css';
 
 const MAX_TILES = 6;
@@ -81,29 +82,31 @@ export default function PendingEventsWidget() {
     : e.creator?.display_name || e.creator?.name || '';
 
   return (
-    <div className="pe-widget">
-      <div className="pe-header">
-        <Hourglass size={16} />
-        <h2>In the Works</h2>
-        <button className="pe-new-btn" onClick={() => setShowNew(true)} title="Schedule a new event">
+    <Panel className="pe-widget">
+      <PanelHeader icon={Hourglass} title="In the Works">
+        <button
+          className="panel-pill-btn panel-pill-btn-solid"
+          onClick={() => setShowNew(true)}
+          title="Schedule a new event"
+        >
           <Plus size={12} /> New event
         </button>
         <button
-          className={`pe-dismissed-btn${showDismissed ? ' active' : ''}`}
+          className={`panel-pill-btn${showDismissed ? ' panel-pill-btn-solid' : ''}`}
           onClick={() => setShowDismissed(v => !v)}
           title={showDismissed ? 'Back to pending events' : 'View dismissed events'}
         >
           <Archive size={12} />
           {showDismissed ? 'Back' : `Dismissed${dismissedEvents.length ? ` (${dismissedEvents.length})` : ''}`}
         </button>
-      </div>
+      </PanelHeader>
 
       <div className="pe-body">
         {showDismissed ? (
           dismissedEvents.length === 0 ? (
             <p className="pe-hint">
               Nothing dismissed.<br />
-              Tiles you hide with ✕ land here — unfinished ones are removed after two weeks.
+              Tiles you dismiss land here — unfinished ones are removed after two weeks.
             </p>
           ) : (
             <ul className="pe-dm-list">
@@ -154,7 +157,7 @@ export default function PendingEventsWidget() {
                     className="pe-tile-x"
                     title="Dismiss"
                     onClick={ev => { ev.stopPropagation(); dismiss(e.id); }}
-                  >✕</button>
+                  ><X size={11} /></button>
                 </div>
               );
             })}
@@ -179,6 +182,6 @@ export default function PendingEventsWidget() {
       {showNew && (
         <NewEventPopup onClose={() => setShowNew(false)} onCreated={load} />
       )}
-    </div>
+    </Panel>
   );
 }

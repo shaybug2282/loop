@@ -1,45 +1,12 @@
-/* ── Widget panel ────────────────────────────────────────────────────────────── */
+/* ── Widget panel ──────────────────────────────────────────────────────────────
+   The card and header come from Panel.css. Only what's genuinely specific to
+   Groups stays here: the panel must not clip (the edit/schedule affordances
+   sit at its edges) and its rows are edge-to-edge, so there is no body inset. */
 
 .gw-panel {
-  background: var(--card);
-  border-radius: var(--r-md);
   overflow: visible;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
   position: relative;
 }
-
-.gw-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 13px 16px 11px;
-  border-bottom: 1px solid var(--surface);
-}
-
-.gw-title {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: var(--fs-base);
-  font-weight: 600;
-  color: var(--text);
-  margin: 0;
-}
-
-.gw-create-btn {
-  background: var(--accent);
-  border: none;
-  border-radius: var(--r-sm);
-  color: var(--on-accent);
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.14s;
-}
-.gw-create-btn:hover { background: var(--accent-hover); }
 
 .gw-empty {
   padding: 28px 16px;
@@ -435,7 +402,7 @@
 .gw-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.3);
+  background: var(--scrim);
   z-index: 1000;
   display: flex;
   align-items: center;

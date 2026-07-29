@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, RefreshCw, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import { fetchCalendarEvents } from '../utils/googleCalendar';
 import EventPopup from './EventPopup';
 import NewEventPopup from './NewEventPopup';
@@ -356,7 +356,7 @@ const WeekView = () => {
                         <div className="event-title">{item.title}</div>
                         {item.group && <GroupTag group={item.group} />}
                         {item.location && (
-                          <div className="event-location">📍 {item.location}</div>
+                          <div className="event-location"><MapPin size={11} /> {item.location}</div>
                         )}
                         {(item.pending || item.confirmed || item.rainchecked) && (
                           <div className={`event-badge ${item.rainchecked ? 'rainchecked' : item.pending ? 'pending' : 'confirmed'}`}>

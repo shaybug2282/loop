@@ -1,62 +1,17 @@
+/* Card and header come from Panel.css. Bounded height is specific here: the
+   widget fills its column but never grows past the viewport — the event list
+   scrolls internally instead. */
 .calendar-component {
-  background: var(--card);
-  border-radius: var(--r-md);
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  /* Bounded height: fills a comfortable column but never expands past the
-     viewport — the event list scrolls internally instead of growing the widget. */
   min-height: 400px;
   max-height: calc(100vh - 140px);
+}
+
+.cc-body {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.component-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid var(--border);
-}
-
-.component-header h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text);
-  flex: 1;
-}
-
-.component-header svg {
-  color: var(--accent);
-}
-
-/* Clickable header → opens the full calendar page. */
-.component-header-link {
-  cursor: pointer;
-  border-radius: var(--r-sm);
-  transition: background 0.15s;
-}
-
-.component-header-link:hover {
-  background: var(--surface-alt);
-}
-
-.refresh-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 6px;
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  border-radius: var(--r-xs);
-  transition: all 0.2s;
-}
-
-.refresh-btn:hover {
-  background: var(--border);
+  padding: var(--space-4);
 }
 
 .today-date {

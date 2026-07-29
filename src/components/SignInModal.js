@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { initGisClient, completeGoogleSignIn } from '../utils/googleAuth';
 import './SignInModal.css';
@@ -34,7 +35,7 @@ const SignInModal = ({ onClose }) => {
   return (
     <div className="sim-backdrop" onClick={onClose}>
       <div className="sim-card" onClick={e => e.stopPropagation()}>
-        <button className="sim-close" onClick={onClose} title="Dismiss">✕</button>
+        <button className="sim-close" onClick={onClose} title="Dismiss"><X size={16} /></button>
         <h2 className="sim-title">Welcome to Loop</h2>
         <p className="sim-sub">Sign in to sync your calendar and schedule events with others.</p>
         <button id="sim-google-btn" className="sim-google-btn">

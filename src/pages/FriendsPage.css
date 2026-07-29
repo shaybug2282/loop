@@ -4,41 +4,7 @@
   padding-bottom: 2rem;
 }
 
-.friends-header {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 1.25rem 1.5rem;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.friends-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  margin: 0;
-  color: var(--accent);
-}
-
-.menu-btn {
-  background: var(--card);
-  border: none;
-  padding: 10px;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  color: var(--text-soft);
-  display: flex;
-  align-items: center;
-  transition: box-shadow 0.2s;
-}
-
-.menu-btn:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
+/* Page chrome comes from PageHeader.css. */
 
 .friends-loading,
 .friends-error {
@@ -272,7 +238,6 @@
 
 .friend-chevron {
   color: var(--border);
-  font-size: 1.2rem;
   flex-shrink: 0;
 }
 
@@ -331,7 +296,7 @@
 .popup-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -345,7 +310,7 @@
 .popup-card {
   background: var(--card);
   border-radius: var(--r-lg);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  box-shadow: var(--shadow-xl);
   width: 100%;
   max-width: 340px;
   padding: 1.5rem;
@@ -638,7 +603,7 @@
   font-weight: 600;
   border-radius: var(--r-xs);
   padding: 1px 6px;
-  color: rgba(0,0,0,0.6);
+  color: var(--text-soft);
 }
 
 /* ── Popup: upcoming together ── */

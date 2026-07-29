@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X } from 'lucide-react';
 import { useMessages } from '../contexts/MessagesContext';
 import { useAuth } from '../contexts/AuthContext';
 import { countUnread, getMutedSet } from '../utils/unread';
@@ -110,7 +111,7 @@ const MessageToast = () => {
         className="mt-close"
         title="Dismiss"
         onClick={e => { e.stopPropagation(); setToast(null); }}
-      >✕</button>
+      ><X size={14} /></button>
     </div>
   );
 };
