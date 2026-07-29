@@ -2,7 +2,7 @@
 
 .ais-wrap {
   background: var(--card);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-top: 24px;
   display: flex;
@@ -71,7 +71,7 @@
 }
 
 .ais-body::-webkit-scrollbar { width: 4px; }
-.ais-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.ais-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--r-xs); }
 
 .ais-hint {
   text-align: center;
@@ -93,8 +93,8 @@
 
 .ais-bubble {
   padding: 9px 13px;
-  border-radius: 16px;
-  font-size: 13.5px;
+  border-radius: var(--r-lg);
+  font-size: var(--fs-base);
   line-height: 1.5;
   word-break: break-word;
   display: flex;
@@ -104,7 +104,7 @@
 
 .ais-bubble.user {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-bottom-right-radius: 4px;
 }
 
@@ -115,8 +115,8 @@
 }
 
 .ais-bubble.error {
-  background: #fee2e2;
-  color: #C0392B;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
   flex-direction: row;
   align-items: flex-start;
   gap: 6px;
@@ -143,7 +143,7 @@
   gap: 8px;
   padding: 8px 11px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   background: var(--card);
   cursor: pointer;
   text-align: left;
@@ -157,15 +157,15 @@
 }
 
 .ais-plan-card.booked {
-  background: #f0fdf4;
-  border-color: #86efac;
+  background: var(--status-ok-bg);
+  border-color: var(--status-ok-text);
   cursor: default;
-  color: #15803d;
+  color: var(--status-ok-text);
 }
 
 .ais-plan-card.errored {
-  border-color: #fca5a5;
-  background: #fff5f5;
+  border-color: var(--status-danger-text);
+  background: var(--status-danger-bg);
 }
 
 .ais-plan-card:disabled:not(.booked):not(.errored) { opacity: 0.5; }
@@ -177,7 +177,7 @@
   flex-shrink: 0;
 }
 
-.ais-plan-card.booked .ais-plan-icon { color: #16a34a; }
+.ais-plan-card.booked .ais-plan-icon { color: var(--status-ok-text); }
 
 .ais-plan-body {
   display: flex;
@@ -188,19 +188,19 @@
 }
 
 .ais-plan-title {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: inherit;
 }
 
 .ais-plan-time {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: inherit;
 }
 
 .ais-plan-loc {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--text-faint);
 }
 
@@ -210,16 +210,16 @@
   color: var(--text-faint);
 }
 
-.ais-plan-card.booked .ais-plan-time { color: #15803d; }
+.ais-plan-card.booked .ais-plan-time { color: var(--status-ok-text); }
 
 .ais-plan-status {
   font-size: 11px;
   font-weight: 600;
-  color: #16a34a;
+  color: var(--status-ok-text);
   flex-shrink: 0;
 }
 
-.ais-plan-status.err { color: #dc2626; }
+.ais-plan-status.err { color: var(--status-danger-text); }
 
 /* "Saved to your profile" pill under an assistant bubble */
 .ais-remember-pill {
@@ -229,7 +229,7 @@
   margin-top: 6px;
   padding: 4px 10px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface);
   font-size: 11px;
   color: var(--text-muted);
@@ -259,7 +259,7 @@
 }
 
 .ais-group-members {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 400;
   color: var(--text-faint);
   overflow: hidden;
@@ -281,7 +281,7 @@
   flex: 1;
   padding: 8px 13px;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--r-pill);
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
@@ -294,7 +294,7 @@
   height: 34px;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
   cursor: pointer;
   display: flex;
@@ -321,7 +321,7 @@
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   cursor: pointer;
   transition: background 0.14s, border-color 0.14s;
@@ -367,7 +367,7 @@
   font-weight: 700;
   color: var(--status-warn-text);
   background: var(--status-warn-bg);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 1px 7px;
   flex-shrink: 0;
 }
@@ -388,8 +388,8 @@
 }
 
 .ais-convo-x:hover {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
 }
 
 .ais-start-btn {
@@ -400,9 +400,9 @@
   width: 100%;
   padding: 9px 0;
   border: none;
-  border-radius: 20px;
+  border-radius: var(--r-pill);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

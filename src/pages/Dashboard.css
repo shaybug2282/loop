@@ -15,7 +15,7 @@
   background: var(--card);
   border: none;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.2s;
@@ -169,20 +169,20 @@
 
 .dash-hero-cta {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 14px 32px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 18px rgba(232, 96, 122, 0.32);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 32%, transparent);
   transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
 }
 
 .dash-hero-cta:hover {
   background: var(--accent-hover);
-  box-shadow: 0 6px 24px rgba(232, 96, 122, 0.4);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--accent) 40%, transparent);
   transform: translateY(-1px);
 }
 
@@ -207,7 +207,7 @@
 .dash-how-step {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 20px 18px;
 }
 
@@ -227,14 +227,14 @@
 
 .dash-how-step h3 {
   margin: 0 0 6px;
-  font-size: 14.5px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--text);
 }
 
 .dash-how-step p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
   color: var(--text-muted);
 }
@@ -249,9 +249,9 @@
 .dash-signin-btn {
   margin-left: auto;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 9px 20px;
   font-size: 14px;
   font-weight: 600;

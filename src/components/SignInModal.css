@@ -17,7 +17,7 @@
 .sim-card {
   position: relative;
   background: var(--card);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   padding: 36px 32px 32px;
   width: min(380px, calc(100vw - 48px));
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
@@ -44,7 +44,7 @@
   transition: color 0.12s;
 }
 
-.sim-close:hover { color: #4B5563; }
+.sim-close:hover { color: var(--text-soft); }
 
 .sim-title {
   font-size: 1.35rem;
@@ -54,7 +54,7 @@
 }
 
 .sim-sub {
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   color: var(--text-muted);
   margin: 0 0 28px;
   line-height: 1.5;
@@ -65,8 +65,8 @@
   align-items: center;
   gap: 10px;
   background: var(--card);
-  border: 1.5px solid #D1D5DB;
-  border-radius: 8px;
+  border: 1.5px solid var(--border-soft);
+  border-radius: var(--r-sm);
   padding: 11px 22px;
   font-size: 14px;
   font-weight: 500;
@@ -83,10 +83,10 @@
 
 .sim-error {
   margin: 14px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--status-danger-text);
   background: var(--status-danger-bg);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 8px 12px;
 }

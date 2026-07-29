@@ -37,11 +37,11 @@
   height: 17px;
   padding: 0 4px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 10px;
   font-weight: 700;
-  border-radius: 9px;
-  border: 2px solid #fff;
+  border-radius: var(--r-sm);
+  border: 2px solid var(--on-accent);
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -59,7 +59,7 @@
   max-height: 420px;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
   display: flex;
   flex-direction: column;
@@ -91,7 +91,7 @@
 .nc-x {
   background: none;
   border: none;
-  color: #C4B5C0;
+  color: var(--text-faint);
   font-size: 13px;
   cursor: pointer;
   padding: 2px 4px;
@@ -110,7 +110,7 @@
 }
 
 .nc-scroll::-webkit-scrollbar { width: 4px; }
-.nc-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.nc-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--r-xs); }
 
 .nc-empty {
   font-size: 13px;
@@ -146,7 +146,7 @@
 .nc-dot-yellow { background: #EAB308; }
 .nc-dot-red    { background: #EF4444; }
 .nc-dot-green  { background: #10B981; }
-.nc-dot-blue   { background: #7396C4; }
+.nc-dot-blue   { background: var(--status-info-text); }
 
 .nc-item-body { min-width: 0; flex: 1; }
 
@@ -164,7 +164,7 @@
   border: none;
   background: rgba(0, 0, 0, 0.12);
   border-radius: 50%;
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
   font-size: 9px;
   line-height: 1;
@@ -190,7 +190,7 @@
 }
 
 .nc-item-sub {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--text-faint);
   margin: 0;
 }
@@ -203,9 +203,9 @@
 
 .nc-btn-join {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 600;
@@ -217,7 +217,7 @@
 .nc-btn-decline {
   background: none;
   border: 1px solid var(--border-soft);
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   padding: 4px 12px;
   font-size: 12px;
   color: var(--text-muted);
@@ -228,6 +228,6 @@
 
 /* Quiet Time 24h reminder — pinned above the list, gently blue, no delete ✕ */
 .nc-quiet {
-  background: #F3F7FC;
-  border-bottom: 1px solid #DBEAFE;
+  background: var(--status-info-bg);
+  border-bottom: 1px solid var(--status-info-text);
 }

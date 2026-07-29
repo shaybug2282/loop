@@ -42,10 +42,23 @@
   --danger-hover:      #B02525;
   --danger-bg:         #FFF0EF;
 
+  /* Informational blue — the Rain Check flow (EventPopup) and the "host" chip.
+     A full ramp because it dresses a whole button, not just text. */
+  --info:              #3B82F6;
+  --info-hover:        #2563EB;
+  --info-strong:       #1D4ED8;  /* host chip text, legend dot */
+  --info-faint:        #93C5FD;  /* the (i) help icon */
+  --info-bg:           #EFF6FF;
+  --info-bg-strong:    #DBEAFE;  /* hover fill, host chip background */
+  --info-border:       #BFDBFE;
+
+  /* Favorite / starred */
+  --favorite:          #F59E0B;
+
   /* Accent at low opacity — active nav rows, tinted chips. Replaces the
      hardcoded rgba(232,96,122,…) leaks that ignore the user's accent choice. */
-  --accent-soft:       color-mix(in srgb, var(--accent) 10%, transparent);
-  --accent-softer:     color-mix(in srgb, var(--accent) 6%,  transparent);
+  --accent-soft:       color-mix(in srgb, var(--accent) 8%, transparent);
+  --accent-softer:     color-mix(in srgb, var(--accent) 5%, transparent);
 
   /* ── Scale tokens ──────────────────────────────────────────────────────────
      The app currently ships 13 radii, 22 font sizes and 5 ad-hoc shadows. These
@@ -131,6 +144,17 @@
   --danger:            #F08A82;
   --danger-hover:      #F5A9A3;
   --danger-bg:         #42201E;
+
+  /* Info blue, re-pitched for plum surfaces: light text, dark fills. */
+  --info:              #7FB0F5;
+  --info-hover:        #A3C8FA;
+  --info-strong:       #B4D2FB;
+  --info-faint:        #5B82B8;
+  --info-bg:           #16243A;
+  --info-bg-strong:    #1F3050;
+  --info-border:       #2E4A6E;
+
+  --favorite:          #F5C563;
 
   /* Shadows need more depth on dark surfaces to read at all. Radius, type and
      space tokens are theme-independent and inherit from :root. */

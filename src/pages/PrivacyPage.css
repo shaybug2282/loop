@@ -28,7 +28,7 @@
 /* The Termly-generated document hard-codes near-black text; keep it on a
    light card in dark mode instead of restyling 1200 lines of markup. */
 [data-theme="dark"] .privacy-doc {
-  background: #ffffff;
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: var(--r-md);
   padding: 20px;
 }

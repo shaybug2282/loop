@@ -1,6 +1,6 @@
 .week-view {
   background: var(--card);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -33,7 +33,7 @@
   background: var(--card);
   border: 1px solid var(--border);
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -53,10 +53,10 @@
 
 .today-btn {
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   border: none;
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -71,7 +71,7 @@
   background: var(--card);
   border: 1px solid var(--border);
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -92,7 +92,7 @@
 
 .day-column {
   min-height: 400px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--border);
   overflow: hidden;
   transition: all 0.2s;
@@ -100,7 +100,7 @@
 
 .day-column:hover {
   border-color: var(--accent);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .day-column.today {
@@ -110,7 +110,7 @@
 
 .day-header {
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   padding: 12px;
   text-align: center;
 }
@@ -139,7 +139,7 @@
 .no-events {
   text-align: center;
   padding: 20px;
-  color: #bbb;
+  color: var(--text-faint);
   font-size: 13px;
 }
 
@@ -149,7 +149,7 @@
   border-left: 3px solid var(--accent);
   padding: 10px;
   margin-bottom: 8px;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   transition: all 0.2s;
   cursor: pointer; /* opens the universal event popup */
 }
@@ -172,9 +172,9 @@
 }
 
 @keyframes wv-confirm-pop {
-  0%   { box-shadow: 0 0 0 2px rgba(232, 96, 122, 0.9); }
-  50%  { box-shadow: 0 0 0 5px rgba(232, 96, 122, 0.25); }
-  100% { box-shadow: 0 0 0 2px rgba(232, 96, 122, 0.9); }
+  0%   { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 90%, transparent); }
+  50%  { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 25%, transparent); }
+  100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 90%, transparent); }
 }
 
 /* Status badges (green = confirmed, yellow = pending, per notification colors) */
@@ -184,7 +184,7 @@
   font-weight: 600;
   margin-top: 5px;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -257,7 +257,7 @@
 }
 
 .error-state {
-  color: #d32f2f;
+  color: var(--danger);
 }
 
 .retry-btn {
@@ -266,9 +266,9 @@
   gap: 8px;
   padding: 10px 20px;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   cursor: pointer;
   font-size: 14px;
   transition: background 0.2s;
@@ -319,7 +319,7 @@
   margin-top: 3px;
   padding: 1px 7px;
   border: 1.5px solid currentColor;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--card);
   font-size: 10px;
   font-weight: 600;
@@ -347,7 +347,7 @@
 .view-toggle {
   display: inline-flex;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   overflow: hidden;
 }
 
@@ -362,7 +362,7 @@
 }
 .view-toggle-btn.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .no-events-add {
@@ -396,7 +396,7 @@
 .month-cell {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   min-height: 92px;
   padding: 6px;
   display: flex;
@@ -422,7 +422,7 @@
   font-weight: 600;
   color: var(--text-soft);
   background: var(--surface-alt);
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   padding: 2px 6px;
   cursor: pointer;
   white-space: nowrap;

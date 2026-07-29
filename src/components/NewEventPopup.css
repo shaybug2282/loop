@@ -15,7 +15,7 @@
   max-height: 80vh;
   overflow-y: auto;
   background: var(--card);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
@@ -88,16 +88,16 @@
 
 .ne-hint {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--text-faint);
 }
 
 .ne-error {
   margin: 0;
   padding: 8px 10px;
-  border-radius: 6px;
-  background: #fee2e2;
-  color: #C0392B;
+  border-radius: var(--r-xs);
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
   font-size: 12px;
 }
 
@@ -116,7 +116,7 @@
   align-items: center;
   gap: 9px;
   padding: 7px 8px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   transition: background 0.12s;
 }
@@ -137,7 +137,7 @@
   align-items: center;
   justify-content: center;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 12px;
   font-weight: 700;
 }
@@ -167,7 +167,7 @@
   border: none;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -188,7 +188,7 @@
   justify-content: center;
   gap: 6px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   color: var(--text-soft);
   font-size: 13px;
@@ -203,7 +203,7 @@
 .ne-choice.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .ne-choice.primary:hover { background: var(--accent-hover); }
@@ -217,14 +217,14 @@
 }
 
 .ne-label {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--text-muted);
 }
 
 .ne-input {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 7px 10px;
   font-size: 13px;
   color: var(--text);
@@ -237,9 +237,9 @@
 
 .ne-primary {
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 13px;
   font-weight: 600;
   padding: 9px 0;
@@ -265,9 +265,9 @@
   justify-content: center;
   width: 36px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -286,7 +286,7 @@
   align-items: center;
   gap: 9px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--text);
   font-size: 13px;
@@ -309,7 +309,7 @@
 }
 
 .ne-plan-loc {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   color: var(--text-muted);
 }

@@ -43,7 +43,7 @@
   cursor: pointer;
   padding: 8px;
   margin-bottom: 20px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   transition: background 0.2s;
 }
 
@@ -56,14 +56,14 @@
   align-items: center;
   gap: 15px;
   text-decoration: none;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 6px;
   margin: -6px;
   transition: background 0.15s;
 }
 
 .user-info:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--surface-hover);
 }
 
 .user-avatar {
@@ -109,7 +109,7 @@
 }
 
 .nav-item.active {
-  background: rgba(232, 96, 122, 0.08);
+  background: var(--accent-soft);
   color: var(--accent);
   border-left-color: var(--accent);
   font-weight: 600;
@@ -132,16 +132,16 @@
   padding: 15px 20px;
   background: none;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  color: #d32f2f;
+  border-radius: var(--r-sm);
+  color: var(--danger);
   font-size: 15px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .logout-btn:hover {
-  background: #FFF0EF;
-  border-color: #d32f2f;
+  background: var(--danger-bg);
+  border-color: var(--danger);
 }
 
 @media (max-width: 600px) {
@@ -164,12 +164,12 @@
 .nav-badge {
   margin-left: auto;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 11px;
   font-weight: 700;
   min-width: 18px;
   height: 18px;
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;

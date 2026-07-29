@@ -1,6 +1,6 @@
 .friends-widget {
   background: var(--card);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   /* Bounded height: the friend list scrolls internally rather than expanding. */
@@ -36,10 +36,10 @@
 
 .fw-badge {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.68rem;
   font-weight: 700;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 1px 7px;
   line-height: 1.6;
 }
@@ -78,9 +78,9 @@
 
 .fw-add-btn {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 8px 18px;
   font-size: 13px;
   font-weight: 500;
@@ -109,7 +109,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 8px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   transition: background 0.12s;
   background: var(--surface-alt);
@@ -127,7 +127,7 @@
 
 .fw-avatar.placeholder {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -172,7 +172,7 @@
   background: none;
   border: none;
   padding: 6px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   color: var(--text-faint);
   cursor: pointer;
   transition: color 0.15s, background 0.15s;

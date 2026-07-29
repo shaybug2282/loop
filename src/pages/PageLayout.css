@@ -25,7 +25,7 @@
   background: var(--card);
   border: none;
   padding: 10px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   color: var(--accent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: box-shadow 0.2s, transform 0.15s;
@@ -73,11 +73,11 @@
   gap: 6px;
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 13px;
   font-weight: 600;
   padding: 8px 14px;
-  border-radius: 18px;
+  border-radius: var(--r-pill);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -98,7 +98,7 @@
   width: min(480px, 94vw);
   height: min(620px, 88vh);
   background: var(--card);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   overflow: hidden;
   display: flex;
 }

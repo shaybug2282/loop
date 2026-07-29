@@ -9,7 +9,7 @@
 
 .login-card {
   background: var(--card);
-  border-radius: 20px;
+  border-radius: var(--r-lg);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   padding: 60px 50px;
   max-width: 450px;
@@ -59,8 +59,8 @@
   align-items: center;
   gap: 10px;
   background: var(--card);
-  border: 1.5px solid #D1D5DB;
-  border-radius: 8px;
+  border: 1.5px solid var(--border-soft);
+  border-radius: var(--r-sm);
   padding: 11px 22px;
   font-size: 14px;
   font-weight: 500;
@@ -107,7 +107,7 @@
   content: "✓";
   position: absolute;
   left: 0;
-  color: #059669;
+  color: var(--status-ok-text);
   font-weight: bold;
 }
 

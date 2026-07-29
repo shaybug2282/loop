@@ -1,24 +1,27 @@
 /* The global reset and body font stack live in index.css — they were duplicated
    here verbatim, which only created two places to drift. */
 
+/* Sits on the page surface rather than a full-bleed accent wash — this renders
+   between every protected-route navigation, and a saturated flash each time
+   read as unfinished. The accent now appears only on the spinner. */
 .loading-screen {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: var(--accent);
-  color: white;
+  background: var(--surface);
+  color: var(--text-muted);
 }
 
 .spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-4);
 }
 
 @keyframes spin {
@@ -28,7 +31,7 @@
 }
 
 .loading-screen p {
-  font-size: 18px;
+  font-size: var(--fs-md);
   margin: 0;
 }
 

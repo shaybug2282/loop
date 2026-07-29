@@ -27,7 +27,7 @@
   background: var(--card);
   border: none;
   padding: 10px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   color: var(--text-soft);
@@ -47,7 +47,7 @@
   color: var(--text-muted);
 }
 
-.friends-error { color: #C0392B; }
+.friends-error { color: var(--status-danger-text); }
 
 .friends-content {
   max-width: 640px;
@@ -61,7 +61,7 @@
 /* ── Section ── */
 .friends-section {
   background: var(--card);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   box-shadow: 0 1px 4px rgba(0,0,0,0.07);
   overflow: hidden;
 }
@@ -86,10 +86,10 @@
 
 .badge {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.7rem;
   font-weight: 600;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 1px 7px;
   line-height: 1.6;
 }
@@ -106,9 +106,9 @@
   align-items: center;
   gap: 6px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 6px 12px;
   font-size: 0.85rem;
   font-weight: 500;
@@ -134,7 +134,7 @@
   flex: 1;
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   font-size: 0.9rem;
   letter-spacing: 0.05em;
   font-family: monospace;
@@ -147,9 +147,9 @@
 .send-btn {
   padding: 8px 16px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
@@ -165,8 +165,8 @@
   font-size: 0.82rem;
 }
 
-.add-status.success { color: #16a34a; }
-.add-status.error   { color: #C0392B; }
+.add-status.success { color: var(--status-ok-text); }
+.add-status.error   { color: var(--status-danger-text); }
 
 /* ── Lists ── */
 .request-list,
@@ -251,11 +251,11 @@
   transition: background 0.15s;
 }
 
-.accept-btn { background: #dcfce7; color: #16a34a; }
-.accept-btn:hover { background: #bbf7d0; }
+.accept-btn { background: var(--status-ok-bg); color: var(--status-ok-text); }
+.accept-btn:hover { background: color-mix(in srgb, var(--status-ok-text) 25%, var(--status-ok-bg)); }
 
-.reject-btn { background: #fee2e2; color: #C0392B; }
-.reject-btn:hover { background: #fecaca; }
+.reject-btn { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.reject-btn:hover { background: color-mix(in srgb, var(--status-danger-text) 25%, var(--status-danger-bg)); }
 
 /* Sent / pending request row */
 .sent-request { opacity: 0.85; }
@@ -307,7 +307,7 @@
   gap: 4px;
   background: none;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   padding: 4px 10px;
   font-size: 0.78rem;
   color: var(--text-soft);
@@ -344,7 +344,7 @@
 
 .popup-card {
   background: var(--card);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);
   width: 100%;
   max-width: 340px;
@@ -367,7 +367,7 @@
   cursor: pointer;
   color: var(--text-faint);
   padding: 4px;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   display: flex;
 }
 
@@ -423,7 +423,7 @@
   align-items: center;
   gap: 5px;
   padding: 10px 6px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--border);
   background: var(--surface);
   font-size: 0.75rem;
@@ -436,11 +436,11 @@
 .popup-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }
 .popup-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.message-btn:hover:not(:disabled) { color: var(--accent); border-color: #c7d2fe; background: var(--surface-alt); }
+.message-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--info-border); background: var(--surface-alt); }
 
-.unfriend-btn { color: #C0392B; }
-.unfriend-btn:hover:not(:disabled) { background: #fee2e2; border-color: #fca5a5; }
-.unfriend-btn.confirm { background: #fee2e2; border-color: #f87171; }
+.unfriend-btn { color: var(--danger); }
+.unfriend-btn:hover:not(:disabled) { background: var(--danger-bg); border-color: var(--danger); }
+.unfriend-btn.confirm { background: var(--danger-bg); border-color: var(--danger); }
 
 /* ── Group Tags — shared groups on the contact card ── */
 .popup-groups {
@@ -466,7 +466,7 @@
 .popup-group-tag {
   border: 1.5px solid;
   background: var(--card);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 3px 11px;
   font-size: 0.76rem;
   font-weight: 600;
@@ -506,7 +506,7 @@
   font-size: 13px;
   font-weight: 600;
   padding: 8px 14px;
-  border-radius: 20px;
+  border-radius: var(--r-pill);
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
@@ -514,7 +514,7 @@
 .friends-tab.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .tab-count {
@@ -522,11 +522,11 @@
   font-weight: 700;
   background: var(--surface-alt);
   color: var(--text-soft);
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   padding: 1px 7px;
 }
-.friends-tab.active .tab-count { background: rgba(255,255,255,0.25); color: #fff; }
-.tab-count.badge { background: var(--accent); color: #fff; }
+.friends-tab.active .tab-count { background: rgba(255,255,255,0.25); color: var(--on-accent); }
+.tab-count.badge { background: var(--accent); color: var(--on-accent); }
 .friends-tab.active .tab-count.badge { background: rgba(255,255,255,0.25); }
 
 .header-add { margin-left: auto; }
@@ -538,7 +538,7 @@
   gap: 8px;
   border: 1px solid var(--border);
   background: var(--card);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 8px 12px;
   margin-bottom: 12px;
   color: var(--text-muted);
@@ -560,7 +560,7 @@
   padding: 16px 0;
 }
 
-.friend-fav { color: #f59e0b; margin-right: 4px; vertical-align: -2px; }
+.friend-fav { color: var(--favorite); margin-right: 4px; vertical-align: -2px; }
 
 .glint {
   display: inline-flex;
@@ -572,9 +572,9 @@
   margin-left: 8px;
   vertical-align: 1px;
 }
-.glint-free  { background: #16a34a; }
+.glint-free  { background: var(--status-ok-text); }
 .glint-busy  { background: var(--text-faint); }
-.glint-quiet { background: none; color: #7396c4; width: auto; height: auto; }
+.glint-quiet { background: none; color: var(--status-info-text); width: auto; height: auto; }
 
 .friend-quick {
   display: flex;
@@ -587,7 +587,7 @@
   background: none;
   color: var(--text-faint);
   padding: 6px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   transition: color 0.12s, background 0.12s;
 }
@@ -618,15 +618,15 @@
 .avail-day {
   flex: 1;
   height: 30px;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.avail-day-label { font-size: 10px; font-weight: 700; color: rgba(0,0,0,0.55); }
-.avail-free { background: #dcfce7; }
-.avail-some { background: #fef3c7; }
-.avail-busy { background: #fee2e2; }
+.avail-day-label { font-size: 10px; font-weight: 700; color: var(--text-soft); }
+.avail-free { background: var(--status-ok-bg); }
+.avail-some { background: var(--status-warn-bg); }
+.avail-busy { background: var(--status-danger-bg); }
 
 .popup-avail-legend {
   display: flex;
@@ -636,7 +636,7 @@
 .avail-key {
   font-size: 10px;
   font-weight: 600;
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   padding: 1px 6px;
   color: rgba(0,0,0,0.6);
 }
@@ -659,7 +659,7 @@
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--text-soft);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 7px 10px;
   font-size: 12px;
   cursor: pointer;
@@ -670,7 +670,7 @@
 .popup-together-when  { color: var(--text-muted); flex-shrink: 0; }
 
 /* ── Popup: per-friend settings ── */
-.popup-fav-star { color: #f59e0b; margin-left: 6px; }
+.popup-fav-star { color: var(--favorite); margin-left: 6px; }
 
 .popup-settings {
   display: flex;
@@ -689,7 +689,7 @@
   font-size: 12px;
   font-weight: 600;
   padding: 6px 10px;
-  border-radius: 14px;
+  border-radius: var(--r-pill);
   cursor: pointer;
 }
 .popup-setting.on {
