@@ -34,6 +34,70 @@
   --status-danger-text:#DC2626;
   --status-info-bg:    #DBE6F5;
   --status-info-text:  #5B82B8;
+
+  /* Destructive actions (logout, unfriend, block, delete). Distinct from the
+     --status-danger-* pair above: those tint a chip that reports state, these
+     color a control the user is about to press. */
+  --danger:            #D32F2F;
+  --danger-hover:      #B02525;
+  --danger-bg:         #FFF0EF;
+
+  /* Accent at low opacity — active nav rows, tinted chips. Replaces the
+     hardcoded rgba(232,96,122,…) leaks that ignore the user's accent choice. */
+  --accent-soft:       color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-softer:     color-mix(in srgb, var(--accent) 6%,  transparent);
+
+  /* ── Scale tokens ──────────────────────────────────────────────────────────
+     The app currently ships 13 radii, 22 font sizes and 5 ad-hoc shadows. These
+     are the target scale; components migrate onto them incrementally. Nothing
+     consumes them yet, so adding them changes no rendering. */
+
+  /* Radius */
+  --r-xs:    6px;   /* chips, small icon buttons */
+  --r-sm:    8px;   /* inputs, buttons */
+  --r-md:   12px;   /* cards, panels */
+  --r-lg:   16px;   /* modals */
+  --r-pill: 999px;
+
+  /* Type — --fs-sm is the app's dominant body size (55 current uses) */
+  --fs-2xs: 11px;   /* badges, counts */
+  --fs-xs:  12px;   /* captions, hints, meta */
+  --fs-sm:  13px;   /* body */
+  --fs-base:14px;   /* emphasized body, buttons */
+  --fs-md:  15px;   /* panel titles */
+  --fs-lg:  20px;   /* section headings */
+  --fs-xl:  28px;   /* brand wordmark */
+  --fs-2xl: 32px;   /* page h1 */
+
+  /* Space */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Elevation — md is the dominant existing card shadow, kept as-is so
+     migrating widgets onto it is a no-op in light mode. */
+  --shadow-sm: 0 1px 3px  rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 8px  rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.14);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.22);
+
+  /* One dim level for every modal backdrop (currently 0.3/0.38/0.4/0.5) */
+  --scrim: rgba(0, 0, 0, 0.4);
+
+  /* ── Stacking ladder ───────────────────────────────────────────────────────
+     Every fixed/sticky layer picks from this list rather than inventing a
+     number. Current values in the wild range from 10 to 1300 with collisions
+     (see UX_AUDIT.md §2.4). */
+  --z-sticky:        10;   /* sticky page headers */
+  --z-panel:        900;   /* docked panels: messages, notification popover */
+  --z-drawer:       990;   /* sidebar + its overlay */
+  --z-modal:       1000;   /* modal backdrops */
+  --z-modal-nested:1100;   /* a modal opened from a modal (EventPopup) */
+  --z-modal-deep:  1200;   /* third level (EventPopup's assistant) */
+  --z-toast:       1300;   /* transient toasts sit above everything */
 }
 
 [data-theme="dark"] {
@@ -61,6 +125,21 @@
   --status-danger-text:#F79A93;
   --status-info-bg:    #1C2B41;
   --status-info-text:  #93B7E4;
+
+  /* Destructive: the light #D32F2F is unreadable on plum, and #FFF0EF is a
+     near-white swatch inside a dark drawer. */
+  --danger:            #F08A82;
+  --danger-hover:      #F5A9A3;
+  --danger-bg:         #42201E;
+
+  /* Shadows need more depth on dark surfaces to read at all. Radius, type and
+     space tokens are theme-independent and inherit from :root. */
+  --shadow-sm: 0 1px 3px  rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 2px 8px  rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.50);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.60);
+
+  --scrim: rgba(0, 0, 0, 0.6);
 
   color-scheme: dark;
 }

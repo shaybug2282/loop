@@ -335,7 +335,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  /* Was 100, which lost to the globally-fixed notification bell and messages
+     panel (both 900) — they floated on top of the dimmed overlay. Matches
+     GroupsWidget's identical popup, which was already at 1000. */
+  z-index: var(--z-modal);
   padding: 1rem;
 }
 

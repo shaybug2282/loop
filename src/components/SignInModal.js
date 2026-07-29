@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { initGisClient, completeGoogleSignIn } from '../utils/googleAuth';
 import './SignInModal.css';
@@ -6,15 +6,20 @@ import './SignInModal.css';
 // Prompt shown to unauthenticated users — shares the GIS flow with Login.
 const SignInModal = ({ onClose }) => {
   const { login } = useAuth();
+  const [error, setError] = useState(null);
 
   const handleCodeResponse = useCallback(async (response) => {
     try {
+      setError(null);
       const userData = await completeGoogleSignIn(response);
       // isAuthenticated becomes true → Dashboard re-renders with full content;
       // no navigate needed.
       login(userData);
     } catch (err) {
       console.error('[SignInModal] sign-in error:', err);
+      // Server errors (e.g. misconfigured OAuth env) carry a useful message —
+      // show it instead of failing silently.
+      setError(err.message || 'Sign-in failed — please try again.');
     }
   }, [login]);
 
@@ -42,6 +47,7 @@ const SignInModal = ({ onClose }) => {
           </svg>
           Sign in with Google
         </button>
+        {error && <p className="sim-error">{error}</p>}
       </div>
     </div>
   );

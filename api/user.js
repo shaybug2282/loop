@@ -55,8 +55,12 @@ export default async function handler(req, res) {
   if (req.method === 'POST' && op === 'google-auth') {
     const { code, timezone } = req.body;
     if (!code) return res.status(400).json({ error: 'code required' });
-    if (!googleClientId() || !googleClientSecret())
-      return res.status(500).json({ error: 'Google OAuth is not configured (GOOGLE_CLIENT_SECRET missing)' });
+    const missing = [
+      !googleClientId()     && 'GOOGLE_CLIENT_ID (or REACT_APP_GOOGLE_CLIENT_ID)',
+      !googleClientSecret() && 'GOOGLE_CLIENT_SECRET',
+    ].filter(Boolean);
+    if (missing.length)
+      return res.status(500).json({ error: `Google OAuth is not configured — missing env: ${missing.join(', ')}` });
 
     // Exchange the one-time authorization code (from the GIS popup code
     // client) for tokens. redirect_uri 'postmessage' is the fixed value for
