@@ -1,5 +1,5 @@
 .dashboard {
-  min-height: 100vh;
+  flex: 1;
   background: var(--surface);
   padding-bottom: var(--space-5);
 }
@@ -46,6 +46,8 @@
   flex: 1;
   min-height: 260px;
 }
+
+.dashboard-col-stack .gw-panel { flex-shrink: 0; }
 
 /* Tablet: three columns get too cramped below ~1080px — drop to two, with
    Friends spanning the full width underneath at its own bounded height. */

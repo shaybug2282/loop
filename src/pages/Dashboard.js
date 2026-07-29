@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
+import AssistantComposer from '../components/AssistantComposer';
 import CalendarComponent from '../components/CalendarComponent';
 import TasksWidget from '../components/TasksWidget';
 import PendingEventsWidget from '../components/PendingEventsWidget';
@@ -76,16 +77,21 @@ const Dashboard = () => {
     <div className="dashboard">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <PageHeader title="Dashboard" onMenu={() => setSidebarOpen(true)} home={false} />
+      <PageHeader title="Dashboard" onMenu={() => setSidebarOpen(true)} />
+
+      {/* The assistant is the first thing on the page — it's what Loop is for. */}
+      <AssistantComposer />
 
       <div className="dashboard-grid">
         <div className="dashboard-item dashboard-col-stack">
           <CalendarComponent />
           <TasksWidget />
         </div>
+        {/* "In the Works" leads its column: it's the only time-sensitive
+            widget, holding invites that are waiting on a reply. */}
         <div className="dashboard-item dashboard-col-stack">
-          <GroupsWidget />
           <PendingEventsWidget />
+          <GroupsWidget />
         </div>
         <div className="dashboard-item">
           <FriendsWidget />

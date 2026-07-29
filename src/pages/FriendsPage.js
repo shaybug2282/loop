@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  UserPlus, Check, X, Copy, Clock, Tag, MessageSquare, UserMinus,
+  UserPlus, Check, X, Copy, Clock, MessageSquare, UserMinus,
   Users, Inbox, Search, Star, BellOff, Ban, Calendar, Sparkles, Moon, ChevronRight,
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
@@ -299,11 +299,6 @@ const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule
 
         {/* Action buttons */}
         <div className="popup-actions">
-          <button className="popup-btn tag-btn" disabled title="Coming soon">
-            <Tag size={16} />
-            Tag
-          </button>
-
           <button
             className="popup-btn message-btn"
             onClick={() => { openMessages(friend); onClose(); }}
@@ -546,10 +541,12 @@ const FriendsPage = () => {
           {friends.length > 0 && <span className="tab-count">{friends.length}</span>}
         </button>
         <button className={`friends-tab${tab === 'groups' ? ' active' : ''}`} onClick={() => setTab('groups')}>
+          {/* No count: groups are loaded by GroupsWidget, and fetching them
+              here just for a badge would cost an extra request per page view. */}
           <Users size={14} /> Groups
         </button>
         <button className={`friends-tab${tab === 'requests' ? ' active' : ''}`} onClick={() => setTab('requests')}>
-          <Inbox size={14} /> Requests
+          <Inbox size={14} /> Add &amp; Requests
           {requestCount > 0 && <span className="tab-count badge">{requestCount}</span>}
         </button>
       </div>
@@ -563,7 +560,21 @@ const FriendsPage = () => {
           {/* ── Friends tab ── */}
           {tab === 'friends' && (
             <section className="friends-section">
-              {friends.length >= 6 && (
+              {friendCode && (
+                <div className="my-code-row my-code-inline">
+                  <span className="my-code-label">Your friend code:</span>
+                  <span className="my-code">{friendCode}</span>
+                  <button className="copy-btn" onClick={handleCopy}>
+                    <Copy size={14} />
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                  <button className="add-friend-link" onClick={() => setTab('requests')}>
+                    <UserPlus size={14} /> Add a friend
+                  </button>
+                </div>
+              )}
+
+              {friends.length > 0 && (
                 <div className="friends-search">
                   <Search size={14} />
                   <input

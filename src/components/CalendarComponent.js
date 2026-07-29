@@ -47,7 +47,7 @@ const CalendarComponent = () => {
   if (loading) {
     return (
       <Panel className="calendar-component">
-        <PanelHeader icon={CalendarIcon} title="Today's Schedule" />
+        <PanelHeader icon={CalendarIcon} title="Today's Schedule" subtitle="Confirmed on your calendar" />
         <div className="cc-body"><div className="loading">Loading today's events…</div></div>
       </Panel>
     );
@@ -55,7 +55,7 @@ const CalendarComponent = () => {
   if (error) {
     return (
       <Panel className="calendar-component">
-        <PanelHeader icon={CalendarIcon} title="Today's Schedule" />
+        <PanelHeader icon={CalendarIcon} title="Today's Schedule" subtitle="Confirmed on your calendar" />
         <div className="cc-body">
         <div className="error-state">
           <p>{error}</p>
@@ -73,6 +73,7 @@ const CalendarComponent = () => {
       <PanelHeader
         icon={CalendarIcon}
         title="Today's Schedule"
+        subtitle="Confirmed on your calendar"
         onActivate={() => navigate('/calendar')}
         activateLabel="Open calendar"
       >

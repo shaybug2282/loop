@@ -1,5 +1,5 @@
 .friends-page {
-  min-height: 100vh;
+  flex: 1;
   background: var(--bg, var(--surface));
   padding-bottom: 2rem;
 }
@@ -240,6 +240,32 @@
   color: var(--border);
   flex-shrink: 0;
 }
+
+/* Friend-code row shown at the top of the Friends tab — the social graph
+   bootstraps from swapping codes, so it should not be a tab away (§2.7). */
+.my-code-inline {
+  margin-bottom: var(--space-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+}
+
+.add-friend-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--r-sm);
+}
+
+.add-friend-link:hover { background: var(--surface-tint); }
 
 /* ── My Code Row ── */
 .my-code-row {

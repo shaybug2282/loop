@@ -25,10 +25,14 @@ export const Panel = ({ className = '', children, ...rest }) => (
 // keyboard-reachable. Clicks on the actions cluster are stopped so an action
 // button never also fires the row.
 //
+// `subtitle` adds a quiet second line — used where two panels show similar
+// content and the difference has to be stated rather than inferred (§2.10).
+//
 // out: <div class="panel-header"> containing <h2 class="panel-title">.
 export const PanelHeader = ({
   icon: Icon,
   title,
+  subtitle = null,
   badge = null,
   onActivate = null,
   activateLabel,
@@ -50,7 +54,10 @@ export const PanelHeader = ({
       })}
     >
       {Icon && <Icon size={16} className="panel-header-icon" />}
-      <h2 className="panel-title">{title}</h2>
+      <div className="panel-heading">
+        <h2 className="panel-title">{title}</h2>
+        {subtitle && <p className="panel-subtitle">{subtitle}</p>}
+      </div>
       {badge !== null && badge !== 0 && <span className="panel-badge">{badge}</span>}
       {children && (
         <div className="panel-actions" onClick={e => e.stopPropagation()}>{children}</div>

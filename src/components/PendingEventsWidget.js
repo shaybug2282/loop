@@ -83,7 +83,7 @@ export default function PendingEventsWidget() {
 
   return (
     <Panel className="pe-widget">
-      <PanelHeader icon={Hourglass} title="In the Works">
+      <PanelHeader icon={Hourglass} title="In the Works" subtitle="Waiting on replies">
         <button
           className="panel-pill-btn panel-pill-btn-solid"
           onClick={() => setShowNew(true)}

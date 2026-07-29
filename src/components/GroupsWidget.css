@@ -403,7 +403,7 @@
   position: fixed;
   inset: 0;
   background: var(--scrim);
-  z-index: 1000;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;

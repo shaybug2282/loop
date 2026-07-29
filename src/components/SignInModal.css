@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 900;
+  z-index: var(--z-modal);
   animation: sim-fade-in 0.2s ease;
 }
 

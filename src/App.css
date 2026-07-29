@@ -1,6 +1,15 @@
 /* The global reset and body font stack live in index.css — they were duplicated
    here verbatim, which only created two places to drift. */
 
+/* Column shell: routed pages grow, the footer settles beneath them. */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell > *:not(.site-footer) { flex: 1 0 auto; }
+
 /* Sits on the page surface rather than a full-bleed accent wash — this renders
    between every protected-route navigation, and a saturated flash each time
    read as unfinished. The accent now appears only on the spinner. */

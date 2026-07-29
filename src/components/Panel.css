@@ -25,6 +25,23 @@
   flex-shrink: 0;
 }
 
+.panel-heading {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.panel-subtitle {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .panel-title {
   margin: 0;
   font-size: var(--fs-md);

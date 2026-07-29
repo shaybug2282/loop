@@ -1,5 +1,5 @@
 .page-layout {
-  min-height: 100vh;
+  flex: 1;
   background: var(--surface);
   padding-bottom: var(--space-5);
 }
@@ -56,7 +56,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
 }
 
 .page-modal {
