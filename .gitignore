@@ -4,7 +4,7 @@
 # Production build
 /build
 
-# Environment — never commit secrets. Use .env.example as the template.
+# Environment 
 .env
 .env.local
 .env.development.local
