@@ -155,6 +155,33 @@
   transform: translateY(-1px);
 }
 
+/* Sign-up leads; the demo is the quieter second option beside it. */
+.dash-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.dash-hero-try {
+  background: none;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 13px 26px;
+  font-family: inherit;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dash-hero-try:hover {
+  background: var(--surface-tint);
+  border-color: var(--accent);
+}
+
 .dash-hero-note {
   margin: 14px 0 0;
   font-size: var(--fs-sm);

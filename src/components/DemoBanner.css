@@ -1,0 +1,76 @@
+/* Demo mode's standing "none of this is real" bar. Sticks to the top of the
+   shell above the page header — see App.css `.app-shell.demo-on .page-header`,
+   which drops the header by exactly this height so the two never overlap. */
+
+.dm-banner {
+  position: sticky;
+  top: 0;
+  z-index: calc(var(--z-sticky) + 1);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: 8px var(--space-4);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+  text-align: center;
+}
+
+.dm-banner-text strong { font-weight: 700; }
+
+.dm-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.dm-banner-btn {
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--on-accent);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dm-banner-btn:hover { background: rgba(255, 255, 255, 0.18); }
+
+.dm-banner-primary {
+  background: var(--card);
+  border-color: var(--card);
+  color: var(--accent);
+}
+
+.dm-banner-primary:hover { background: var(--card); opacity: 0.9; }
+
+/* ── The assistant's own notice ──
+   Lives inside the chat hub's Plans pane, where a scripted reply is easiest to
+   mistake for the real assistant. The banner above is easy to forget once
+   someone is a few messages deep. */
+
+.dm-chat-note {
+  flex-shrink: 0;
+  padding: 9px var(--space-4);
+  background: var(--status-warn-bg, var(--surface-tint));
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+
+.dm-chat-note strong { color: var(--text); font-weight: 700; }
+
+@media (max-width: 600px) {
+  .dm-banner { font-size: var(--fs-xs); }
+}

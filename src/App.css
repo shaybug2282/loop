@@ -8,7 +8,14 @@
   flex-direction: column;
 }
 
-.app-shell > *:not(.site-footer) { flex: 1 0 auto; }
+.app-shell > *:not(.site-footer):not(.dm-banner) { flex: 1 0 auto; }
+
+/* Demo mode inserts a sticky banner above everything. The page header is also
+   sticky at top: 0, so without this it would slide underneath the banner and
+   hide the nav. DemoBanner measures itself into --dm-banner-h because the
+   banner wraps to two or three lines on narrow screens; the fallback only
+   covers the first paint. */
+.app-shell.demo-on .page-header { top: var(--dm-banner-h, 40px); }
 
 /* The dock rail that lined up the three bottom-right chat panels is gone —
    there is one centred window now (ChatHub.css) and a launcher that opens it

@@ -6,6 +6,8 @@ import { ChatHubProvider }     from './contexts/ChatHubContext';
 import ChatHub             from './components/ChatHub';
 import ChatLauncher        from './components/ChatLauncher';
 import MessageToast        from './components/MessageToast';
+import DemoBanner          from './components/DemoBanner';
+import { isDemo }          from './demo/demoStore';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
@@ -55,7 +57,10 @@ function App() {
                 roots are flex: 1 — previously every page was min-height: 100vh,
                 which pushed the footer (and its Privacy Policy link) a full
                 viewport below the fold on every route. */}
-            <div className="app-shell">
+            {/* `demo-on` drops the sticky page header by the banner's height
+                so the two can't overlap (DemoBanner.css). */}
+            <div className={`app-shell${isDemo() ? ' demo-on' : ''}`}>
+              <DemoBanner />
               <Routes>
                 <Route path="/login" element={<Login />} />
                 {/* Dashboard is publicly accessible; auth state handled inside the component */}

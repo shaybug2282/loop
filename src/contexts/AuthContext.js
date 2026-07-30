@@ -1,5 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import { clearTokenCache } from '../utils/googleCalendar';
+import { DEMO_STORAGE_KEYS } from '../demo/demoStore';
 
 const AuthContext = createContext();
 
@@ -47,6 +48,9 @@ export const AuthProvider = ({ children }) => {
     // can't linger on upgraded clients.
     localStorage.removeItem('googleAccessToken');
     localStorage.removeItem('googleTokenExpiry');
+    // Demo mode borrows the same identity keys, so signing out of one must
+    // never leave the app half in the other.
+    DEMO_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
     clearTokenCache();
     // Invalidate the httpOnly session cookie server-side (fire-and-forget).
     fetch('/api/user', {

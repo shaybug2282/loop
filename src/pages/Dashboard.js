@@ -9,6 +9,7 @@ import GroupsWidget from '../components/GroupsWidget';
 import FriendsWidget from '../components/FriendsWidget';
 import SignInModal from '../components/SignInModal';
 import { useAuth } from '../contexts/AuthContext';
+import { enterDemo } from '../demo/demoStore';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -33,6 +34,12 @@ const Dashboard = () => {
     );
   }
 
+  // startDemo — seed the demo world and reload so index.js installs the fetch
+  // interceptor before anything renders.
+  const startDemo = () => {
+    if (enterDemo()) window.location.href = '/dashboard';
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="dashboard dashboard-guest">
@@ -48,9 +55,17 @@ const Dashboard = () => {
             Tell Loop who you want to see and roughly when. It reads everyone's
             calendars, finds the times that actually work, and sends the invites.
           </p>
-          <button className="dash-hero-cta" onClick={() => setShowSignIn(true)}>
-            Get started — it's free
-          </button>
+          <div className="dash-hero-actions">
+            <button className="dash-hero-cta" onClick={() => setShowSignIn(true)}>
+              Get started — it's free
+            </button>
+            {/* Lets someone see the product before granting calendar access.
+                A full reload is required: the demo patches window.fetch at
+                boot, before AuthContext can 401 its way out of the session. */}
+            <button className="dash-hero-try" onClick={startDemo}>
+              Try it first — no account
+            </button>
+          </div>
           <p className="dash-hero-note">Free, and it only ever books plans you've confirmed.</p>
 
           {/* A look at the thing itself, rather than three numbered cards

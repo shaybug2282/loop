@@ -6,6 +6,7 @@ import { DirectList, DirectPane } from './ChatDirect';
 import { GroupList, GroupPane }   from './ChatGroups';
 import { PlansList }              from './ChatPlans';
 import SchedulingAssistant        from './SchedulingAssistant';
+import { isDemo }                 from '../demo/demoStore';
 import './ChatHub.css';
 
 const SECTIONS = [
@@ -109,16 +110,28 @@ const ChatHub = () => {
     // `group` is its own mode in SchedulingAssistant: the backend gets the
     // groupId with every message and schedules for all accepted members.
     return (
-      <SchedulingAssistant
-        key={target.id ?? target.group?.id ?? target.seed ?? 'new'}
-        group={target.group ?? null}
-        openConversationId={target.id ?? null}
-        initialMessage={target.seed ?? null}
-        startNew={!target.id && !target.seed && !target.group}
-        embedded
-        onBack={clearTarget}
-        onBooked={onBooked}
-      />
+      <>
+        {/* Demo replies are scripted. The global banner is easy to forget once
+            someone is a few messages deep, and this is the one surface where a
+            fake reply could pass for the real assistant. */}
+        {isDemo() && (
+          <p className="dm-chat-note">
+            <strong>Scripted for the demo.</strong> It finds real openings in these demo
+            calendars, but it only understands simple requests. The real assistant reads
+            everyone's actual calendars — sign up to use it.
+          </p>
+        )}
+        <SchedulingAssistant
+          key={target.id ?? target.group?.id ?? target.seed ?? 'new'}
+          group={target.group ?? null}
+          openConversationId={target.id ?? null}
+          initialMessage={target.seed ?? null}
+          startNew={!target.id && !target.seed && !target.group}
+          embedded
+          onBack={clearTarget}
+          onBooked={onBooked}
+        />
+      </>
     );
   })();
 
