@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Save, Loader, X, Camera } from 'lucide-react';
+import { Save, Loader, X, Camera, LogOut } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,7 +17,7 @@ const formatPhone = (raw) => {
 
 const ProfilePage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, login } = useAuth();
+  const { user, login, logout } = useAuth();
 
   const [displayName, setDisplayName] = useState('');
   const [showEmail, setShowEmail]     = useState(true);
@@ -645,6 +645,17 @@ const ProfilePage = () => {
               </div>
             </div>
           )}
+
+          {/* Sign out — lives at the very bottom so it can't be hit by
+              accident. No redirect call needed: logout() clears auth state and
+              ProtectedRoute sends /profile to /login on the next render. */}
+          <div className="profile-card signout-card">
+            <button className="signout-btn" onClick={logout}>
+              <LogOut size={16} />
+              Log out
+            </button>
+            <p className="signout-hint">You'll be returned to the sign-in page.</p>
+          </div>
 
         </div>
       )}

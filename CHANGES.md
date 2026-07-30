@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-07-30 — Profile reachable on desktop, sign out on the profile page
+
+At ≥1024px the hamburger (and with it the whole drawer, including the avatar link and Logout) is hidden, so Profile & Settings had no entry point at all — added a `Profile` entry to `PageHeader`'s `NAV`, last in the row, and gave `ProfilePage` a "Log out" card at the very bottom. Logout needs no redirect call: it clears auth state and `ProtectedRoute` bounces `/profile` to `/login` on the next render. Potential bugs: the desktop bar now carries six pills plus whatever a page passes into `page-header-actions` (Calendar's "Find a time", Friends' "Add Friend") — it measures to ~730px so it fits at 1024, but a longer future action button has no wrap or overflow fallback and would push the bell off-screen.
+
 ## 2026-07-29 — Phase 4: docked assistant with a real chat box, de-AI pass, brand
 
 **Assistant.** Open plans now live in a docked window (`AssistantPanel`) beside the DM and group panels, not a chip row or a modal — a list scales past a handful of chats where chips don't. Clicking one enters an actual conversation with a composer: `SchedulingAssistant` gained `openConversationId` (enter a specific thread), `startNew` (empty composer) and `embedded` (suppress its own header when the dock supplies one), fixing the case where opening a chat dropped you on a list with nothing to type into. New `AssistantContext` holds the window state; the dashboard composer drives it instead of its own modal. Also added a shared `.dock-rail` — the three docked windows are flex children of one fixed container, replacing `GroupChatPanel`'s JS-computed inline `right` that only dodged one of the collisions.

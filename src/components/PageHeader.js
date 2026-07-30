@@ -5,15 +5,17 @@ import { useMessages } from '../contexts/MessagesContext';
 import NotificationCenter from './NotificationCenter';
 import './PageHeader.css';
 
-// Destinations shown in the desktop bar. Mirrors Sidebar's list minus Profile
-// (reachable from the avatar/drawer) — Messages is a panel, not a route, so it
-// carries `panel: true` and opens in place.
+// Destinations shown in the desktop bar. Mirrors Sidebar's list — Messages is
+// a panel, not a route, so it carries `panel: true` and opens in place.
+// Profile sits last: at ≥1024px the drawer (and with it the avatar link) is
+// hidden, so this bar is the only way to reach it.
 const NAV = [
   { path: '/dashboard',          label: 'Dashboard' },
   { path: '/calendar',           label: 'Calendar' },
   { path: '/friends',            label: 'Friends' },
   { path: '/friends?tab=groups', label: 'Groups' },
   { path: null,                  label: 'Messages', panel: true },
+  { path: '/profile',            label: 'Profile' },
 ];
 
 // isActive — a nav entry matches when path+query match exactly. The two
