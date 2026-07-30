@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Save, Loader, X, Camera, LogOut } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
@@ -18,6 +19,17 @@ const formatPhone = (raw) => {
 const ProfilePage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, login, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // handleLogout — sign out to the guest dashboard, not /login. Letting
+  // ProtectedRoute do the redirect lands on the sign-in page, which offers
+  // only Google OAuth; the dashboard's signed-out view is the one with both
+  // "Sign in" and the demo. Batched with logout()'s state update, so there is
+  // no flash of the login route in between.
+  const handleLogout = () => {
+    logout();
+    navigate('/dashboard');
+  };
 
   const [displayName, setDisplayName] = useState('');
   const [showEmail, setShowEmail]     = useState(true);
@@ -647,14 +659,13 @@ const ProfilePage = () => {
           )}
 
           {/* Sign out — lives at the very bottom so it can't be hit by
-              accident. No redirect call needed: logout() clears auth state and
-              ProtectedRoute sends /profile to /login on the next render. */}
+              accident. */}
           <div className="profile-card signout-card">
-            <button className="signout-btn" onClick={logout}>
+            <button className="signout-btn" onClick={handleLogout}>
               <LogOut size={16} />
               Log out
             </button>
-            <p className="signout-hint">You'll be returned to the sign-in page.</p>
+            <p className="signout-hint">You'll be returned to the home page.</p>
           </div>
 
         </div>

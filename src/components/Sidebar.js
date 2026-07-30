@@ -1,16 +1,21 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, Calendar, UserPlus, Settings, LogOut, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { logout, user } = useAuth();
 
+  // Signs out to the guest dashboard rather than /login — see ProfilePage's
+  // handleLogout. The drawer only appears on protected routes, so without the
+  // explicit navigate ProtectedRoute would send it to the sign-in page.
   const handleLogout = () => {
     logout();
     onClose();
+    navigate('/dashboard');
   };
 
   // Groups was a second entry pointing at a tab of the Friends page, and

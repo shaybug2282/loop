@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { isDemo, exitDemo } from '../demo/demoStore';
 import { uninstallDemoFetch } from '../demo/demoFetch';
 import './DemoBanner.css';
@@ -13,6 +14,10 @@ import './DemoBanner.css';
 // mistake for the real thing.
 const DemoBanner = () => {
   const ref = useRef(null);
+  // Reading isDemo() alone would leave the banner on screen after logging out
+  // of a demo: it clears the flag but nothing re-renders this component.
+  // Subscribing to auth state gives it the re-render it needs.
+  const { isAuthenticated } = useAuth();
 
   // The banner's height is not a constant: its text wraps to two or three
   // lines on a phone. The sticky page header sits below it via
@@ -33,7 +38,7 @@ const DemoBanner = () => {
     };
   }, []);
 
-  if (!isDemo()) return null;
+  if (!isAuthenticated || !isDemo()) return null;
 
   // leave — tear the demo down completely, then hard-reload. The reload is not
   // optional: components are holding demo data in state, and the patched fetch

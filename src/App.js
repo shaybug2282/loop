@@ -32,6 +32,17 @@ const PrefsSync = () => {
   return null;
 };
 
+// AppShell — carries the `demo-on` class that offsets the sticky page header
+// below the demo banner. It lives in its own component so it can subscribe to
+// auth state: computed inline in App, the class would survive a sign-out
+// (App itself never re-renders) and leave every page pushed down by a banner
+// that is no longer there.
+const AppShell = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  const demo = isAuthenticated && isDemo();
+  return <div className={`app-shell${demo ? ' demo-on' : ''}`}>{children}</div>;
+};
+
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -57,9 +68,7 @@ function App() {
                 roots are flex: 1 — previously every page was min-height: 100vh,
                 which pushed the footer (and its Privacy Policy link) a full
                 viewport below the fold on every route. */}
-            {/* `demo-on` drops the sticky page header by the banner's height
-                so the two can't overlap (DemoBanner.css). */}
-            <div className={`app-shell${isDemo() ? ' demo-on' : ''}`}>
+            <AppShell>
               <DemoBanner />
               <Routes>
                 <Route path="/login" element={<Login />} />
@@ -90,7 +99,7 @@ function App() {
               </Routes>
               {/* Global footer — shown on every page, at the bottom of content */}
               <Footer />
-            </div>
+            </AppShell>
 
             {/* One chat window for DMs, groups and scheduling, plus the
                 launcher that opens it from any page. */}
