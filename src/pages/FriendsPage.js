@@ -7,9 +7,8 @@ import {
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import GroupsWidget from '../components/GroupsWidget';
-import SchedulingAssistant from '../components/SchedulingAssistant';
 import EventPopup from '../components/EventPopup';
-import { useMessages } from '../contexts/MessagesContext';
+import { useChatHub } from '../contexts/ChatHubContext';
 import { syncMutedFromFriends } from '../utils/unread';
 import './FriendsPage.css';
 
@@ -85,15 +84,14 @@ const AvailabilityStrip = ({ friendId }) => {
 
 // ── Friend Contact Card Popup ──────────────────────────────────────────────
 const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule }) => {
-  const { openMessages } = useMessages();
+  const { openDirect, openPlans } = useChatHub();
   const [unfriendConfirm, setUnfriendConfirm] = useState(false);
   const [blockConfirm,    setBlockConfirm]    = useState(false);
   const [loading, setLoading] = useState(false);
   // Group Tags: groups the viewer and this friend are BOTH accepted members
-  // of. Clicking one opens the group-mode Scheduling Assistant (same popup
-  // GroupsWidget's Schedule button uses). null = still loading (renders nothing).
+  // of. Clicking one opens the chat hub on Plans, scoped to that group (the
+  // same place GroupsWidget's Schedule button lands). null = still loading.
   const [sharedGroups,  setSharedGroups]  = useState(null);
-  const [scheduleGroup, setScheduleGroup] = useState(null);
   // Upcoming events with this friend (pending or confirmed, future only).
   const [together,   setTogether]   = useState([]);
   const [openEvent,  setOpenEvent]  = useState(null);
@@ -259,7 +257,7 @@ const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule
                   className="popup-group-tag"
                   style={{ borderColor: g.color, color: g.color }}
                   title={`Schedule with ${g.name}`}
-                  onClick={() => setScheduleGroup(g)}
+                  onClick={() => { openPlans({ group: g }); onClose(); }}
                 >
                   {g.name}
                 </button>
@@ -301,7 +299,7 @@ const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule
         <div className="popup-actions">
           <button
             className="popup-btn message-btn"
-            onClick={() => { openMessages(friend); onClose(); }}
+            onClick={() => { openDirect(friend); onClose(); }}
           >
             Message
           </button>
@@ -332,15 +330,6 @@ const FriendPopup = ({ friend, onClose, onUnfriend, onSettingsChange, onSchedule
         </div>
       </div>
 
-      {/* Group scheduling popup — AI chat scoped to the clicked group */}
-      {scheduleGroup && (
-        <div className="popup-backdrop" onClick={e => { e.stopPropagation(); setScheduleGroup(null); }}>
-          <div className="popup-schedule-modal" onClick={e => e.stopPropagation()}>
-            <SchedulingAssistant group={scheduleGroup} onClose={() => setScheduleGroup(null)} />
-          </div>
-        </div>
-      )}
-
       {openEvent && (
         <EventPopup loopEvent={openEvent} onClose={() => setOpenEvent(null)} />
       )}
@@ -355,7 +344,7 @@ const FriendsPage = () => {
     ? searchParams.get('tab') : 'friends';
   const setTab = t => setSearchParams(t === 'friends' ? {} : { tab: t });
 
-  const { openMessages } = useMessages();
+  const { openDirect, startPlan } = useChatHub();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [friendCode, setFriendCode]   = useState('');
   const [requests, setRequests]       = useState([]);
@@ -372,8 +361,12 @@ const FriendsPage = () => {
 
   const [copied, setCopied]         = useState(false);
   const [selectedFriend, setSelectedFriend] = useState(null);
-  // Assistant popup seeded with a friend ("Schedule" quick action).
-  const [scheduleWith, setScheduleWith] = useState(null);
+  // scheduleWithFriend — "Schedule" quick action: opens the chat hub on a new
+  // plan already asking about this friend, instead of a modal of its own.
+  const scheduleWithFriend = friend => startPlan(
+    `I'd like to schedule something with ${friend.display_name || friend.name}. `
+    + 'Can you find times that work for both of us?'
+  );
 
   const googleId = localStorage.getItem('googleUserId');
 
@@ -507,20 +500,8 @@ const FriendsPage = () => {
           onClose={() => setSelectedFriend(null)}
           onUnfriend={handleUnfriended}
           onSettingsChange={handleSettingsChange}
-          onSchedule={setScheduleWith}
+          onSchedule={scheduleWithFriend}
         />
-      )}
-
-      {/* Assistant seeded with one friend (Schedule quick action) */}
-      {scheduleWith && (
-        <div className="popup-backdrop" onClick={() => setScheduleWith(null)}>
-          <div className="popup-schedule-modal" onClick={e => e.stopPropagation()}>
-            <SchedulingAssistant
-              initialMessage={`I'd like to schedule something with ${scheduleWith.display_name || scheduleWith.name}. Can you find times that work for both of us?`}
-              onClose={() => setScheduleWith(null)}
-            />
-          </div>
-        </div>
       )}
 
       <PageHeader title="Friends" onMenu={() => setSidebarOpen(true)}>
@@ -613,14 +594,14 @@ const FriendsPage = () => {
                         <button
                           className="friend-quick-btn"
                           title={`Message ${friend.display_name || friend.name}`}
-                          onClick={() => openMessages(friend)}
+                          onClick={() => openDirect(friend)}
                         >
                           <MessageSquare size={15} />
                         </button>
                         <button
                           className="friend-quick-btn"
                           title={`Find a time with ${friend.display_name || friend.name}`}
-                          onClick={() => setScheduleWith(friend)}
+                          onClick={() => scheduleWithFriend(friend)}
                         >
                           <Calendar size={15} />
                         </button>

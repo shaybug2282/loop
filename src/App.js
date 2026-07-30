@@ -2,13 +2,10 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { applyPrefsFromServer } from './utils/prefs';
-import { MessagesProvider }     from './contexts/MessagesContext';
-import { GroupChatProvider }    from './contexts/GroupChatContext';
-import { AssistantProvider }    from './contexts/AssistantContext';
-import MessagesPanel       from './components/MessagesPanel';
+import { ChatHubProvider }     from './contexts/ChatHubContext';
+import ChatHub             from './components/ChatHub';
+import ChatLauncher        from './components/ChatLauncher';
 import MessageToast        from './components/MessageToast';
-import GroupChatPanel      from './components/GroupChatPanel';
-import AssistantPanel      from './components/AssistantPanel';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
@@ -51,10 +48,8 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
-      <MessagesProvider>
-        <GroupChatProvider>
-          <AssistantProvider>
-          <Router>
+      <ChatHubProvider>
+        <Router>
             <PrefsSync />
             {/* Flex column so the footer sits at the true page bottom. Page
                 roots are flex: 1 — previously every page was min-height: 100vh,
@@ -92,19 +87,14 @@ function App() {
               <Footer />
             </div>
 
-            {/* Docked windows share one rail so they can never overlap; each
-                panel is a flex child rather than positioning itself. */}
-            <div className="dock-rail">
-              <AssistantPanel />
-              <GroupChatPanel />
-              <MessagesPanel />
-            </div>
+            {/* One chat window for DMs, groups and scheduling, plus the
+                launcher that opens it from any page. */}
+            <ChatHub />
+            <ChatLauncher />
             {/* Background message notifier — always rendered, shows toast for new messages */}
             <MessageToast />
-          </Router>
-          </AssistantProvider>
-        </GroupChatProvider>
-      </MessagesProvider>
+        </Router>
+      </ChatHubProvider>
     </AuthProvider>
   );
 }

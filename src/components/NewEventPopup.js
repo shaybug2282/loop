@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ArrowRight, Sparkles, X, Check, CalendarCheck } from 'lucide-react';
-import SchedulingAssistant from './SchedulingAssistant';
+import { useChatHub } from '../contexts/ChatHubContext';
 import './NewEventPopup.css';
 
 // Previous step for the header back button.
-const BACK = { timing: 'friends', pick: 'timing', assistant: 'timing' };
+const BACK = { timing: 'friends', pick: 'timing' };
 
 // NewEventPopup — modal flow for scheduling a brand-new event: select
 // friends, then either pick a date/time/duration manually or hand off to the
-// conversational Scheduling Assistant (the same persistent chat used
-// everywhere else), pre-seeded with the selected friends. Manual creation
-// posts op:'create-event'; assistant bookings go through its own plan cards.
-// onCreated fires after either path books, so the parent can refetch.
+// chat hub's Plans section, pre-seeded with the selected friends. Manual
+// creation posts op:'create-event'; the assistant books through its own plan
+// cards. onCreated fires after the manual path books, so the parent can
+// refetch — the hub outlives this popup, so its bookings don't report back
+// here (the dashboard's own refresh picks them up).
+//
+// The assistant used to be a step *inside* this modal. It now closes the
+// popup and opens the hub, so there is one scheduling chat in the app rather
+// than a copy embedded in every flow that wants one.
 export default function NewEventPopup({ onClose, onCreated, initialDate = null }) {
-  const [step,      setStep]      = useState('friends'); // friends | timing | pick | assistant | done
+  const [step,      setStep]      = useState('friends'); // friends | timing | pick | done
+  const { startPlan } = useChatHub();
   const [friends,   setFriends]   = useState(null);      // null until fetched
   const [selected,  setSelected]  = useState(new Set());
   const [loading,   setLoading]   = useState(false);
@@ -123,7 +129,7 @@ export default function NewEventPopup({ onClose, onCreated, initialDate = null }
           <p className="ne-sublabel">How would you like to choose a time?</p>
           <div className="ne-choices">
             <button className="ne-choice" onClick={() => setStep('pick')}>Pick a time</button>
-            <button className="ne-choice primary" onClick={() => setStep('assistant')}>
+            <button className="ne-choice primary" onClick={() => { onClose(); startPlan(seedMessage()); }}>
               <Sparkles size={13} /> Find a time
             </button>
           </div>
@@ -160,17 +166,6 @@ export default function NewEventPopup({ onClose, onCreated, initialDate = null }
         </>
       );
 
-      // Full conversational assistant, seeded with the picked friends — the
-      // same persistent chat as everywhere else (constraints, memory, cards).
-      case 'assistant': return (
-        <div className="ne-assistant">
-          <SchedulingAssistant
-            initialMessage={seedMessage()}
-            onBooked={() => { onCreated?.(); }}
-          />
-        </div>
-      );
-
       case 'done': return (
         <div className="ne-done">
           <div className="ne-done-icon"><CalendarCheck size={30} strokeWidth={1.6} /></div>
@@ -186,7 +181,7 @@ export default function NewEventPopup({ onClose, onCreated, initialDate = null }
 
   return (
     <div className="ne-backdrop" onClick={onClose}>
-      <div className={`ne-modal${step === 'assistant' ? ' ne-modal-lg' : ''}`} onClick={e => e.stopPropagation()}>
+      <div className="ne-modal" onClick={e => e.stopPropagation()}>
         <div className="ne-header">
           {step in BACK && (
             <button className="ne-back" onClick={() => { setStep(BACK[step]); setError(null); }} title="Back">

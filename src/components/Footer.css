@@ -20,3 +20,10 @@
 }
 
 .site-footer-link:hover { opacity: 0.75; }
+
+/* Clearance for the chat launcher (ChatLauncher.css), which is fixed at the
+   bottom-right of the viewport. On phones the footer's centred content wraps
+   wide enough to slide underneath it — the Privacy Policy link included. */
+@media (max-width: 600px) {
+  .site-footer { padding-bottom: 76px; }
+}

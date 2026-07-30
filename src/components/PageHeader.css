@@ -97,20 +97,6 @@
   color: var(--accent);
 }
 
-.page-nav-badge {
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  min-width: 17px;
-  height: 17px;
-  border-radius: var(--r-pill);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 5px;
-}
-
 /* At ≥1024px the nav is the "you are here" cue, so the page title is hidden
    visually but kept for assistive tech. Below that the drawer returns and the
    title does the orienting. */

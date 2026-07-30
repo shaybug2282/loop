@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Pencil, Users, X, Check, Trash2, UserMinus } from 'lucide-react';
-import { useGroupChat } from '../contexts/GroupChatContext';
-import { useMessages } from '../contexts/MessagesContext';
+import { useChatHub } from '../contexts/ChatHubContext';
 import { resizeImage } from '../utils/image';
-import SchedulingAssistant from './SchedulingAssistant';
 import { Panel, PanelHeader } from './Panel';
 import './GroupsWidget.css';
 
@@ -61,8 +59,7 @@ const FriendChip = ({ friend, selected, onToggle }) => (
 // ── Main widget ──────────────────────────────────────────────────────────────
 
 export default function GroupsWidget() {
-  const { openGroupChat }  = useGroupChat();
-  const { openMessages }   = useMessages();
+  const { openDirect, openGroup, openPlans } = useChatHub();
   const googleId    = localStorage.getItem('googleUserId');
 
   const [groups,     setGroups]     = useState([]);
@@ -80,9 +77,6 @@ export default function GroupsWidget() {
 
   // Expanded action buttons per group
   const [expandedId, setExpandedId]     = useState(null);
-
-  // Group whose scheduling-chat popup is open (null = closed)
-  const [scheduleGroup, setScheduleGroup] = useState(null);
 
   // Edit modal
   const [editGroup,        setEditGroup]        = useState(null);
@@ -173,12 +167,12 @@ export default function GroupsWidget() {
 
   // ── Group actions ───────────────────────────────────────────────────────────
 
-  // Scheduling a group opens a popup with the AI scheduling chat pinned to
-  // this group — the backend receives the groupId with every message and
-  // schedules for all accepted members automatically.
+  // Scheduling a group opens the chat hub on its Plans section with the chat
+  // pinned to this group — the backend receives the groupId with every message
+  // and schedules for all accepted members automatically.
   const handleSchedule = group => {
     setExpandedId(null);
-    setScheduleGroup(group);
+    openPlans({ group });
   };
 
   const handleMessage = group => {
@@ -186,18 +180,18 @@ export default function GroupsWidget() {
     const others   = accepted.filter(m => m.id !== myIdRef.current);
 
     if (others.length === 1) {
-      // 1-on-1: use DM
-      openMessages({ id: others[0].id, name: others[0].name, display_name: others[0].display_name, picture_url: others[0].picture_url });
+      // 1-on-1: use DM. No group thread gets opened, so update last_accessed
+      // here — the group pane does it for itself on the other branch.
+      openDirect({ id: others[0].id, name: others[0].name, display_name: others[0].display_name, picture_url: others[0].picture_url });
+      fetch('/api/groups', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ op: 'touch', googleId, groupId: group.id }),
+      }).catch(() => {});
     } else {
-      // Multi-person: open group chat panel
-      openGroupChat(group);
+      // Multi-person: open the group thread
+      openGroup(group);
     }
-    // Update last_accessed
-    fetch('/api/groups', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ op: 'touch', googleId, groupId: group.id }),
-    }).catch(() => {});
     setExpandedId(null);
   };
 
@@ -575,14 +569,6 @@ export default function GroupsWidget() {
         </div>
       )}
 
-      {/* Group scheduling popup — AI chat scoped to this group */}
-      {scheduleGroup && (
-        <div className="gw-modal-backdrop" onClick={() => setScheduleGroup(null)}>
-          <div className="gw-schedule-modal" onClick={e => e.stopPropagation()}>
-            <SchedulingAssistant group={scheduleGroup} onClose={() => setScheduleGroup(null)} />
-          </div>
-        </div>
-      )}
     </Panel>
   );
 }

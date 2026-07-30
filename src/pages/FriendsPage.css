@@ -465,16 +465,6 @@
 
 .popup-group-tag:hover { filter: brightness(0.92); transform: translateY(-1px); }
 
-/* Nested group-scheduling modal (AISummary in group mode) */
-.popup-schedule-modal {
-  width: min(440px, 95vw);
-}
-
-.popup-schedule-modal .ais-wrap {
-  margin-top: 0;
-  height: min(640px, 85vh);
-}
-
 /* ── Hub tabs ── */
 .friends-tabs {
   display: flex;

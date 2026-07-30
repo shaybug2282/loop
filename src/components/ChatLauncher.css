@@ -1,0 +1,62 @@
+/* Persistent chat launcher — fixed bottom-right on every signed-in page.
+   Sits just below the hub's z-layer so the window covers it when open (it also
+   unmounts itself then; the z-index is belt and braces). */
+
+.cl-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: calc(var(--z-panel) - 1);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.cl-fab:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.26);
+}
+
+.cl-fab:active { transform: none; }
+
+.cl-fab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.cl-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--card);
+  background: var(--danger);
+  color: #fff;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 600px) {
+  .cl-fab {
+    right: 16px;
+    bottom: 16px;
+    width: 52px;
+    height: 52px;
+  }
+}

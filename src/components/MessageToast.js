@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
-import { useMessages } from '../contexts/MessagesContext';
+import { useChatHub } from '../contexts/ChatHubContext';
 import { useAuth } from '../contexts/AuthContext';
 import { countUnread, getMutedSet } from '../utils/unread';
 import { getPrefs } from '../utils/prefs';
@@ -13,9 +13,13 @@ const TOAST_MS = 20_000;
 // arrives in a conversation that is not currently open. The same poll also
 // keeps the shared unread-conversation count (sidebar badge) current.
 const MessageToast = () => {
-  const { isOpen, friend, openMessages, setUnreadCount, registerUnreadRecalc } = useMessages();
+  const { isOpen, section, target, openDirect, setUnreadCount, registerUnreadRecalc } = useChatHub();
   const { isAuthenticated } = useAuth();
   const [toast, setToast] = useState(null);
+
+  // The DM thread on screen, if the hub is showing one — a toast for it would
+  // be noise. Non-direct sections mean no thread is being read.
+  const friend = isOpen && section === 'direct' ? target : null;
 
   // Refs so the poll callback doesn't need to close over changing values.
   const friendRef  = useRef(friend);
@@ -27,7 +31,7 @@ const MessageToast = () => {
   useEffect(() => { friendRef.current = friend; },  [friend]);
   useEffect(() => { isOpenRef.current = isOpen; },  [isOpen]);
 
-  // Let the panel trigger an instant badge recount when a conversation is
+  // Let the hub trigger an instant badge recount when a conversation is
   // opened (marked read) — no waiting for the next poll.
   useEffect(() => {
     registerUnreadRecalc(() => setUnreadCount(countUnread(convosRef.current)));
@@ -96,7 +100,7 @@ const MessageToast = () => {
       className="mt-toast"
       role="alert"
       onClick={() => {
-        openMessages({ id: toast.id, name: toast.name, display_name: toast.display_name, picture_url: toast.picture_url });
+        openDirect({ id: toast.id, name: toast.name, display_name: toast.display_name, picture_url: toast.picture_url });
         setToast(null);
       }}
     >

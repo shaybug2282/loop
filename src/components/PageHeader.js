@@ -1,33 +1,30 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
-import { useMessages } from '../contexts/MessagesContext';
 import NotificationCenter from './NotificationCenter';
 import './PageHeader.css';
 
-// Destinations shown in the desktop bar. Mirrors Sidebar's list — Messages is
-// a panel, not a route, so it carries `panel: true` and opens in place.
+// Destinations shown in the desktop bar. Mirrors Sidebar's list.
+//
+// Groups used to be a second entry pointing at `/friends?tab=groups` — the same
+// page, a tab along. One Friends entry covers all three of its tabs. Messages
+// is gone too: the chat launcher is fixed bottom-right on every page, so a nav
+// entry was a second door to the same room.
+//
 // Profile sits last: at ≥1024px the drawer (and with it the avatar link) is
 // hidden, so this bar is the only way to reach it.
 const NAV = [
-  { path: '/dashboard',          label: 'Dashboard' },
-  { path: '/calendar',           label: 'Calendar' },
-  { path: '/friends',            label: 'Friends' },
-  { path: '/friends?tab=groups', label: 'Groups' },
-  { path: null,                  label: 'Messages', panel: true },
-  { path: '/profile',            label: 'Profile' },
+  { path: '/dashboard', label: 'Dashboard' },
+  { path: '/calendar',  label: 'Calendar' },
+  { path: '/friends',   label: 'Friends' },
+  { path: '/profile',   label: 'Profile' },
 ];
 
-// isActive — a nav entry matches when path+query match exactly. The two
-// /friends entries are distinguished by the tab query, so plain /friends must
-// not light up the Groups tab (and vice versa).
+// isActive — a nav entry matches when path+query match exactly, except
+// /friends, which owns every tab of that page (`?tab=groups`, `?tab=requests`).
 const isActive = (item, loc) => {
-  if (!item.path) return false;
-  const here = loc.pathname + loc.search;
-  if (item.path === '/friends') {
-    return loc.pathname === '/friends' && !loc.search.includes('tab=groups');
-  }
-  return here === item.path;
+  if (item.path === '/friends') return loc.pathname === '/friends';
+  return loc.pathname + loc.search === item.path;
 };
 
 // PageHeader — the one piece of app chrome, and at ≥1024px the primary
@@ -43,7 +40,6 @@ const isActive = (item, loc) => {
 // the title stays in the DOM for screen readers.
 const PageHeader = ({ title, onMenu, children }) => {
   const location = useLocation();
-  const { openMessages, unreadCount } = useMessages();
 
   return (
     <header className="page-header">
@@ -58,17 +54,6 @@ const PageHeader = ({ title, onMenu, children }) => {
       <nav className="page-header-nav" aria-label="Primary">
         {NAV.map(item => {
           const active = isActive(item, location);
-
-          if (item.panel) {
-            return (
-              <button key={item.label} className="page-nav-item" onClick={openMessages}>
-                <span>{item.label}</span>
-                {unreadCount > 0 && (
-                  <span className="page-nav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-                )}
-              </button>
-            );
-          }
 
           return (
             <Link

@@ -114,7 +114,7 @@
   --z-drawer:       990;   /* sidebar + its overlay */
   --z-modal:       1000;   /* modal backdrops */
   --z-modal-nested:1100;   /* a modal opened from a modal (EventPopup) */
-  --z-modal-deep:  1200;   /* third level (EventPopup's assistant) */
+  --z-modal-deep:  1200;   /* third level (the chat hub, over any modal) */
   --z-toast:       1300;   /* transient toasts sit above everything */
 }
 

@@ -341,22 +341,3 @@
   margin-top: 6px;
 }
 
-/* Assistant hand-off step: the modal grows to hold the full chat. */
-.ne-modal-lg {
-  width: min(480px, 94vw);
-  height: min(620px, 88vh);
-  display: flex;
-  flex-direction: column;
-}
-.ne-modal-lg .ne-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.ne-assistant {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-}
-.ne-assistant > * { flex: 1; min-height: 0; }

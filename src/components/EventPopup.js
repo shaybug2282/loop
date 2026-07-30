@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, Clock, MapPin, AlignLeft, Sparkles, Trash2, Info, Umbrella, Tag, MessageSquare } from 'lucide-react';
-import SchedulingAssistant from './SchedulingAssistant';
-import { useGroupChat } from '../contexts/GroupChatContext';
+import { useChatHub } from '../contexts/ChatHubContext';
 import { formatDuration } from '../utils/format';
 import { updateCalendarEvent, deleteCalendarEvent } from '../utils/googleCalendar';
 import './EventPopup.css';
@@ -156,7 +155,7 @@ const RAINCHECK_TIP =
 
 const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged = null }) => {
   const norm = useMemo(() => normalize({ loopEvent, googleEvent }), [loopEvent, googleEvent]);
-  const { openGroupChat } = useGroupChat();
+  const { openGroup, openPlans } = useChatHub();
 
   const [draft,    setDraft]    = useState(() => toDraft(norm));
   const [baseline, setBaseline] = useState(() => toDraft(norm));
@@ -165,7 +164,6 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
   const [savedMsg, setSavedMsg] = useState(null);
   const [error,    setError]    = useState(null);
   const [nudge,    setNudge]    = useState(false);  // close attempted with unsaved edits
-  const [showAI,   setShowAI]   = useState(false);
   const [delConfirm, setDelConfirm] = useState(false); // "Delete event" clicked, awaiting confirm
   const [deleting,   setDeleting]   = useState(false);
   // Invite-response state (invitees on pending Loop events only)
@@ -239,7 +237,9 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
 
   // openTagChat — jump from the event's group tag into that group's chat
   // ("discuss this event"). The tag payload lacks the member list, so the
-  // full group is fetched on click; falls back to the tag info alone.
+  // full group is fetched on click; falls back to the tag info alone. Closes
+  // this popup on the way out — the hub is a centred window, and leaving the
+  // event modal up would paint it over the thread.
   const openTagChat = async () => {
     const gid = draft.groupId || norm.groupId;
     if (!gid || !googleId) return;
@@ -248,7 +248,8 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
       const r = await fetch(`/api/groups?op=list&googleId=${encodeURIComponent(googleId)}`);
       if (r.ok) full = ((await r.json()).groups ?? []).find(g => g.id === gid) ?? null;
     } catch {}
-    openGroupChat(full ?? { id: gid, ...groupInfo });
+    onClose();
+    openGroup(full ?? { id: gid, ...groupInfo });
   };
 
   // whenLabel — human date & time built from the draft so header edits show live.
@@ -735,7 +736,9 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
 
         {/* ── Footer: assistant access + rain check + delete ── */}
         <div className="ep-footer">
-          <button className="ep-ai-btn" onClick={() => setShowAI(true)}>
+          {/* The hub is a centred window, so this popup steps out of the way
+              rather than stacking a second modal on top of itself. */}
+          <button className="ep-ai-btn" onClick={() => { onClose(); openPlans(null); }}>
             <Sparkles size={13} /> Scheduling Assistant
           </button>
 
@@ -793,14 +796,6 @@ const EventPopup = ({ loopEvent = null, googleEvent = null, onClose, onChanged =
           )}
         </div>
       </div>
-
-      {showAI && (
-        <div className="ep-backdrop ep-ai-backdrop" onClick={e => { e.stopPropagation(); setShowAI(false); }}>
-          <div className="ep-ai-modal" onClick={e => e.stopPropagation()}>
-            <SchedulingAssistant onClose={() => setShowAI(false)} />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

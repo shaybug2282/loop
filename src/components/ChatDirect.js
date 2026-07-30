@@ -2,10 +2,8 @@ import React, {
   useState, useEffect, useRef, useCallback,
 } from 'react';
 import {
-  X, Minus, ArrowLeft, Send, MessageSquare, Lock, PenSquare,
+  ArrowLeft, Send, MessageSquare, Lock, PenSquare,
 } from 'lucide-react';
-import { useMessages } from '../contexts/MessagesContext';
-import { useAuth } from '../contexts/AuthContext';
 import { markRead, isUnread } from '../utils/unread';
 import {
   getOrCreateKeyPair,
@@ -15,7 +13,7 @@ import {
   decryptMessage,
 } from '../utils/messageCrypto';
 import { formatMsgTime, hasGapBefore, isGroupedMsg } from '../utils/format';
-import './MessagesPanel.css';
+import './ChatConversation.css';
 
 const POLL_MS = 3000;
 
@@ -65,7 +63,10 @@ const CtxMenu = ({ menu, onUndoSend, onEdit, onClose }) => {
 
 // ── Conversation ──────────────────────────────────────────────────────────────
 
-const Conversation = ({ friend, myId, myPrivateKey, isMinimized, onRead }) => {
+// DirectConversation — one end-to-end encrypted thread with a friend. Derives
+// the shared ECDH key on mount, then polls the full conversation (a full fetch
+// rather than a `since` window, so edits and deletes land correctly).
+const DirectConversation = ({ friend, myId, myPrivateKey, onRead }) => {
   const [messages,  setMessages]  = useState([]);
   const [input,     setInput]     = useState('');
   const [sending,   setSending]   = useState(false);
@@ -99,8 +100,6 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized, onRead }) => {
     return () => { cancelled = true; };
   }, [friend.id, myPrivateKey]);
 
-  // Fetch and decrypt the full conversation — replaces local state on each poll.
-  // Full fetch (no `since` param) handles edits and deletes correctly.
   const fetchMessages = useCallback(async () => {
     if (!sharedKey || document.visibilityState === 'hidden') return;
     const res = await fetch(
@@ -140,12 +139,11 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized, onRead }) => {
     if (keyReady) fetchMessages();
   }, [keyReady, fetchMessages]);
 
-  // Polling — pause when minimized or tab hidden
   useEffect(() => {
-    if (!keyReady || isMinimized) return;
+    if (!keyReady) return;
     const t = setInterval(fetchMessages, POLL_MS);
     return () => clearInterval(t);
-  }, [keyReady, isMinimized, fetchMessages]);
+  }, [keyReady, fetchMessages]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -298,9 +296,12 @@ const Conversation = ({ friend, myId, myPrivateKey, isMinimized, onRead }) => {
   );
 };
 
-// ── Conversation List ─────────────────────────────────────────────────────────
+// ── Conversation list ─────────────────────────────────────────────────────────
 
-const ConversationList = ({ onSelect }) => {
+// DirectList — existing DM threads, plus a compose view that lazy-loads the
+// friend list so a conversation can start with any friend, not only someone
+// who has already written. `activeId` highlights the open thread.
+const DirectList = ({ onSelect, activeId }) => {
   const [convos,    setConvos]    = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [composing, setComposing] = useState(false);
@@ -314,8 +315,6 @@ const ConversationList = ({ onSelect }) => {
       .catch(() => setLoading(false));
   }, [googleId]);
 
-  // Compose: lazy-load the friend list the first time the picker opens, so a
-  // conversation can start with any friend — not only existing threads.
   useEffect(() => {
     if (!composing || friends !== null || !googleId) return;
     fetch(`/api/friends?op=data&googleId=${encodeURIComponent(googleId)}`)
@@ -331,7 +330,7 @@ const ConversationList = ({ onSelect }) => {
       <div className="mp-compose">
         <div className="mp-compose-head">
           <span>New message</span>
-          <button className="mp-header-btn" onClick={() => setComposing(false)} title="Back">
+          <button className="ch-icon-btn" onClick={() => setComposing(false)} title="Back">
             <ArrowLeft size={14} />
           </button>
         </div>
@@ -379,7 +378,7 @@ const ConversationList = ({ onSelect }) => {
         {convos.map(c => (
           <li
             key={c.userId}
-            className="mp-convo-item"
+            className={`mp-convo-item${c.userId === activeId ? ' active' : ''}`}
             onClick={() => onSelect(c)}
             role="button"
             tabIndex={0}
@@ -400,26 +399,24 @@ const ConversationList = ({ onSelect }) => {
   );
 };
 
-// ── Panel Shell ───────────────────────────────────────────────────────────────
+// ── Pane ──────────────────────────────────────────────────────────────────────
 
-const MessagesPanel = () => {
-  const { isOpen, isMinimized, friend, openMessages, closeMessages, toggleMinimize, goToList, recalcUnread } =
-    useMessages();
-
-  const { isAuthenticated } = useAuth();
+// DirectPane — resolves the identity a DM thread needs (own ECDH keypair, own
+// DB id) and then renders the conversation. This runs only once a friend is
+// actually selected: the old panel did it whenever the window opened, so
+// someone opening the hub to look at plans still paid for keypair generation
+// and a `store-key` round trip.
+const DirectPane = ({ friend, onRead }) => {
   const [myId,      setMyId]      = useState(null);
   const [myPrivKey, setMyPrivKey] = useState(null);
   const googleId = localStorage.getItem('googleUserId');
 
-  // Close the panel automatically when the user signs out.
   useEffect(() => {
-    if (!isAuthenticated && isOpen) closeMessages();
-  }, [isAuthenticated, isOpen, closeMessages]);
-
-  useEffect(() => {
-    if (!isOpen || !googleId) return;
+    if (!googleId) return;
+    let cancelled = false;
     async function setup() {
       const { privateKey, publicKeyJwk } = await getOrCreateKeyPair();
+      if (cancelled) return;
       setMyPrivKey(privateKey);
       // Always send the current public key — the server ignores it if one is
       // already stored, so this is safe and ensures the key is always present.
@@ -431,62 +428,26 @@ const MessagesPanel = () => {
         }),
         fetch(`/api/user?op=my-id&googleId=${encodeURIComponent(googleId)}`),
       ]);
-      if (idRes.ok) {
+      if (idRes.ok && !cancelled) {
         const { id } = await idRes.json();
         setMyId(id);
       }
     }
     setup();
-  }, [isOpen, googleId]);
+    return () => { cancelled = true; };
+  }, [googleId]);
 
-  if (!isOpen) return null;
-
-  const title = friend ? (friend.display_name || friend.name) : 'Messages';
+  if (!myPrivKey) return <p className="mp-status">Setting up secure channel…</p>;
 
   return (
-    <div className={`mp-panel ${isMinimized ? 'minimized' : ''}`}>
-      <div className="mp-header">
-        {friend && !isMinimized && (
-          <button className="mp-header-btn" onClick={goToList} title="Back">
-            <ArrowLeft size={16} />
-          </button>
-        )}
-        <span className="mp-header-title">{title}</span>
-        <div className="mp-header-actions">
-          <button className="mp-header-btn" onClick={toggleMinimize} title={isMinimized ? 'Expand' : 'Minimize'}>
-            <Minus size={16} />
-          </button>
-          <button className="mp-header-btn" onClick={closeMessages} title="Close">
-            <X size={16} />
-          </button>
-        </div>
-      </div>
-
-      {!isMinimized && (
-        <div className="mp-body">
-          {friend && myPrivKey ? (
-            <Conversation
-              key={friend.id}
-              friend={friend}
-              myId={myId}
-              myPrivateKey={myPrivKey}
-              isMinimized={isMinimized}
-              onRead={recalcUnread}
-            />
-          ) : (
-            <ConversationList
-              onSelect={c => openMessages({
-                id:           c.userId,
-                name:         c.name,
-                display_name: c.display_name,
-                picture_url:  c.picture_url,
-              })}
-            />
-          )}
-        </div>
-      )}
-    </div>
+    <DirectConversation
+      key={friend.id}
+      friend={friend}
+      myId={myId}
+      myPrivateKey={myPrivKey}
+      onRead={onRead}
+    />
   );
 };
 
-export default MessagesPanel;
+export { DirectList, DirectPane };

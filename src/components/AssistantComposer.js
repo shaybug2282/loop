@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sparkles, Send } from 'lucide-react';
-import { useAssistant } from '../contexts/AssistantContext';
+import { useChatHub } from '../contexts/ChatHubContext';
 import './AssistantComposer.css';
 
 // AssistantComposer — the dashboard's front door to the Scheduling Assistant.
@@ -9,14 +9,14 @@ import './AssistantComposer.css';
 // home screen (UX_AUDIT.md §2.1): it lived behind a Calendar-page button and
 // inside three popups, and its open conversations had no home anywhere.
 //
-// Typing here opens the docked assistant window with the text as the first
-// message, reusing SchedulingAssistant's existing `initialMessage` path. Open
-// plans are summarised as a single link into that window rather than listed
-// here — a chip row stops working the moment someone has more than a few.
+// Typing here opens the chat hub on its Plans section with the text as the
+// first message, reusing SchedulingAssistant's existing `initialMessage` path.
+// Open plans are summarised as a single link into that window rather than
+// listed here — a chip row stops working once someone has more than a few.
 const AssistantComposer = () => {
   const [text,  setText]  = useState('');
   const [count, setCount] = useState(0);
-  const { startChat, openAssistant } = useAssistant();
+  const { startPlan, openPlans } = useChatHub();
   const googleId = localStorage.getItem('googleUserId');
 
   // How many plans are in flight — just the count; the window owns the list.
@@ -33,7 +33,7 @@ const AssistantComposer = () => {
   const start = () => {
     const msg = text.trim();
     if (!msg) return;
-    startChat(msg);
+    startPlan(msg);
     setText('');
   };
 
@@ -56,7 +56,7 @@ const AssistantComposer = () => {
       </div>
 
       {count > 0 && (
-        <button className="ac-open-link" onClick={openAssistant}>
+        <button className="ac-open-link" onClick={() => openPlans(null)}>
           {count === 1 ? "You have 1 plan in the works" : `You have ${count} plans in the works`}
         </button>
       )}

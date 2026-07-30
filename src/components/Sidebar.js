@@ -1,32 +1,26 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, UserPlus, Users, MessageSquare, Settings, LogOut, X } from 'lucide-react';
+import { Home, Calendar, UserPlus, Settings, LogOut, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useMessages } from '../contexts/MessagesContext';
 import './Sidebar.css';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { logout, user } = useAuth();
-  const { openMessages, unreadCount } = useMessages();
 
   const handleLogout = () => {
     logout();
     onClose();
   };
 
-  // Messages is a floating panel, not a route — the nav item opens it in place.
-  const handleMessages = () => {
-    openMessages();
-    onClose();
-  };
-
+  // Groups was a second entry pointing at a tab of the Friends page, and
+  // Messages opened a panel; the chat launcher (fixed bottom-right on every
+  // page) now covers messaging, so neither earns a row here.
   const navItems = [
-    { path: '/dashboard',           icon: Home,     label: 'Dashboard' },
-    { path: '/calendar',            icon: Calendar, label: 'Calendar' },
-    { path: '/friends',             icon: UserPlus, label: 'Friends' },
-    { path: '/friends?tab=groups',  icon: Users,    label: 'Groups' },
-    { path: '/profile',             icon: Settings, label: 'Profile & Settings' },
+    { path: '/dashboard', icon: Home,     label: 'Dashboard' },
+    { path: '/calendar',  icon: Calendar, label: 'Calendar' },
+    { path: '/friends',   icon: UserPlus, label: 'Friends' },
+    { path: '/profile',   icon: Settings, label: 'Profile & Settings' },
   ];
 
   return (
@@ -53,8 +47,10 @@ const Sidebar = ({ isOpen, onClose }) => {
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname + location.search === item.path ||
-              (item.path === '/friends' && location.pathname === '/friends' && !location.search.includes('tab=groups'));
+            // /friends owns every tab of that page (?tab=groups, ?tab=requests).
+            const isActive = item.path === '/friends'
+              ? location.pathname === '/friends'
+              : location.pathname + location.search === item.path;
 
             return (
               <Link
@@ -68,14 +64,6 @@ const Sidebar = ({ isOpen, onClose }) => {
               </Link>
             );
           })}
-
-          <button className="nav-item nav-item-btn" onClick={handleMessages}>
-            <MessageSquare size={20} />
-            <span>Messages</span>
-            {unreadCount > 0 && (
-              <span className="nav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-            )}
-          </button>
         </nav>
 
         <div className="sidebar-footer">

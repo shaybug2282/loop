@@ -1,0 +1,215 @@
+/* The centred chat window. Replaces three bottom-right docked panels and the
+   `.dock-rail` that kept them from overlapping — see ChatHub.js. */
+
+.ch-backdrop {
+  position: fixed;
+  inset: 0;
+  /* Above the modal stack, not on the old docked-panel layer: every entry
+     point closes the modal it came from, but a stale popup must never end up
+     painted over the hub. Toasts (--z-toast) still win, deliberately. */
+  z-index: var(--z-modal-deep);
+  background: var(--scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  animation: chFade 0.15s ease;
+}
+
+@keyframes chFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ch-window {
+  display: flex;
+  width: min(960px, 100%);
+  height: min(680px, 100%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  animation: chRise 0.16s ease;
+}
+
+@keyframes chRise {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: none;            opacity: 1; }
+}
+
+/* ── Left rail: sections + the active section's list ── */
+
+.ch-side {
+  width: 272px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface-tint);
+}
+
+.ch-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+  min-height: 52px;
+}
+
+.ch-side-close { display: none; }
+
+.ch-side-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ch-sections {
+  display: flex;
+  gap: 4px;
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+.ch-section-btn {
+  flex: 1;
+  padding: 7px 4px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: none;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ch-section-btn:hover { background: var(--surface-hover); color: var(--accent); }
+
+.ch-section-btn.active {
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.ch-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.ch-list::-webkit-scrollbar { width: 5px; }
+.ch-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--r-xs); }
+
+/* ── Right pane: the open thread ── */
+
+.ch-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ch-pane-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) 0 var(--space-4);
+  height: 52px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ch-pane-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ch-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 6px;
+  border: none;
+  background: none;
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.ch-icon-btn:hover { background: var(--surface); color: var(--accent); }
+
+/* The back arrow is the small-screen way out of a thread; on desktop the list
+   is right there, so it would just be noise. */
+.ch-back { display: none; }
+
+.ch-pane-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* SchedulingAssistant fills the pane when a plan is open. It styles itself as
+   a free-standing card (24px top margin, rounded, shadowed, 840px tall) from
+   back when it was dropped straight into pages and modals — inside the pane it
+   *is* the card, so that all comes off. Every modal it used to live in reset
+   some of this; none of them reset the margin. */
+.ch-pane-body > .ais-wrap {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.ch-pane-empty {
+  margin: auto;
+  padding: var(--space-6);
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+}
+
+/* ── Small screens: one pane at a time, full sheet ── */
+
+@media (max-width: 720px) {
+  .ch-backdrop { padding: 0; }
+
+  .ch-window {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    border: none;
+    border-radius: 0;
+  }
+
+  /* No room for two columns: the list is the sheet until a thread is picked,
+     then the thread takes over and the back arrow returns to the list. */
+  .ch-side { width: 100%; border-right: none; }
+  .ch-pane { display: none; }
+  .ch-back { display: flex; }
+  .ch-side-close { display: flex; }
+
+  .ch-window.in-thread .ch-side { display: none; }
+  .ch-window.in-thread .ch-pane { display: flex; }
+
+  .mp-bubble-row { max-width: 82%; }
+}

@@ -48,23 +48,3 @@
 }
 .page-assistant-btn:hover { background: var(--accent-hover); }
 
-/* Generic page-level modal (assistant popup) */
-.page-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--scrim);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-}
-
-.page-modal {
-  width: min(480px, 94vw);
-  height: min(620px, 88vh);
-  background: var(--card);
-  border-radius: var(--r-md);
-  overflow: hidden;
-  display: flex;
-}
-.page-modal > * { flex: 1; min-height: 0; }
